@@ -86,7 +86,7 @@ Using a wearable waistband with multi-sensors, smart detection logic, medicine r
 ## ♦ Technical Flow Diagram
 
 ```markdown
-![Technical Flow Diagram](images\Technical.png)
+![Technical Flow Diagram](.\images\Technical.png)
 ```
 
 ---
@@ -94,7 +94,7 @@ Using a wearable waistband with multi-sensors, smart detection logic, medicine r
 ## ♦ Workflow Diagram
 
 ```markdown
-![Workflow Diagram](images\Workflow.png)
+![Workflow Diagram](.\images\Workflow.png)
 ```
 ---
 
@@ -108,10 +108,10 @@ Using a wearable waistband with multi-sensors, smart detection logic, medicine r
 
 ## ♦ Repository Documents
 
-- [backend/main.py](backend\main.py)
-- [backend/portal_server.py](backend\portal_server.py)
-- [Hackathon Problem Statement](documents\hackathon_problemstatement.pdf)  
-- [Project Presentation](documents\projectpresentation.pptx)  
+- [backend/main.py](.\backend\main.py)
+- [backend/portal_server.py](.\backend\portal_server.py)
+- [Hackathon Problem Statement](.\documents\hackathon_problemstatement.pdf)  
+- [Project Presentation](.\documents\projectpresentation.pptx)  
 
 ---
 
