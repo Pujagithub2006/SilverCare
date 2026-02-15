@@ -86,7 +86,7 @@ Using a wearable waistband with multi-sensors, smart detection logic, medicine r
 ## ♦ Technical Flow Diagram
 
 ```markdown
-![Technical Flow Diagram](./images/Technical.png)
+![Technical Flow Diagram](./images/Technical.png)  
 ```
 
 ---
