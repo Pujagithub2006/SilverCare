@@ -1,0 +1,1714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title data-translate="health.title">SilverCare - Health</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="manifest" href="manifest.json">
+    <script src="scripts/translator.js"></script>
+    <meta name="theme-color" content="#667eea">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="SilverCare">
+    <link rel="apple-touch-icon" href="icons/icon-192x192.png">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <button class="back-btn" onclick="goBack()" title="Go Back">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                    <path d="M19 12H5M12 19l-7-7 7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </button>
+            <h1 data-translate="health.title">Health Dashboard</h1>
+            <div class="status-badge success">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                    <circle cx="10" cy="10" r="10" fill="currentColor"/>
+                    <path d="M6 10l3 3 5-6" stroke="white" stroke-width="2" fill="none"/>
+                </svg>
+                <span data-translate="common.active">Active</span>
+            </div>
+            <button class="logout-btn" onclick="logout()" title="Logout">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                    <path d="M9 21H5a2 2 0 01-2 2v1a2 2 0 01-2 2h4a2 2 0 01-2 2v1a2 2 0 01-2 2h4M16 17l-4 4-4 4v1a2 2 0 01-2 2h4a2 2 0 01-2 2v-1a2 2 0 01-2 2h-4a2 2 0 01-2 2v-1a2 2 0 01-2 2h4M7 14l5 5 5 5s-5 5h-1.71l-.29-.29a1 1 0 01-1.42 0l-1.29-1.29A1 1 0 017 7l3.59 3.59A2 2 0 0112 9l-3.59-3.59A2 2 0 0111 7z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </button>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Header with Refresh All -->
+            <div class="page-header">
+                <h1 data-translate="health.title">🏥 Health Dashboard</h1>
+                <button class="refresh-all-btn" onclick="refreshAllData()" title="Refresh all data">🔄 Refresh All</button>
+            </div>
+            
+            <!-- Health Status Cards -->
+            <section class="health-overview">
+                <div class="status-cards">
+                    <div class="status-card">
+                        <div class="card-icon">💊</div>
+                        <div class="card-number" id="total-medicines">0</div>
+                        <div class="card-label" data-translate="health.total_medicines">Total Medicines</div>
+                    </div>
+                    <div class="status-card">
+                        <div class="card-icon">✅</div>
+                        <div class="card-number" id="taken-medicines">0</div>
+                        <div class="card-label" data-translate="health.taken">Taken</div>
+                    </div>
+                    <div class="status-card">
+                        <div class="card-icon">❌</div>
+                        <div class="card-number" id="missed-medicines">0</div>
+                        <div class="card-label" data-translate="health.missed">Missed</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Today's Medicines -->
+            <section class="medicines-section">
+                <div class="section-header">
+                    <h2 data-translate="health.todays_medicines">💊 Today's Medicines</h2>
+                    <button class="refresh-btn" onclick="loadMedicines()">🔄</button>
+                </div>
+                <div id="medicine-list" class="medicine-list">
+                    <div class="loading-state">
+                        <div class="loading-spinner">⏳</div>
+                        <p data-translate="health.loading_medicines">Loading medicines...</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Guardian Suggestions -->
+            <section class="suggestions-section">
+                <div class="section-header">
+                    <h2 data-translate="health.guardian_suggestions">📝 Guardian Suggestions</h2>
+                    <button class="refresh-btn" onclick="loadSuggestions()">🔄</button>
+                </div>
+                <div id="suggestions-list" class="suggestions-list">
+                    <div class="loading-state">
+                        <div class="loading-spinner">⏳</div>
+                        <p data-translate="health.loading_suggestions">Loading suggestions...</p>
+                    </div>
+                </div>
+            </section>
+
+                    </main>
+
+        <!-- Bottom Navigation -->
+        <nav class="bottom-nav">
+            <a href="index.html" class="nav-item">
+                <div class="nav-icon">🏠</div>
+                <span data-translate="common.navigation.home">Home</span>
+            </a>
+            <a href="#" class="nav-item" onclick="window.location.href='test.html'">
+                <div class="nav-icon">💬</div>
+                <span data-translate="common.navigation.assistant">Assistant</span>
+            </a>
+            <a href="health.html" class="nav-item active">
+                <div class="nav-icon">❤️</div>
+                <span data-translate="common.navigation.health">Health</span>
+            </a>
+        </nav>
+    </div>
+
+    <!-- Medicine Reminder Modal -->
+    <div id="medicine-modal" class="modal">
+        <div class="modal-overlay" onclick="closeMedicineModal()"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>💊 Medicine Reminder</h3>
+                <button class="close-btn" onclick="closeMedicineModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="medicine-info">
+                    <h4 id="medicine-name"></h4>
+                    <p id="medicine-time"></p>
+                    <p id="medicine-dosage"></p>
+                </div>
+                <div class="reminder-actions">
+                    <button class="action-btn success" onclick="confirmMedicine(true)">
+                        <span class="btn-icon">✅</span>
+                        <span>Taken</span>
+                    </button>
+                    <button class="action-btn warning" onclick="confirmMedicine(false)">
+                        <span class="btn-icon">❌</span>
+                        <span>Not Taken</span>
+                    </button>
+                    <button class="action-btn secondary" onclick="snoozeMedicine()">
+                        <span class="btn-icon">⏰</span>
+                        <span>Snooze</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://127.0.0.1:5001';
+        let currentElderlyId = localStorage.getItem('elderly_id') || 'isha_amit';
+        
+        // FIX: Force correct elderly ID for testing
+        if (!currentElderlyId || currentElderlyId.includes('elderly_')) {
+            currentElderlyId = 'isha_amit';
+            localStorage.setItem('elderly_id', 'isha_amit');
+            console.log('🔧 [HEALTH] Fixed elderly ID to:', currentElderlyId);
+        }
+        
+        let medicines = [];
+        let suggestions = [];
+
+        // Initialize notifications
+        function initializeNotifications() {
+            if ("Notification" in window) {
+                if (Notification.permission === "default") {
+                    // Only request notification permission on user interaction
+                    console.log("🔔 [HEALTH] Notification permission will be requested on user interaction");
+                } else {
+                    console.log("🔔 [HEALTH] Notification permission:", Notification.permission);
+                }
+            }
+        }
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🚀 [HEALTH] Health page loaded - initializing...');
+            console.log('👤 [HEALTH] Current elderly ID:', currentElderlyId);
+            console.log('🔗 [HEALTH] API Base:', API_BASE);
+            console.log('📡 [HEALTH] Full API URL:', `${API_BASE}/medicines/${currentElderlyId}`);
+            
+            initializeNotifications();
+            
+            // Wait for translator to be ready, then load data
+            setTimeout(() => {
+                console.log('⏰ [HEALTH] Starting to load medicines...');
+                loadMedicines();
+                loadSuggestions();
+                startRealtimeStatusUpdates();
+                startAutoRefresh();
+                startVoiceAlertSystem();
+                
+                // Add test function for manual popup testing
+                window.testMedicinePopup = function() {
+                    console.log('🧪 [TEST] Manual medicine popup test');
+                    if (medicines.length > 0) {
+                        const medicine = medicines[0];
+                        const time = medicine.times[0];
+                        showMedicineReminderPopup(medicine, time);
+                    } else {
+                        console.log('📭 [TEST] No medicines available for testing');
+                    }
+                };
+                
+                console.log('💡 [HEALTH] Type testMedicinePopup() in console to test popup');
+            }, 500); // Increased delay to ensure translator is ready
+        });
+
+        // Voice Alert System
+        let voiceAlertInterval;
+        let isVoiceAlertActive = false;
+
+        function startVoiceAlertSystem() {
+            console.log('🔊 [VOICE] Starting voice alert system...');
+            
+            // Check for medicine reminders every 10 seconds for more precise timing
+            setInterval(() => {
+                checkAndTriggerReminders();
+            }, 10000);
+        }
+
+        function checkAndTriggerReminders() {
+            const now = new Date();
+            const currentTime = now.toTimeString().slice(0, 5);
+            const today = now.toISOString().split('T')[0];
+            
+            medicines.forEach(medicine => {
+                if (medicine.start_date <= today && medicine.end_date >= today) {
+                    const times = Array.isArray(medicine.times) ? medicine.times : [medicine.times];
+                    
+                    times.forEach(time => {
+                        const status = getMedicineStatus(medicine.id, time);
+                        
+                        // Check if it's exactly medicine time (within 1 minute)
+                        const [medHours, medMinutes] = time.split(':').map(Number);
+                        const medTime = new Date();
+                        medTime.setHours(medHours, medMinutes, 0, 0);
+                        
+                        const diffMs = Math.abs(medTime - now);
+                        const diffMins = Math.floor(diffMs / 60000);
+                        
+                        // Trigger alert if it's medicine time (within 1 minute) and status is pending
+                        if (diffMins <= 1 && status === 'pending') {
+                            console.log('🔔 [ALERT] Medicine time triggered:', medicine.medicine_name, time);
+                            showMedicineReminderPopup(medicine, time);
+                            startVoiceAlert(medicine.medicine_name, time);
+                        }
+                    });
+                }
+            });
+        }
+
+        function startVoiceAlert(medicineName, time) {
+            if (isVoiceAlertActive) return;
+            
+            isVoiceAlertActive = true;
+            console.log('🔊 [VOICE] Starting voice alert for:', medicineName);
+            
+            const message = `Time to take your medicine: ${medicineName}. Please take your ${time} dose now.`;
+            
+            // Use Web Speech API for voice alerts
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance(message);
+                utterance.rate = 0.9;
+                utterance.pitch = 1.0;
+                utterance.volume = 1.0;
+                
+                // Repeat voice alert every 30 seconds
+                voiceAlertInterval = setInterval(() => {
+                    if (isVoiceAlertActive) {
+                        speechSynthesis.speak(utterance);
+                        console.log('🔊 [VOICE] Repeating voice alert');
+                    }
+                }, 30000);
+                
+                // Initial voice alert
+                speechSynthesis.speak(utterance);
+            }
+        }
+
+        function stopVoiceAlert() {
+            isVoiceAlertActive = false;
+            if (voiceAlertInterval) {
+                clearInterval(voiceAlertInterval);
+            }
+            if ('speechSynthesis' in window) {
+                speechSynthesis.cancel();
+            }
+            console.log('🔊 [VOICE] Voice alert stopped');
+        }
+
+        function showMedicineReminderPopup(medicine, time) {
+            // Remove existing popup if any
+            const existingPopup = document.getElementById('medicineReminderPopup');
+            if (existingPopup) {
+                existingPopup.remove();
+            }
+            
+            const popup = document.createElement('div');
+            popup.id = 'medicineReminderPopup';
+            popup.className = 'medicine-reminder-popup';
+            popup.innerHTML = `
+                <div class="popup-overlay">
+                    <div class="popup-content">
+                        <div class="popup-header">
+                            <div class="popup-icon">⏰</div>
+                            <h2>Medicine Reminder</h2>
+                        </div>
+                        <div class="popup-body">
+                            <h3>${medicine.medicine_name}</h3>
+                            <p class="medicine-time">🕐 Time: ${time}</p>
+                            <p class="medicine-dosage">💊 Dosage: ${medicine.dosage}</p>
+                            ${medicine.instructions ? `<p class="medicine-instructions">💡 ${medicine.instructions}</p>` : ''}
+                            <p class="alert-message">⚠️ It's time to take your medicine!</p>
+                        </div>
+                        <div class="popup-actions">
+                            <button class="action-btn success" onclick="markMedicineFromPopup('${medicine.id}', '${time}', 'taken')">
+                                <span class="btn-icon">✅</span>
+                                <span>Taken</span>
+                            </button>
+                            <button class="action-btn warning" onclick="markMedicineFromPopup('${medicine.id}', '${time}', 'missed')">
+                                <span class="btn-icon">❌</span>
+                                <span>Not Taken</span>
+                            </button>
+                            <button class="action-btn secondary" onclick="snoozeMedicineFromPopup('${medicine.id}', '${time}')">
+                                <span class="btn-icon">⏰</span>
+                                <span>Snooze (5 min)</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(popup);
+            
+            // Prevent closing popup by clicking outside
+            popup.addEventListener('click', function(e) {
+                if (e.target === popup || e.target.classList.contains('popup-overlay')) {
+                    e.stopPropagation();
+                    return false;
+                }
+            });
+            
+            // Add popup styles if not already added
+            if (!document.querySelector('#popup-styles')) {
+                const style = document.createElement('style');
+                style.id = 'popup-styles';
+                style.textContent = `
+                    .medicine-reminder-popup {
+                        position: fixed;
+                        top: 0;
+                        left: 0;
+                        width: 100%;
+                        height: 100%;
+                        z-index: 10000;
+                        animation: fadeIn 0.3s ease-out;
+                    }
+                    
+                    .popup-overlay {
+                        position: absolute;
+                        top: 0;
+                        left: 0;
+                        width: 100%;
+                        height: 100%;
+                        background: rgba(0, 0, 0, 0.8);
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                    }
+                    
+                    .popup-content {
+                        background: white;
+                        border-radius: 16px;
+                        padding: 32px;
+                        max-width: 450px;
+                        width: 90%;
+                        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+                        animation: slideUp 0.4s ease-out;
+                        border: 2px solid #007AFF;
+                    }
+                    
+                    .popup-header {
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        margin-bottom: 24px;
+                        padding-bottom: 20px;
+                        border-bottom: 2px solid #f0f0f0;
+                    }
+                    
+                    .popup-icon {
+                        font-size: 48px;
+                        margin-right: 16px;
+                        animation: pulse 2s infinite;
+                    }
+                    
+                    .popup-header h2 {
+                        margin: 0;
+                        color: #007AFF;
+                        font-size: 28px;
+                        font-weight: bold;
+                    }
+                    
+                    .popup-body h3 {
+                        margin: 0 0 16px 0;
+                        color: #333;
+                        font-size: 24px;
+                        text-align: center;
+                        font-weight: bold;
+                    }
+                    
+                    .medicine-time, .medicine-dosage, .medicine-instructions {
+                        margin: 12px 0;
+                        font-size: 18px;
+                        text-align: center;
+                    }
+                    
+                    .alert-message {
+                        margin: 20px 0;
+                        padding: 16px;
+                        background-color: #fff3cd;
+                        border-left: 4px solid #ffc107;
+                        border-radius: 8px;
+                        font-weight: bold;
+                        color: #856404;
+                        text-align: center;
+                        font-size: 16px;
+                    }
+                    
+                    .popup-actions {
+                        display: flex;
+                        gap: 16px;
+                        margin-top: 24px;
+                    }
+                    
+                    .popup-actions .action-btn {
+                        flex: 1;
+                        padding: 16px 12px;
+                        border: none;
+                        border-radius: 12px;
+                        cursor: pointer;
+                        font-size: 16px;
+                        font-weight: bold;
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        gap: 8px;
+                        transition: all 0.3s ease;
+                        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+                    }
+                    
+                    .popup-actions .action-btn:hover {
+                        transform: translateY(-3px);
+                        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+                    }
+                    
+                    .popup-actions .action-btn:active {
+                        transform: translateY(-1px);
+                    }
+                    
+                    .popup-actions .action-btn.success {
+                        background: linear-gradient(135deg, #28a745, #20c997);
+                        color: white;
+                    }
+                    
+                    .popup-actions .action-btn.warning {
+                        background: linear-gradient(135deg, #dc3545, #fd7e14);
+                        color: white;
+                    }
+                    
+                    .popup-actions .action-btn.secondary {
+                        background: linear-gradient(135deg, #6c757d, #495057);
+                        color: white;
+                    }
+                    
+                    .btn-icon {
+                        font-size: 28px;
+                    }
+                    
+                    @keyframes fadeIn {
+                        from { opacity: 0; }
+                        to { opacity: 1; }
+                    }
+                    
+                    @keyframes slideUp {
+                        from { 
+                            transform: translateY(100px) scale(0.9);
+                            opacity: 0;
+                        }
+                        to { 
+                            transform: translateY(0) scale(1);
+                            opacity: 1;
+                        }
+                    }
+                    
+                    @keyframes pulse {
+                        0%, 100% { transform: scale(1); }
+                        50% { transform: scale(1.1); }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+        }
+
+        function closeMedicineReminderPopup() {
+            const popup = document.getElementById('medicineReminderPopup');
+            if (popup) {
+                popup.remove();
+            }
+            stopVoiceAlert();
+        }
+
+        function markMedicineFromPopup(medicineId, time, status) {
+            console.log('💊 [POPUP] Marking medicine:', medicineId, time, status);
+            
+            // Update localStorage
+            const key = `medicine_${medicineId}_${time}`;
+            localStorage.setItem(key, status);
+            
+            // Update display
+            updateMedicineStatuses();
+            
+            // Close popup and stop voice
+            closeMedicineReminderPopup();
+            
+            // Show confirmation
+            const message = status === 'taken' ? '✅ Medicine marked as taken!' : '❌ Medicine marked as missed!';
+            showNotification(message, status === 'taken' ? 'success' : 'warning');
+        }
+
+        function snoozeMedicineFromPopup(medicineId, time) {
+            console.log('⏰ [POPUP] Snoozing medicine:', medicineId, time);
+            
+            closeMedicineReminderPopup();
+            
+            // Show snooze notification
+            showNotification('⏰ Medicine reminder snoozed for 5 minutes', 'info');
+            
+            // Set snooze timeout
+            setTimeout(() => {
+                const medicine = medicines.find(m => m.id == medicineId);
+                if (medicine) {
+                    showMedicineReminderPopup(medicine, time);
+                    startVoiceAlert(medicine.medicine_name, time);
+                }
+            }, 300000); // 5 minutes
+        }
+
+        // Real-time status updates
+        function startRealtimeStatusUpdates() {
+            console.log('🔄 [REALTIME] Starting real-time medicine status updates...');
+            
+            // Check for status changes every 10 seconds
+            setInterval(() => {
+                updateMedicineStatuses();
+            }, 10000); // Check every 10 seconds
+            
+            // Listen for storage changes (cross-tab synchronization)
+            window.addEventListener('storage', function(e) {
+                if (e.key && e.key.startsWith('medicine_')) {
+                    console.log('🔄 [REALTIME] Storage change detected:', e.key);
+                    loadMedicines(); // Refresh medicine display
+                }
+            });
+        }
+
+        // Update medicine statuses
+        function updateMedicineStatuses() {
+            medicines.forEach(medicine => {
+                medicine.times.forEach(time => {
+                    const key = `${medicine.id}_${time}`;
+                    const currentStatus = localStorage.getItem(`medicine_${key}`);
+                    
+                    // Check if status changed and update display
+                    const statusElement = document.querySelector(`[data-medicine-key="${key}"]`);
+                    if (statusElement) {
+                        const newStatus = currentStatus || 'pending';
+                        if (statusElement.dataset.status !== newStatus) {
+                            statusElement.dataset.status = newStatus;
+                            updateMedicineStatusDisplay(statusElement, newStatus);
+                            console.log(`🔄 [REALTIME] Status updated: ${medicine.medicine_name} at ${time} = ${newStatus}`);
+                        }
+                    }
+                });
+            });
+        }
+
+        // Update medicine status display
+        function updateMedicineStatusDisplay(element, status) {
+            // Remove all status classes
+            element.classList.remove('status-taken', 'status-missed', 'status-pending', 'status-snoozed');
+            
+            // Add new status class and update visual
+            switch(status) {
+                case 'taken':
+                    element.classList.add('status-taken');
+                    element.style.borderLeftColor = '#28a745';
+                    element.style.backgroundColor = '#d4edda';
+                    break;
+                case 'missed':
+                    element.classList.add('status-missed');
+                    element.style.borderLeftColor = '#dc3545';
+                    element.style.backgroundColor = '#f8d7da';
+                    break;
+                case 'snoozed':
+                    element.classList.add('status-snoozed');
+                    element.style.borderLeftColor = '#ffc107';
+                    element.style.backgroundColor = '#fff3cd';
+                    break;
+                default:
+                    element.classList.add('status-pending');
+                    element.style.borderLeftColor = '#007AFF';
+                    element.style.backgroundColor = '#f8f9fa';
+            }
+        }
+
+        // Refresh all data
+        async function refreshAllData() {
+            const refreshBtn = document.querySelector('.refresh-all-btn');
+            if (refreshBtn) {
+                refreshBtn.innerHTML = '🔄 Refreshing...';
+                refreshBtn.disabled = true;
+            }
+            
+            try {
+                await Promise.all([
+                    loadMedicines(),
+                    loadSuggestions()
+                ]);
+                
+                // Show success feedback
+                if (refreshBtn) {
+                    refreshBtn.innerHTML = '✅ Refreshed!';
+                    setTimeout(() => {
+                        refreshBtn.innerHTML = '🔄 Refresh All';
+                        refreshBtn.disabled = false;
+                    }, 2000);
+                }
+            } catch (error) {
+                console.error('Error refreshing data:', error);
+                if (refreshBtn) {
+                    refreshBtn.innerHTML = '❌ Error';
+                    setTimeout(() => {
+                        refreshBtn.innerHTML = '🔄 Refresh All';
+                        refreshBtn.disabled = false;
+                    }, 2000);
+                }
+            }
+        }
+
+        // Auto-refresh every 30 seconds
+        function startAutoRefresh() {
+            setInterval(async () => {
+                try {
+                    const oldMedicinesCount = medicines.length;
+                    const oldSuggestionsCount = suggestions.length;
+                    
+                    await Promise.all([
+                        loadMedicines(),
+                        loadSuggestions()
+                    ]);
+                    
+                    // Check for new data and show notifications
+                    if (medicines.length > oldMedicinesCount) {
+                        showNotification('New medicine added!', 'success');
+                    }
+                    
+                    if (suggestions.length > oldSuggestionsCount) {
+                        showNotification('New suggestion received!', 'success');
+                    }
+                    
+                    console.log('Auto-refreshed data at', new Date().toLocaleTimeString());
+                } catch (error) {
+                    console.error('Auto-refresh error:', error);
+                }
+            }, 30000); // 30 seconds
+        }
+
+        // Show notification
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.innerHTML = `
+                <div class="notification-content">
+                    <span class="notification-message">${message}</span>
+                    <button class="notification-close" onclick="this.parentElement.parentElement.remove()">×</button>
+                </div>
+            `;
+            
+            // Add notification styles if not already added
+            if (!document.querySelector('#notification-styles')) {
+                const style = document.createElement('style');
+                style.id = 'notification-styles';
+                style.textContent = `
+                    .notification {
+                        position: fixed;
+                        top: 20px;
+                        right: 20px;
+                        background: white;
+                        border-radius: 8px;
+                        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                        z-index: 1000;
+                        animation: slideIn 0.3s ease-out;
+                        max-width: 300px;
+                    }
+                    
+                    .notification.success {
+                        border-left: 4px solid #28a745;
+                    }
+                    
+                    .notification.info {
+                        border-left: 4px solid #007bff;
+                    }
+                    
+                    .notification-content {
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        padding: 12px 16px;
+                    }
+                    
+                    .notification-message {
+                        flex: 1;
+                        margin-right: 10px;
+                    }
+                    
+                    .notification-close {
+                        background: none;
+                        border: none;
+                        font-size: 18px;
+                        cursor: pointer;
+                        color: #6c757d;
+                        padding: 0;
+                        width: 20px;
+                        height: 20px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                    }
+                    
+                    @keyframes slideIn {
+                        from {
+                            transform: translateX(100%);
+                            opacity: 0;
+                        }
+                        to {
+                            transform: translateX(0);
+                            opacity: 1;
+                        }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+            
+            document.body.appendChild(notification);
+            
+            // Auto-remove after 5 seconds
+            setTimeout(() => {
+                if (notification.parentElement) {
+                    notification.remove();
+                }
+            }, 5000);
+        }
+
+        // Load medicines from backend - REAL DATA ONLY
+        async function loadMedicines() {
+            try {
+                console.log('📡 [HEALTH] Loading medicines from:', `${API_BASE}/medicines/${currentElderlyId}`);
+                const response = await fetch(`${API_BASE}/medicines/${currentElderlyId}`);
+                console.log('📡 [HEALTH] Response status:', response.status);
+                console.log('📡 [HEALTH] Response ok:', response.ok);
+                
+                const data = await response.json();
+                console.log('📊 [HEALTH] Raw API response:', data);
+                
+                // FIX: Update global medicines variable, don't create local one
+                medicines = data.medicines || [];
+                console.log('💊 [HEALTH] Medicines loaded:', medicines);
+                console.log('💊 [HEALTH] Number of medicines:', medicines.length);
+                
+                // QUICK VERIFICATION
+                if (medicines.length > 0) {
+                    console.log('✅ [HEALTH] SUCCESS: Real medicines found!');
+                    medicines.forEach((med, index) => {
+                        console.log(`💊 [HEALTH] Medicine ${index + 1}:`, med.medicine_name, med.dosage, med.times);
+                    });
+                } else {
+                    console.log('❌ [HEALTH] WARNING: No medicines found in response');
+                }
+                
+                displayMedicines();
+                updateStatusSummary();
+                
+                // Apply translations after loading
+                if (typeof translator !== 'undefined') {
+                    translator.updatePageLanguage();
+                }
+            } catch (error) {
+                console.error('❌ [HEALTH] Error loading real medicines:', error);
+                console.error('❌ [HEALTH] Error details:', error.message);
+                document.getElementById('medicine-list').innerHTML = `
+                    <div class="error-state">
+                        <div class="error-icon">❌</div>
+                        <p>Failed to load real data from server</p>
+                        <p>Error: ${error.message}</p>
+                        <button class="retry-btn" onclick="loadMedicines()">Try Again</button>
+                    </div>
+                `;
+            }
+        }
+
+        // Display medicines
+        function displayMedicines() {
+            console.log('🎨 [HEALTH] Displaying medicines...');
+            const medicineList = document.getElementById('medicine-list');
+            
+            if (!medicineList) {
+                console.error('❌ [HEALTH] medicine-list element not found!');
+                return;
+            }
+            
+            console.log('💊 [HEALTH] Medicines array:', medicines);
+            console.log('💊 [HEALTH] Medicines length:', medicines.length);
+            
+            if (medicines.length === 0) {
+                console.log('📭 [HEALTH] No medicines to display');
+                medicineList.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">💊</div>
+                        <h3 data-translate="health.no_medicines">${translator.t('health.no_medicines')}</h3>
+                        <p data-translate="health.no_medicines_message">${translator.t('health.no_medicines_message')}</p>
+                    </div>
+                `;
+                return;
+            }
+
+            const today = new Date().toISOString().split('T')[0];
+            const currentTime = new Date().toTimeString().slice(0, 5);
+            
+            console.log('📅 [HEALTH] Today:', today);
+            console.log('⏰ [HEALTH] Current time:', currentTime);
+            
+            let html = '';
+            medicines.forEach(medicine => {
+                console.log('💊 [HEALTH] Processing medicine:', medicine);
+                const isToday = medicine.start_date <= today && medicine.end_date >= today;
+                console.log('📅 [HEALTH] Is today:', isToday, 'Start:', medicine.start_date, 'End:', medicine.end_date);
+                
+                if (!isToday) return;
+
+                const times = Array.isArray(medicine.times) ? medicine.times : [medicine.times];
+                console.log('⏰ [HEALTH] Medicine times:', times);
+                
+                times.forEach((time, index) => {
+                    console.log('⏰ [HEALTH] Processing time:', time);
+                    const isPast = time < currentTime;
+                    const status = getMedicineStatus(medicine.id, time);
+                    const key = `${medicine.id}_${time}`;
+                    
+                    console.log('📊 [HEALTH] Medicine status:', status, 'Is past:', isPast);
+                    
+                    // Add time-based styling
+                    let timeClass = '';
+                    let timeLabel = '';
+                    
+                    if (!isPast) {
+                        const [hours, minutes] = time.split(':').map(Number);
+                        const medTime = new Date();
+                        medTime.setHours(hours, minutes, 0, 0);
+                        const now = new Date();
+                        
+                        const diffMs = medTime - now;
+                        const diffMins = Math.floor(diffMs / 60000);
+                        
+                        if (diffMins <= 30) {
+                            timeClass = 'upcoming';
+                            timeLabel = ` (${diffMins} min)`;
+                        } else if (diffMins <= 60) {
+                            timeClass = 'soon';
+                            timeLabel = ` (1 hour)`;
+                        }
+                    } else {
+                        timeClass = 'past';
+                        timeLabel = '';
+                    }
+                    
+                    const doseKey = index === 0 ? 'morning' : index === 1 ? 'afternoon' : 'evening';
+                    const doseLabel = translator.t(`health.dose_labels.${doseKey}`);
+                    
+                    html += `
+                        <div class="medicine-item ${status} ${timeClass}" data-medicine-key="${key}" data-status="${status}">
+                            <div class="medicine-icon">💊</div>
+                            <div class="medicine-details">
+                                <h4>${medicine.medicine_name}</h4>
+                                <p class="medicine-time">🕐 ${time} - ${doseLabel}${timeLabel}</p>
+                                <p class="medicine-dosage">${medicine.dosage}</p>
+                                ${medicine.instructions ? `<p class="medicine-instructions">💡 ${medicine.instructions}</p>` : ''}
+                            </div>
+                            <div class="medicine-actions">
+                                ${getMedicineActionButtons(medicine, time, status, isPast)}
+                            </div>
+                        </div>
+                    `;
+                });
+            });
+
+            console.log('🎨 [HEALTH] Generated HTML length:', html.length);
+            medicineList.innerHTML = html || `
+                <div class="empty-state">
+                    <div class="empty-icon">💊</div>
+                    <h3 data-translate="health.no_medicines">${translator.t('health.no_medicines')}</h3>
+                    <p data-translate="health.no_medicines_message">${translator.t('health.no_medicines_message')}</p>
+                </div>
+            `;
+            console.log('✅ [HEALTH] Medicines displayed successfully');
+        }
+
+        // Get status badge
+        function getStatusBadge(status) {
+            const badges = {
+                'taken': '<span class="badge success">✅ Taken</span>',
+                'pending': '<span class="badge pending">⏰ Pending</span>',
+                'missed': '<span class="badge missed">❌ Missed</span>'
+            };
+            return badges[status] || badges['pending'];
+        }
+
+        // Get medicine action buttons
+        function getMedicineActionButtons(medicine, time, status, isPast) {
+            // Don't show buttons in the list - only in popup
+            return `<span class="status-badge">${getStatusBadge(status)}</span>`;
+        }
+
+        // Load suggestions - REAL DATA ONLY
+        async function loadSuggestions() {
+            try {
+                const response = await fetch(`${API_BASE}/medicine/suggestions/${currentElderlyId}`);
+                const data = await response.json();
+                suggestions = data.suggestions || [];
+                displaySuggestions();
+                // Apply translations after loading
+                if (typeof translator !== 'undefined') {
+                    translator.updatePageLanguage();
+                }
+            } catch (error) {
+                console.error('❌ [HEALTH] Error loading real suggestions:', error);
+                document.getElementById('suggestions-list').innerHTML = `
+                    <div class="error-state">
+                        <div class="error-icon">❌</div>
+                        <p>Failed to load real suggestions from server</p>
+                        <button class="retry-btn" onclick="loadSuggestions()">Try Again</button>
+                    </div>
+                `;
+            }
+        }
+
+        // Display suggestions
+        function displaySuggestions() {
+            const suggestionsList = document.getElementById('suggestions-list');
+            
+            if (suggestions.length === 0) {
+                suggestionsList.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">📝</div>
+                        <h3 data-translate="health.no_suggestions">${translator.t('health.no_suggestions')}</h3>
+                        <p data-translate="health.no_suggestions_message">${translator.t('health.no_suggestions_message')}</p>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = '';
+            suggestions.forEach(suggestion => {
+                html += `
+                    <div class="suggestion-item">
+                        <div class="suggestion-icon">📝</div>
+                        <div class="suggestion-content">
+                            <h4>📝 Guardian Suggestion</h4>
+                            <p>${suggestion.suggestion}</p>
+                            <p class="suggestion-time">🕐 ${new Date(suggestion.created_at).toLocaleString()}</p>
+                        </div>
+                    </div>
+                `;
+            });
+
+            suggestionsList.innerHTML = html;
+        }
+
+        // Update status summary
+        function updateStatusSummary() {
+            const today = new Date().toISOString().split('T')[0];
+            const currentTime = new Date().toTimeString().slice(0, 5);
+            
+            let total = 0, taken = 0, missed = 0;
+            
+            medicines.forEach(medicine => {
+                const isToday = medicine.start_date <= today && medicine.end_date >= today;
+                if (!isToday) return;
+                
+                medicine.times.forEach(time => {
+                    total++;
+                    const status = getMedicineStatus(medicine.id, time);
+                    if (status === 'taken') taken++;
+                    else if (status === 'missed') missed++;
+                });
+            });
+
+            document.getElementById('total-medicines').textContent = total;
+            document.getElementById('taken-medicines').textContent = taken;
+            document.getElementById('missed-medicines').textContent = missed;
+        }
+
+        // Get medicine status
+        function getMedicineStatus(medicineId, time) {
+            const key = `${medicineId}_${time}`;
+            const status = localStorage.getItem(`medicine_${key}`);
+            console.log(`🔍 [MEDICINE STATUS] Checking ${medicineId} at ${time}: ${status || 'pending'}`);
+            return status || 'pending';
+        }
+
+        // Enhanced medicine tracking
+        function trackMedicineAction(medicineId, time, action, elderlyName = null) {
+            const key = `${medicineId}_${time}`;
+            const timestamp = new Date().toISOString();
+            const trackingData = {
+                medicineId: medicineId,
+                time: time,
+                action: action, // 'taken', 'missed', 'skipped', 'snoozed'
+                timestamp: timestamp,
+                elderlyName: elderlyName || localStorage.getItem('elderly_name') || 'Unknown'
+            };
+            
+            // Store in localStorage for tracking
+            const trackingKey = `medicine_tracking_${key}`;
+            localStorage.setItem(trackingKey, JSON.stringify(trackingData));
+            
+            // Also store status for quick checks
+            localStorage.setItem(`medicine_${key}`, action);
+            
+            console.log(`📊 [MEDICINE TRACKING] ${action}:`, trackingData);
+            
+            // Send to backend for permanent storage
+            sendMedicineTrackingToBackend(trackingData);
+        }
+
+        // Send medicine tracking to backend
+        async function sendMedicineTrackingToBackend(trackingData) {
+            try {
+                const response = await fetch(`${API_BASE}/medicine/track`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(trackingData)
+                });
+                
+                if (response.ok) {
+                    console.log('✅ [MEDICINE TRACKING] Sent to backend successfully');
+                } else {
+                    console.log('⚠️ [MEDICINE TRACKING] Backend tracking failed, using localStorage only');
+                }
+            } catch (error) {
+                console.log('⚠️ [MEDICINE TRACKING] Backend tracking error, using localStorage only:', error);
+            }
+        }
+
+        // Listen for fall detection events
+        window.addEventListener('fallDetected', function(event) {
+            console.log('🚨 Fall detected - redirecting to alert page');
+            window.location.href = 'fallalert.html';
+        });
+
+        // Check for fall detection from backend
+        setInterval(async function() {
+            try {
+                const response = await fetch('http://192.168.43.167:5002/api/sensor-data');
+                const data = await response.json();
+                
+                if (data.status === 'success' && data.data && data.data.stateName === 'FALL_DETECTED') {
+                    console.log('🚨 Fall detected from sensor data');
+                    window.location.href = 'fallalert.html';
+                }
+            } catch (error) {
+                console.log('Error checking fall status:', error);
+            }
+        }, 2000);
+
+        // Start the medicine reminder system
+        startMedicineReminderSystem();
+
+        // Show medicine reminder
+        function showMedicineReminder(medicine, time) {
+            console.log(`🔔 [MEDICINE REMINDER] Time for ${medicine.medicine_name} at ${time}`);
+            
+            const modal = document.getElementById('medicine-modal');
+            document.getElementById('medicine-name').textContent = medicine.medicine_name;
+            document.getElementById('medicine-time').textContent = `Time: ${time}`;
+            document.getElementById('medicine-dosage').textContent = `Dosage: ${medicine.dosage}`;
+            
+            modal.classList.add('active');
+            
+            // Enhanced notification system
+            triggerMedicineAlerts(medicine, time);
+            
+            // Play notification sound if available
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance(`Medicine reminder: ${medicine.medicine_name} at ${time}`);
+                utterance.rate = 0.9;
+                window.speechSynthesis.speak(utterance);
+            }
+            
+            // Schedule follow-up reminders (guardian alert only on urgent)
+            scheduleFollowUpReminders(medicine, time);
+        }
+
+        // Enhanced medicine alerts (no guardian notification on first reminder)
+        function triggerMedicineAlerts(medicine, time) {
+            // Visual alert
+            document.body.style.backgroundColor = '#fff3cd';
+            setTimeout(() => {
+                document.body.style.backgroundColor = '';
+            }, 5000);
+            
+            // Browser notification
+            if ("Notification" in window && Notification.permission === "granted") {
+                new Notification("💊 Medicine Reminder", {
+                    body: `Time to take ${medicine.medicine_name} - ${medicine.dosage}`,
+                    icon: "💊",
+                    requireInteraction: true
+                });
+            }
+            
+            // Console alert for debugging (no guardian alert here)
+            console.log(`🔔 MEDICINE ALERT: ${medicine.medicine_name} at ${time} (Guardian will be alerted only if not taken after 2 reminders)`);
+        }
+
+        // Schedule follow-up reminders (guardian alert only on urgent final reminder)
+        function scheduleFollowUpReminders(medicine, time) {
+            // First follow-up after 5 minutes (no guardian alert)
+            setTimeout(() => {
+                if (!getMedicineStatus(medicine.id, time)) {
+                    console.log(`⏰ FOLLOW-UP: ${medicine.medicine_name} not taken yet`);
+                    
+                    if ("Notification" in window && Notification.permission === "granted") {
+                        new Notification("⏰ Medicine Follow-up", {
+                            body: `${medicine.medicine_name} still not taken`,
+                            icon: "⏰"
+                        });
+                    }
+                    
+                    console.log(`⏰ FOLLOW-UP: ${medicine.medicine_name} - Guardian will be alerted on next reminder if still not taken`);
+                }
+            }, 5 * 60 * 1000); // 5 minutes
+            
+            // Second follow-up after 15 minutes (URGENT - now send guardian alert)
+            setTimeout(() => {
+                if (!getMedicineStatus(medicine.id, time)) {
+                    console.log(`🚨 URGENT: ${medicine.medicine_name} still not taken after 15 minutes`);
+                    
+                    if ("Notification" in window && Notification.permission === "granted") {
+                        new Notification("🚨 URGENT Medicine Reminder", {
+                            body: `${medicine.medicine_name} not taken for 15 minutes!`,
+                            icon: "🚨",
+                            requireInteraction: true
+                        });
+                    }
+                    
+                    // NOW notify guardian urgently (only on final urgent reminder)
+                    notifyGuardianAboutMedicine(medicine, time + " (URGENT - Final Reminder)");
+                }
+            }, 15 * 60 * 1000); // 15 minutes
+        }
+
+        // Close modal
+        function closeMedicineModal() {
+            document.getElementById('medicine-modal').classList.remove('active');
+        }
+
+        // Confirm medicine
+        async function confirmMedicine(taken) {
+            const medicineName = document.getElementById('medicine-name').textContent;
+            const medicineTime = document.getElementById('medicine-time').textContent.replace('Time: ', '');
+            
+            // Find medicine ID
+            const medicine = medicines.find(m => m.medicine_name === medicineName);
+            if (medicine) {
+                const action = taken ? 'taken' : 'missed';
+                
+                // Enhanced tracking
+                trackMedicineAction(medicine.id, medicineTime, action);
+                
+                // Update backend
+                try {
+                    await fetch(`${API_BASE}/medicine/confirm`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            elderly_id: currentElderlyId,
+                            medicine_id: medicine.id,
+                            time: medicineTime,
+                            taken: taken
+                        })
+                    });
+                    
+                    console.log(`✅ [MEDICINE CONFIRM] ${action}: ${medicineName} at ${medicineTime}`);
+                } catch (error) {
+                    console.error('Error confirming medicine:', error);
+                }
+                
+                // Refresh display
+                loadMedicines();
+            }
+            
+            closeMedicineModal();
+        }
+
+        // Enhanced snooze medicine
+        function snoozeMedicine() {
+            const medicineName = document.getElementById('medicine-name').textContent;
+            const medicineTime = document.getElementById('medicine-time').textContent.replace('Time: ', '');
+            
+            // Find medicine ID
+            const medicine = medicines.find(m => m.medicine_name === medicineName);
+            if (medicine) {
+                // Track snooze action
+                trackMedicineAction(medicine.id, medicineTime, 'snoozed');
+                
+                console.log(`⏰ [MEDICINE SNOOZE] ${medicineName} at ${medicineTime}`);
+            }
+            
+            // Snooze for 5 minutes
+            setTimeout(() => {
+                showMedicineReminder(medicine, medicineTime);
+            }, 5 * 60 * 1000);
+            
+            closeMedicineModal();
+        }
+
+        // Go back
+        function goBack() {
+            window.history.back();
+        }
+
+        // Logout function
+        function logout() {
+            if (confirm(translator.t('settings.logout_confirm') || 'Are you sure you want to logout?')) {
+                // Clear all localStorage data
+                localStorage.clear();
+                
+                // Redirect to portal selection
+                window.location.href = 'portal.html';
+            }
+        }
+
+        // Go back function
+        function goBack() {
+            if (window.history.length > 1) {
+                window.history.back();
+            } else {
+                // If no history, go to portal selection
+                window.location.href = 'portal.html';
+            }
+        }
+
+        // Manual translation update trigger
+        setTimeout(() => {
+            if (typeof translator !== 'undefined' && translator.updatePageLanguage) {
+                translator.updatePageLanguage();
+            }
+        }, 1000);
+    </script>
+
+    <style>
+        /* Health Page Specific Styles */
+        
+        /* Header with Logout Button */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            background: white;
+            position: relative;
+        }
+
+        .back-btn {
+            background: rgba(102, 126, 234, 0.1);
+            border: 1px solid rgba(102, 126, 234, 0.2);
+            color: #667eea;
+            padding: 8px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            margin-right: 10px;
+        }
+        
+        .back-btn:hover {
+            background: rgba(102, 126, 234, 0.2);
+            transform: translateX(-2px);
+        }
+        
+        .back-btn:active {
+            transform: translateX(0);
+        }
+
+        .logout-btn {
+            background: none;
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            cursor: pointer;
+            color: var(--text-gray);
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .logout-btn:hover {
+            background-color: var(--bg-gray);
+            color: var(--primary-red);
+        }
+
+        .logout-btn:active {
+            transform: scale(0.9);
+        }
+        
+        /* Page Header */
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 1rem 0;
+            padding: 1rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 12px;
+            color: white;
+        }
+        
+        .page-header h1 {
+            margin: 0;
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+        
+        .refresh-all-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+        
+        .refresh-all-btn:hover:not(:disabled) {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-1px);
+        }
+        
+        .refresh-all-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        /* Existing refresh buttons */
+        .refresh-btn {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            color: #495057;
+            padding: 0.4rem 0.6rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.2s ease;
+        }
+        
+        .refresh-btn:hover {
+            background: #e9ecef;
+            transform: rotate(180deg);
+        }
+        
+        .health-overview {
+            margin: 1.5rem 0;
+        }
+
+        .status-cards {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+            padding: 0 1rem;
+        }
+
+        .status-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1.5rem 1rem;
+            border-radius: 16px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+            transition: transform 0.3s;
+        }
+
+        .status-card:hover {
+            transform: translateY(-2px);
+        }
+
+        .card-icon {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .card-number {
+            font-size: 2rem;
+            font-weight: bold;
+            margin-bottom: 0.25rem;
+        }
+
+        .card-label {
+            font-size: 0.875rem;
+            opacity: 0.9;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .section-header h2 {
+            font-size: 1.25rem;
+            color: #333;
+            margin: 0;
+        }
+
+        .refresh-btn {
+            background: none;
+            border: none;
+            font-size: 1.25rem;
+            cursor: pointer;
+            padding: 0.5rem;
+            border-radius: 8px;
+            transition: background 0.3s;
+        }
+
+        .refresh-btn:hover {
+            background: rgba(102, 126, 234, 0.1);
+        }
+
+        .medicine-list, .suggestions-list {
+            padding: 0 1rem;
+        }
+
+        .medicine-item, .suggestion-item {
+            background: white;
+            border-radius: 12px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            transition: transform 0.3s;
+        }
+
+        .medicine-item:hover, .suggestion-item:hover {
+            transform: translateY(-2px);
+        }
+
+        .medicine-icon, .suggestion-icon {
+            font-size: 2rem;
+            flex-shrink: 0;
+        }
+
+        .medicine-details, .suggestion-content {
+            flex: 1;
+        }
+
+        .medicine-details h4, .suggestion-content h4 {
+            margin: 0 0 0.5rem 0;
+            color: #333;
+        }
+
+        .medicine-time, .medicine-dosage, .suggestion-time {
+            margin: 0.25rem 0;
+            font-size: 0.875rem;
+            color: #666;
+        }
+
+        .medicine-status {
+            flex-shrink: 0;
+        }
+
+        .badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: bold;
+        }
+
+        .badge.success {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .badge.missed {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .loading-state, .error-state, .empty-state {
+            text-align: center;
+            padding: 3rem 1rem;
+            color: #666;
+        }
+
+        .loading-spinner, .error-icon, .empty-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .retry-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            margin-top: 1rem;
+            cursor: pointer;
+        }
+
+        .health-tips {
+            margin: 2rem 0;
+            padding: 0 1rem;
+        }
+
+        .tips-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .tip-card {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 12px;
+            padding: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        .tip-icon {
+            font-size: 2rem;
+            flex-shrink: 0;
+        }
+
+        .tip-content h4 {
+            margin: 0 0 0.25rem 0;
+            color: #333;
+        }
+
+        .tip-content p {
+            margin: 0;
+            font-size: 0.875rem;
+            color: #666;
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1000;
+        }
+
+        .modal.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 16px;
+            padding: 0;
+            margin: 1rem;
+            max-width: 400px;
+            width: 100%;
+            position: relative;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        .modal-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-radius: 16px 16px 0 0;
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            font-size: 1.25rem;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 0.25rem;
+        }
+
+        .modal-body {
+            padding: 1.5rem;
+        }
+
+        .medicine-info {
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .medicine-info h4 {
+            margin: 0 0 0.5rem 0;
+            color: #333;
+            font-size: 1.25rem;
+        }
+
+        .medicine-info p {
+            margin: 0.25rem 0;
+            color: #666;
+        }
+
+        .reminder-actions {
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        .action-btn {
+            flex: 1;
+            padding: 0.75rem;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.25rem;
+            transition: transform 0.2s;
+        }
+
+        .action-btn:hover {
+            transform: translateY(-1px);
+        }
+
+        .action-btn.success {
+            background: #28a745;
+            color: white;
+        }
+
+        .action-btn.warning {
+            background: #ffc107;
+            color: #333;
+        }
+
+        .action-btn.secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-icon {
+            font-size: 1.25rem;
+        }
+
+        .btn-text {
+            font-size: 0.875rem;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 480px) {
+            .status-cards {
+                grid-template-columns: 1fr;
+                gap: 0.75rem;
+            }
+            
+            .reminder-actions {
+                flex-direction: column;
+            }
+        }
+    </style>
+</body>
+</html>
