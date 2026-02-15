@@ -107,7 +107,7 @@ Using a wearable waistband with multi-sensors, smart detection logic, medicine r
 - [backend/main.py](./backend/main.py)
 - [backend/portal_server.py](./backend/portal_server.py)
 - [Hackathon Problem Statement](./documents/hackathon_problemstatement.pdf)  
-- [Project Presentation](./documents/projectpresentation.pdf)  
+- [Project Presentation](./documents/projectpresentation.pptx)  
 
 ---
 
