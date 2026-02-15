@@ -1,107 +1,137 @@
-# SilverCare - Senior Safety Monitoring System
+# SilverCare: Proactive AI Platform for Elderly Assistance, Health Monitoring & Caregiver Support
 
-## 🚀 Complete Hardware-Software Integration
+VOIS Innovation Marathon 2.0  
 
-This system integrates your ESP32 hardware with a web interface for real-time monitoring and voice alerts.
+---
 
-### 📁 Files Created:
-- `bridge_server.py` - Python server connecting ESP32 to web
-- `templates/index.html` - Web interface with voice alerts
-- `esp32_enhanced_code.ino` - Enhanced Arduino code with computer integration
-- `requirements.txt` - Python dependencies
+## ♦ Project Title
+**SilverCare: Proactive AI Platform for Elderly Assistance, Health Monitoring & Caregiver Support**
 
-### 🔧 Setup Instructions:
+---
 
-#### 1. Install Python Dependencies
-```bash
-pip install -r requirements.txt
+## ♦ The Challenge
+
+With the increasing elderly population, many senior citizens live alone without continuous supervision, leading to safety risks such as:
+
+- Unnoticed Instability & Prolonged Inactivity – Gradual imbalance and abnormal movements go unnoticed. Early warning signs of health issues are missed.
+- Medication Non-Adherence – Elderly individuals often forget to take medicines on time, leading to missed doses.
+- Delayed Assistance – Senior citizens are unable to seek immediate help during emergencies.
+- Frequent Falls – Leading cause of serious health complications.
+
+Without an intelligent and reliable monitoring solution, senior citizens remain vulnerable to preventable injuries and delayed medical intervention.
+
+---
+
+## ♦ Problem Statement
+
+To develop an automated, intelligent, and wearable monitoring system that ensures continuous health tracking, medication adherence, fall detection, and instant emergency alerts for elderly individuals.
+
+---
+
+## ♦ Need of the Project
+
+Senior citizens living alone require continuous monitoring to reduce risks related to falls, missed medications, and delayed emergency response.
+
+---
+
+## ♦ Proposed Solution
+
+SilverCare is an automated, intelligent, and wearable monitoring system consisting of:
+
+- Wearable Waistband Device – Comfortable for continuous daily use.
+- Multi-Sensor Monitoring – Tracks movement, posture, inactivity, and vital signs in real time.
+- Smart Detection System – Processes sensor data to detect falls and abnormal behaviour with fewer false alerts.
+- Medicine Reminder Feature – Sends timely alerts to ensure medicines are taken on schedule.
+- Automatic Emergency Alerts – Notifies caregivers instantly via GSM or Twilio.
+
+---
+
+## ♦ Solution Overview
+
+**What?**  
+A wearable monitoring system for senior citizens to track health, activity, and safety.
+
+**Why?**  
+To reduce risks from falls, missed medications, and delayed emergency response.
+
+**Who?**  
+Elderly individuals living alone and their caregivers or family members.
+
+**Where?**  
+At home or during daily activities, without restricting movement.
+
+**When?**  
+Continuous monitoring, with instant alerts during emergencies.
+
+**How?**  
+Using a wearable waistband with multi-sensors, smart detection logic, medicine reminders, and automatic caregiver alerts.
+
+---
+
+## ♦ Technology Used
+
+**Communication:**  
+- Twilio API  
+- GSM Module for alert delivery  
+
+**Software Tools:**  
+- Python  
+- JavaScript  
+- Arduino IDE  
+- Serial Monitor  
+- Firebase  
+
+---
+
+## ♦ Technical Flow Diagram
+
+```markdown
+![Technical Flow Diagram](images\Technical.png)
 ```
 
-#### 2. Update ESP32 Code
-- Replace your existing Arduino code with `esp32_enhanced_code.ino`
-- Upload to your ESP32
+---
 
-#### 3. Find Your ESP32 Port
-- **Windows**: Check Device Manager for COM port
-- **Linux/Mac**: Use `ls /dev/tty*` or `ls /dev/cu.*`
+## ♦ Workflow Diagram
 
-#### 4. Update Port in Bridge Server
-- Open `bridge_server.py`
-- Change `ESP_PORT = "COM3"` to your ESP32's port
-
-#### 5. Start the System
-```bash
-python bridge_server.py
+```markdown
+![Workflow Diagram](images\Workflow.png)
 ```
+---
 
-#### 6. Open Web Interface
-- Go to: `http://localhost:5000`
+## ♦ Future Scope
 
-### 🌟 Features:
+- Advanced Health Sensors: Add improved physiological sensors for early detection.
+- Better AI Models: Train with larger real-world data for higher accuracy.
+- Emergency System Integration: Connect with emergency services for faster response.
 
-#### Real-time Monitoring:
-- Heart rate, SpO2, temperature
-- Movement detection
-- Belt worn status
-- System state indicators
+---
 
-#### Voice Alerts:
-- **Pre-Fall**: "Are you okay?" (repeats every 3 seconds)
-- **Fall Detection**: "Fall detected! Are you okay?" (with 30-second countdown)
-- Auto-escalation to emergency if no response
+## ♦ Repository Documents
 
-#### Response Options:
-- **"I'm OK" button** - Stops alerts, resets system
-- **"Emergency" button** - Triggers immediate emergency call
-- **Keyboard shortcuts**: Enter/Space for "OK", Escape for "Emergency"
+- [backend/main.py](backend\main.py)
+- [backend/portal_server.py](backend\portal_server.py)
+- [Hackathon Problem Statement](documents\hackathon_problemstatement.pdf)  
+- [Project Presentation](documents\projectpresentation.pptx)  
 
-#### Two-Way Communication:
-- ESP32 sends sensor data to computer
-- Web interface sends responses back to ESP32
-- Automatic emergency escalation
+---
 
-### 🔄 How It Works:
+## ♦ GitHub Repository Link
 
-1. **ESP32 detects fall/pre-fall** → Sends structured data via Serial
-2. **Python bridge server** reads Serial data → Sends to web interface
-3. **Web interface** shows real-time data + triggers voice alerts
-4. **User responds** → Web sends command back to ESP32
-5. **ESP32 receives command** → Resets system or triggers emergency
+https://github.com/Pujagithub2006/VOIS-and-Team-89
 
-### 🚨 Emergency Flow:
-1. Fall detected → Voice alert starts
-2. 30-second countdown begins
-3. If no response → Automatic emergency call
-4. SMS sent to guardian number
-5. System logs emergency event
+---
 
-### 📱 Mobile Access:
-- Access web interface from any device on same network
-- Use phone/tablet for monitoring
-- Voice alerts work on any device with speakers
+## ♦ How to Run the Project
 
-### 🔍 Troubleshooting:
+1. Clone the repository  
+2. Install required dependencies by pip install -r requirements.txt
+3. Configure Twilio API / GSM module  
+4. Run the backend file
+   1) python backend/main.py
+   2) python backend/portal_server.py
+6. Upload code to Arduino using Arduino IDE  
+7. Launch the web interface by opening web server for frontend/portal.html
 
-#### ESP32 Not Connecting:
-- Check USB cable
-- Verify COM port in Device Manager
-- Ensure ESP32 is powered on
+---
 
-#### Web Interface Not Loading:
-- Check if Python server is running
-- Verify port 5000 is not blocked
-- Try `http://127.0.0.1:5000`
-
-#### Voice Alerts Not Working:
-- Ensure browser supports Web Speech API
-- Check speaker volume
-- Try Chrome/Edge browser
-
-### 🎯 Key Benefits:
-- **Real-time monitoring** of all vitals
-- **Voice interaction** for hands-free operation
-- **Automatic escalation** for emergencies
-- **Remote monitoring** via web interface
-- **Two-way communication** between hardware and software
-
-Your SilverCare system is now fully integrated with computer-based monitoring and voice alerts!
+Thank You
