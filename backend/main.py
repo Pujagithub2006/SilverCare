@@ -1,4 +1,4 @@
-from flask import Flask, Blueprint, request, jsonify, send_from_directory, session
+from flask import Flask, Blueprint, request, jsonify, send_from_directory
 import json
 import os
 from datetime import datetime
@@ -11,18 +11,9 @@ from medicine_management import medicine_bp
 from medicine_notifications import start_medicine_notifications
 from medicine_reminder_system import start_medicine_reminder_system, handle_medicine_response
 from elderly_notifications import register_elderly_session, unregister_elderly_session, send_elderly_notification
-from twilio_service import twilio_service
 
 main_app = Flask(__name__)
-main_app.secret_key = "vois_senior_safety_2024"  # Required for session persistence
 CORS(main_app)
-
-# Log ALL incoming requests
-@main_app.before_request
-def log_request():
-    print(f"🌐 [REQUEST] {request.method} {request.path} from {request.remote_addr}")
-    if request.is_json:
-        print(f"📦 [REQUEST BODY] {request.get_json()}")
 
 main_app.register_blueprint(fall_detection_bp)
 main_app.register_blueprint(guardian_auth_bp)
@@ -32,7 +23,7 @@ main_app.register_blueprint(medicine_bp)
 # Try to import genai, but don't fail if not available
 try:
     import google.generativeai as genai
-    API_KEY = "AIzaSyAFlAqPTl8lX3wL7tTQ5hMMANDQApxqrV0"
+    API_KEY = "AIzaSyBSdKD5Flk7zfOgnjOuw9cWgtKIISePz5Y"
     genai.configure(api_key=API_KEY)
     GENAI_AVAILABLE = True
     print("✅ Google Generative AI available")
@@ -114,38 +105,11 @@ def serve_frontend(filename):
     """Serve frontend files"""
     return send_from_directory('../frontend', filename)
 
-# @main_app.route("/hardware-data/<elderly_id>", methods=["GET"])
-# def get_hardware_data(elderly_id):
-#     """Get hardware data for elderly member"""
-#     try:
-#         # Return real data structure - currently no hardware connected
-#         return jsonify({
-#             "status": "success",
-#             "data": {
-#                 "heartRate": 0,
-#                 "oxygenLevel": 0,
-#                 "temperature": 0,
-#                 "beltConnected": False,
-#                 "beltLastSeen": None,
-#                 "lastUpdate": datetime.now().isoformat(),
-#                 "message": "No hardware connected"
-#             }
-#         }), 200
-#     except Exception as e:
-#         return jsonify({
-#             "status": "error",
-#             "message": str(e)
-#         }), 500
-
 @main_app.route("/hardware-data/<elderly_id>", methods=["GET"])
 def get_hardware_data(elderly_id):
-    """Return real hardware data for elderly"""
-
-    device_id_to_use = "isha_amit"
-    # In your system device_id == elderly_id
-    data = latest_sensor_data.get(device_id_to_use)
-
-    if not data:
+    """Get hardware data for elderly member"""
+    try:
+        # Return real data structure - currently no hardware connected
         return jsonify({
             "status": "success",
             "data": {
@@ -158,19 +122,11 @@ def get_hardware_data(elderly_id):
                 "message": "No hardware connected"
             }
         }), 200
-
-    return jsonify({
-        "status": "success",
-        "data": {
-            "heartRate": data.get("heartRate"),
-            "oxygenLevel": data.get("spo2"),
-            "temperature": data.get("temperature"),
-            "beltConnected": data.get("beltWorn"),
-            "beltLastSeen": data.get("timestamp"),
-            "lastUpdate": datetime.now().isoformat()
-        }
-    }), 200
-
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
 
 @main_app.route("/sensor-data", methods=["GET"])
 def get_sensor_data():
@@ -179,11 +135,13 @@ def get_sensor_data():
         return jsonify({
             "status": "success",
             "data": {
-                "heartRate": latest_sensor_data.get("heartRate"),
-                "oxygenLevel": latest_sensor_data.get("spo2"),
-                "temperature": latest_sensor_data.get("temperature"),
-                "beltConnected": latest_sensor_data.get("beltWorn"),
-                "beltLastSeen": latest_sensor_data.get("timestamp")
+                "deviceId": "no_device",
+                "heartRate": 0,
+                "spo2": 0,
+                "temperature": 0,
+                "beltWorn": False,
+                "stateName": "normal",
+                "message": "No hardware connected"
             }
         }), 200
     except Exception as e:
@@ -411,308 +369,8 @@ def clear_elderly_notification():
             "message": str(e)
         }), 500
 
-# Store latest hardware data in memory
-latest_sensor_data = {}
-
-@main_app.route("/api/sensor-data", methods=["POST"])
-def receive_sensor_data():
-    try:
-        data = request.get_json()
-
-        device_id = data.get("deviceId")
-
-        if not device_id:
-            return jsonify({
-                "status": "error",
-                "message": "deviceId required"
-            }), 400
-
-        latest_sensor_data[device_id] = {
-            "state": data.get("state"),
-            "stateName": data.get("stateName"),
-            "heartRate": data.get("heartRate"),
-            "spo2": data.get("spo2"),
-            "temperature": data.get("temperature"),
-            "beltWorn": data.get("beltWorn"),
-            "acceleration": data.get("acceleration"),
-            "timestamp": datetime.now().isoformat()
-        }
-
-        print("📡 Arduino Data Received:")
-        print(latest_sensor_data[device_id])
-
-        return jsonify({
-            "status": "success",
-            "message": "Data received"
-        }), 200
-
-    except Exception as e:
-        return jsonify({
-            "status": "error",
-            "message": str(e)
-        }), 500
-
-@main_app.route("/api/sensor-data/<device_id>", methods=["GET"])
-def get_latest_sensor_data(device_id):
-    data = latest_sensor_data.get(device_id)
-
-    if not data:
-        return jsonify({
-            "status": "success",
-            "data": None
-        }), 200
-
-    return jsonify({
-        "status": "success",
-        "data": data
-    }), 200
-
-# SMS and Call Alert Endpoints
-@main_app.route("/debug-session", methods=["GET"])
-def debug_session():
-    """Debug endpoint to check session data"""
-    return jsonify({
-        "guardian_phone": session.get('guardian_phone'),
-        "guardian_username": session.get('guardian_username'),
-        "session_data": dict(session)
-    })
-
-@main_app.route("/test-session", methods=["GET"])
-def test_session():
-    """Temporary test endpoint to set session"""
-    session['guardian_phone'] = "9011443024"
-    session['guardian_username'] = "vaishn"
-    session['guardian_name'] = "Vaishnavi"
-    return jsonify({
-        "status": "success",
-        "message": "Test session created",
-        "session_data": dict(session)
-    })
-
-@main_app.route("/test-twilio", methods=["GET"])
-def test_twilio():
-    """Direct Twilio test without session"""
-    try:
-        # Test Twilio directly
-        result = twilio_service.send_prefall_alert_sms(
-            guardian_phone="9011443024",
-            elderly_name="Test User",
-            location="Test Location", 
-            device_id="test_device"
-        )
-        return jsonify({
-            "status": "success",
-            "message": "Twilio test completed",
-            "result": result
-        })
-    except Exception as e:
-        return jsonify({
-            "status": "error",
-            "message": str(e)
-        })
-
-@main_app.route("/send-prefall-sms", methods=["POST"])
-def send_prefall_sms():
-    """Send SMS alert for prefall detection"""
-    print("🚨 [PREFALL] send_prefall_sms() called!")
-    
-    try:
-        data = request.get_json()
-        elderly_name = data.get('elderly_name', 'Elderly Person')
-        location = data.get('location', 'Unknown Location')
-        
-        print(f"🚨 [PREFALL] Elderly: {elderly_name}")
-        print(f"📍 [PREFALL] Location: {location}")
-        
-        # Get latest guardian phone instead of session
-        print("🔍 [PREFALL] Getting latest guardian...")
-        from fall_detection import get_guardian_phone_for_elderly
-        guardian_phone = get_guardian_phone_for_elderly()
-        
-        if not guardian_phone:
-            print("❌ [PREFALL] No guardian found!")
-            return jsonify({
-                "status": "error",
-                "message": "No guardian found"
-            }), 401
-        
-        print(f"📱 [PREFALL] Guardian phone: {guardian_phone}")
-        
-        # Send prefall SMS using Twilio
-        print("📤 [PREFALL] Sending prefall SMS...")
-        success = twilio_service.send_prefall_alert_sms(
-            guardian_phone, 
-            elderly_name, 
-            location, 
-            device_id="vois_belt"
-        )
-        
-        if success:
-            print(f"✅ [PREFALL] Prefall alert sent to {guardian_phone}")
-            return jsonify({
-                "status": "success",
-                "message": "Prefall SMS sent successfully"
-            }), 200
-        else:
-            print(f"❌ [PREFALL] Failed to send prefall SMS to {guardian_phone}")
-            return jsonify({
-                "status": "error",
-                "message": "Failed to send prefall SMS"
-            }), 500
-            
-    except Exception as e:
-        print(f"❌ [PREFALL] Error sending prefall SMS: {e}")
-        return jsonify({
-            "status": "error",
-            "message": str(e)
-        }), 500
-
-@main_app.route("/send-fall-alert", methods=["POST"])
-def send_fall_alert():
-    """Send SMS and make call for fall detection"""
-    try:
-        data = request.get_json()
-        elderly_name = data.get('elderly_name', 'Elderly Person')
-        location = data.get('location', 'Unknown Location')
-        device_id = data.get('device_id', 'Unknown Device')
-        
-        # Get logged-in guardian phone from session
-        guardian_phone = session.get('guardian_phone')
-        if not guardian_phone:
-            return jsonify({
-                "status": "error",
-                "message": "No guardian logged in"
-            }), 401
-        
-        # Send fall alert SMS
-        sms_success = twilio_service.send_fall_alert_sms(
-            guardian_phone, 
-            elderly_name, 
-            location, 
-            device_id
-        )
-        
-        # Make emergency call
-        call_success = twilio_service.make_emergency_call(
-            guardian_phone, 
-            elderly_name, 
-            location
-        )
-        
-        if sms_success and call_success:
-            print(f"✅ [ALERT] Fall alert (SMS + Call) sent to {guardian_phone}")
-            return jsonify({
-                "status": "success",
-                "message": "Fall alert SMS and call sent successfully"
-            }), 200
-        else:
-            return jsonify({
-                "status": "error",
-                "message": "Failed to send fall alert"
-            }), 500
-            
-    except Exception as e:
-        print(f"❌ [ALERT] Error sending fall alert: {e}")
-        return jsonify({
-            "status": "error",
-            "message": str(e)
-        }), 500
-
-if __name__ == '__main__':
-    main_app.run(host='0.0.0.0', port=5001, debug=True)
-
-@main_app.route("/send-urgent-fall-alert", methods=["POST"])
-def send_urgent_fall_alert():
-    """Send urgent SMS and call when no response to fall alert"""
-    try:
-        data = request.get_json()
-        guardian_phone = data.get('guardian_phone')
-        elderly_name = data.get('elderly_name', 'Elderly Person')
-        location = data.get('location', 'Unknown Location')
-        device_id = data.get('device_id', 'Unknown Device')
-        
-        if not guardian_phone:
-            return jsonify({
-                "status": "error",
-                "message": "Guardian phone number required"
-            }), 400
-        
-        # Send urgent SMS
-        sms_success = twilio_service.send_urgent_alert_sms(
-            guardian_phone, 
-            elderly_name, 
-            location, 
-            device_id
-        )
-        
-        # Make urgent call with siren
-        call_success = twilio_service.make_no_response_alert_call(
-            guardian_phone, 
-            elderly_name, 
-            location
-        )
-        
-        if sms_success and call_success:
-            print(f"🚨 [URGENT] Urgent fall alert sent to {guardian_phone}")
-            return jsonify({
-                "status": "success",
-                "message": "Urgent fall alert sent successfully"
-            }), 200
-        else:
-            return jsonify({
-                "status": "error",
-                "message": "Failed to send urgent fall alert"
-            }), 500
-            
-    except Exception as e:
-        print(f"❌ [URGENT] Error sending urgent fall alert: {e}")
-        return jsonify({
-            "status": "error",
-            "message": str(e)
-        }), 500
-
-@main_app.route("/send-safe-confirmation", methods=["POST"])
-def send_safe_confirmation():
-    """Send confirmation that elderly is safe (false alarm)"""
-    try:
-        data = request.get_json()
-        guardian_phone = data.get('guardian_phone')
-        elderly_name = data.get('elderly_name', 'Elderly Person')
-        
-        if not guardian_phone:
-            return jsonify({
-                "status": "error",
-                "message": "Guardian phone number required"
-            }), 400
-        
-        # Make safe confirmation call
-        success = twilio_service.make_safe_confirmation_call(
-            guardian_phone, 
-            elderly_name
-        )
-        
-        if success:
-            print(f"✅ [SAFE] Safe confirmation sent to {guardian_phone}")
-            return jsonify({
-                "status": "success",
-                "message": "Safe confirmation sent successfully"
-            }), 200
-        else:
-            return jsonify({
-                "status": "error",
-                "message": "Failed to send safe confirmation"
-            }), 500
-            
-    except Exception as e:
-        print(f"❌ [SAFE] Error sending safe confirmation: {e}")
-        return jsonify({
-            "status": "error",
-            "message": str(e)
-        }), 500
-
-
 if __name__ == "__main__":
     # Start medicine notification systems
     start_medicine_notifications()
     start_medicine_reminder_system()
-    main_app.run(host='0.0.0.0', port=5001, debug=True, threaded=True)
+    main_app.run(host='0.0.0.0', port=5001, debug=True)

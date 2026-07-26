@@ -10,30 +10,6 @@ from utils.auth import (
     guardian_exists, get_guardian
 )
 
-
-def format_phone_number(phone):
-    """Format phone number to ensure it has +91 prefix for Indian numbers"""
-    phone = phone.strip()
-    
-    # Remove any existing +91 or 91 prefix
-    if phone.startswith('+91'):
-        phone = phone[3:]
-    elif phone.startswith('91'):
-        phone = phone[2:]
-    
-    # Remove any spaces, dashes, or parentheses
-    phone = ''.join(char for char in phone if char.isdigit())
-    
-    # If it's a 10-digit Indian number, add +91 prefix
-    if len(phone) == 10:
-        return f'+91{phone}'
-    
-    # If it already has country code or is international, return as-is with +
-    if not phone.startswith('+'):
-        return f'+{phone}'
-    
-    return phone
-
 # Create Blueprint
 guardian_auth_bp = Blueprint('guardian_auth', __name__)
 
@@ -80,17 +56,13 @@ def guardian_register():
                 "message": "Password must be at least 6 characters long"
             }), 400
         
-        # Format phone number
-        phone = data.get("phone", "").strip()
-        phone = format_phone_number(phone)
-        
         # Create guardian record
         guardians = load_guardians()
         guardians[username] = {
             "name": data.get("name"),
             "username": username,
             "password_hash": hash_password(data.get("password")),
-            "phone": phone,
+            "phone": data.get("phone"),
             "email": data.get("email"),
             "elderly_linked": [],
             "created_at": datetime.utcnow().isoformat()
@@ -233,8 +205,7 @@ def guardian_update():
         
         # Update fields
         if "phone" in data:
-            phone = data.get("phone", "").strip()
-            guardian["phone"] = format_phone_number(phone)
+            guardian["phone"] = data.get("phone")
         if "email" in data:
             guardian["email"] = data.get("email")
         if "name" in data:

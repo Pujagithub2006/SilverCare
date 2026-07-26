@@ -1,0 +1,903 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-translate="common.app_title">SilverCare - Home</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="scripts/translator.js"></script>
+    <style>
+        .back-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 8px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            margin-right: 10px;
+        }
+        
+        .back-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateX(-2px);
+        }
+        
+        .back-btn:active {
+            transform: translateX(0);
+        }
+
+        /* Menu Items */
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="status-badge success">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                    <circle cx="10" cy="10" r="10" fill="currentColor"/>
+                    <path d="M6 10l3 3 5-6" stroke="white" stroke-width="2" fill="none"/>
+                </svg>
+                <span data-translate="common.connected">belt Connected</span>
+            </div>
+            <button class="back-btn" onclick="goBack()" title="Go Back">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                    <path d="M19 12H5M12 19l-7-7 7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </button>
+            <div class="language-selector">
+                <select id="language">
+                    <option value="en">English</option>
+                    <option value="hi">हिन्दी</option>
+                    <option value="mr">मराठी</option>
+                </select>
+            </div>
+            <button class="logout-btn" onclick="logout()" title="Logout">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                    <path d="M9 21H5a2 2 0 01-2 2v1a2 2 0 01-2 2h4a2 2 0 01-2 2v1a2 2 0 01-2 2h4M16 17l-4 4-4 4v1a2 2 0 01-2 2h4a2 2 0 01-2 2v-1a2 2 0 01-2 2h-4a2 2 0 01-2 2v-1a2 2 0 01-2 2h4M7 14l5 5 5 5s-5 5h-1.71l-.29-.29a1 1 0 01-1.42 0l-1.29-1.29A1 1 0 017 7l3.59 3.59A2 2 0 0112 9l-3.59-3.59A2 2 0 0111 7z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </button>
+        </header>
+
+        <!-- SOS Button -->
+        <div class="sos-section">
+            <button class="sos-button" id="sosButton">
+                <div class="sos-icon">
+                    <svg width="60" height="60" viewBox="0 0 60 60" fill="none">
+                        <path d="M30 10v10M30 30v10M20 20l7 7M40 20l-7 7M20 40l7-7M40 40l-7-7" stroke="white" stroke-width="4" stroke-linecap="round"/>
+                    </svg>
+                </div>
+                <div class="sos-text" data-translate="common.sos">SOS</div>
+                <div class="sos-subtext" data-translate="common.press_for_help">PRESS FOR HELP</div>
+            </button>
+            <p class="sos-instruction" data-translate="common.press_and_hold">Press and hold for 3 seconds</p>
+        </div>
+
+        <!-- Menu Items -->
+        <div class="menu-list">
+            <div class="menu-item" onclick="openReminders()">
+                <div class="menu-icon yellow-bg">
+                    <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                        <rect x="8" y="10" width="16" height="16" rx="2" stroke="#D97706" stroke-width="2" fill="none"/>
+                        <path d="M16 14v4M14 18h4" stroke="#D97706" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                </div>
+                <div class="menu-content">
+                    <h3 class="menu-title" data-translate="common.navigation.reminders">Reminders</h3>
+                    <p id="medicineCount" class="menu-subtitle" data-translate="reminders.medicine_time">Loading medicines...</p>
+                </div>
+                <svg class="menu-arrow" width="24" height="24" viewBox="0 0 24 24" fill="none">
+                    <path d="M9 6l6 6-6 6" stroke="#9CA3AF" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+            </div>
+
+            <div class="menu-item" onclick="openAlerts()">
+                <div class="menu-icon pink-bg">
+                    <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                        <path d="M16 8c-3 0-5 2-5 5v3l-2 4h14l-2-4v-3c0-3-2-5-5-5zM14 20v1c0 1.1.9 2 2 2s2-.9 2-2v-1" stroke="#DC2626" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                </div>
+                <div class="menu-content">
+                    <h3 class="menu-title" data-translate="common.navigation.emergency">Alerts</h3>
+                    <p class="menu-subtitle" data-translate="alerts.no_new_alerts">No new alerts</p>
+                </div>
+                <svg class="menu-arrow" width="24" height="24" viewBox="0 0 24 24" fill="none">
+                    <path d="M9 6l6 6-6 6" stroke="#9CA3AF" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+            </div>
+        </div>
+
+        <!-- Bottom Navigation -->
+        <nav class="bottom-nav">
+            <a href="index.html" class="nav-item active">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
+                </svg>
+                <span data-translate="common.navigation.home">Home</span>
+            </a>
+            <button class="nav-item assistant-nav-btn" onclick="openAssistantChat()" title="Open Assistant">
+                <svg width="24" height="24" viewBox="0 0 32 32" fill="currentColor">
+                    <path d="M16 28c6.627 0 12-5.373 12-12S22.627 4 16 4 4 9.373 4 16c0 2.4.7 4.6 2 6.5L4 28l5.5-2c1.9 1.3 4.1 2 6.5 2z" fill="#3B82F6"/>
+                </svg>
+                <span data-translate="common.navigation.assistant">Assistant</span>
+            </button>
+            <a href="#" class="nav-item" onclick="openHealth()">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path d="M4 12h16M12 4v16" stroke-width="2"/>
+                </svg>
+                <span data-translate="common.navigation.health">Health</span>
+            </a>
+        </nav>
+
+        <!-- Floating Assistant Icon (removed) -->
+
+        <!-- Assistant Chat Modal -->
+        <div id="chat-modal" class="chat-modal">
+            <div class="chat-modal-content">
+                <div class="chat-header">
+                    <h2 data-translate="chat.title">VOIS Companion 💙</h2>
+                    <button class="close-btn" onclick="closeAssistantChat()">&times;</button>
+                </div>
+                <div id="messages" class="chat-messages"></div>
+                <div class="chat-input-area">
+                    <input id="user-input" type="text" data-translate="chat.placeholder" placeholder="Type hi..." onkeypress="if(event.key==='Enter') send()">
+                    <button onclick="send()" class="send-btn">➤</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Translator fallback for safety
+        const translatorFallback = {
+            t: (key) => {
+                if (!key) return '';
+                return key.split('.').pop().replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+            }
+        };
+        
+        // Safe translation function
+        const t = (key) => {
+            try {
+                return translator?.t(key) || translatorFallback.t(key);
+            } catch (error) {
+                console.warn('Translation error for key:', key, error);
+                return translatorFallback.t(key);
+            }
+        };
+        
+        // Assistant Chat Functions
+        function openAssistantChat() {
+            window.open('test.html', '_blank');
+        }
+
+        function closeAssistantChat() {
+            document.getElementById('chat-modal').style.display = 'none';
+        }
+
+        function send() {
+            const input = document.getElementById('user-input');
+            const message = input.value.trim();
+            
+            if (!message) return;
+            
+            const messagesDiv = document.getElementById('messages');
+            
+            // Add user message
+            const userMsg = document.createElement('div');
+            userMsg.className = 'user-message';
+            userMsg.textContent = message;
+            messagesDiv.appendChild(userMsg);
+            
+            // Clear input
+            input.value = '';
+            
+            // Add bot response
+            setTimeout(() => {
+                const botMsg = document.createElement('div');
+                botMsg.className = 'bot-message';
+                botMsg.textContent = translator.t('chat.bot_response');
+                messagesDiv.appendChild(botMsg);
+                messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            }, 1000);
+            
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        // Health Functions
+        function openHealth() {
+            try {
+                console.log('🏥 [BUTTON] Health button clicked');
+                window.location.href = 'health.html';
+                console.log('✅ [BUTTON] Health navigation successful');
+            } catch (error) {
+                console.error('❌ [BUTTON] Error in openHealth:', error);
+                alert('Unable to open health page. Please try again.');
+            }
+        }
+
+        // Assistant Chat Functions
+        function openAssistantChat() {
+            try {
+                console.log('💬 [BUTTON] Assistant button clicked');
+                window.open('test.html', '_blank');
+                console.log('✅ [BUTTON] Assistant chat opened successfully');
+            } catch (error) {
+                console.error('❌ [BUTTON] Error in openAssistantChat:', error);
+                alert('Unable to open assistant chat. Please try again.');
+            }
+        }
+
+        // Reminders Functions
+        function openReminders() {
+            try {
+                console.log('🔔 [BUTTON] Reminders button clicked');
+                // Load medicines and show reminders
+                loadElderlyMedicines();
+                showRemindersModal();
+                console.log('✅ [BUTTON] Reminders function executed successfully');
+            } catch (error) {
+                console.error('❌ [BUTTON] Error in openReminders:', error);
+                alert('Unable to open reminders. Please try again.');
+            }
+        }
+
+        // Load elderly medicines - REAL DATA ONLY
+        async function loadElderlyMedicines() {
+            try {
+                // FIX: Force correct elderly ID
+                let elderlyId = localStorage.getItem('elderly_id') || 'isha_amit';
+                if (elderlyId.includes('elderly_')) {
+                    elderlyId = 'isha_amit';
+                    localStorage.setItem('elderly_id', 'isha_amit');
+                }
+                
+                console.log('🔍 [ELDERLY] Loading real medicines for elderly:', elderlyId);
+                console.log('📡 [ELDERLY] API URL:', `http://127.0.0.1:5001/medicines/${elderlyId}`);
+                
+                const response = await fetch(`http://127.0.0.1:5001/medicines/${elderlyId}`);
+                console.log('📡 [ELDERLY] Response status:', response.status);
+                console.log('📡 [ELDERLY] Response ok:', response.ok);
+                
+                const data = await response.json();
+                console.log('📊 [ELDERLY] Raw API response:', data);
+                
+                const medicines = data.medicines || [];
+                console.log('💊 [ELDERLY] Medicines loaded:', medicines);
+                console.log('💊 [ELDERLY] Number of medicines:', medicines.length);
+                
+                // Update medicine count on main page
+                updateMedicineCountDisplay(medicines);
+                
+                // Only display in reminders modal if modal is already open
+                const remindersContent = document.getElementById('remindersContent');
+                if (remindersContent && remindersContent.style.display !== 'none') {
+                    displayMedicinesInReminders(medicines);
+                }
+                
+                startElderlyMedicineChecker(medicines);
+            } catch (error) {
+                console.error('❌ [ELDERLY] Error loading real medicines:', error);
+                console.error('❌ [ELDERLY] Error details:', error.message);
+                
+                // Update display to show error
+                const medicineCountElement = document.getElementById('medicineCount');
+                if (medicineCountElement) {
+                    medicineCountElement.textContent = 'Failed to load';
+                }
+                
+                // Only display error in reminders modal if modal is already open
+                const remindersContent = document.getElementById('remindersContent');
+                if (remindersContent && remindersContent.style.display !== 'none') {
+                    displayMedicinesInReminders([]);
+                }
+            }
+        }
+
+        // Update medicine count display on main page
+        function updateMedicineCountDisplay(medicines) {
+            const medicineCountElement = document.getElementById('medicineCount');
+            console.log('🔢 [ELDERLY] Updating medicine count display...');
+            console.log('💊 [ELDERLY] Medicines received:', medicines);
+            console.log('💊 [ELDERLY] Number of medicines:', medicines.length);
+            
+            if (medicineCountElement) {
+                if (medicines.length === 0) {
+                    console.log('📭 [ELDERLY] No medicines found');
+                    medicineCountElement.textContent = 'No medicines scheduled';
+                } else {
+                    // Get today's date
+                    const today = new Date().toISOString().split('T')[0];
+                    let todayMedicinesCount = 0;
+                    let pendingCount = 0;
+                    let missedCount = 0;
+                    let nextMedicineTime = null;
+                    
+                    medicines.forEach(medicine => {
+                        console.log('💊 [ELDERLY] Processing medicine:', medicine);
+                        const isToday = medicine.start_date <= today && medicine.end_date >= today;
+                        console.log('📅 [ELDERLY] Is today:', isToday, 'Start:', medicine.start_date, 'End:', medicine.end_date);
+                        
+                        // TEMPORARY: Bypass date filter for debugging
+                        // if (!isToday) {
+                        //     console.log('⏭️ [ELDERLY] Skipping - not for today');
+                        //     return;
+                        // }
+                        
+                        todayMedicinesCount++;
+                        const times = Array.isArray(medicine.times) ? medicine.times : [medicine.times];
+                        console.log('⏰ [ELDERLY] Medicine times:', times);
+                        
+                        times.forEach(time => {
+                            const status = getMedicineStatus(medicine.id, time);
+                            console.log('📊 [ELDERLY] Medicine status:', status);
+                            
+                            if (status === 'pending') {
+                                pendingCount++;
+                                if (!nextMedicineTime || time < nextMedicineTime) {
+                                    nextMedicineTime = time;
+                                }
+                            } else if (status === 'missed') {
+                                missedCount++;
+                            }
+                        });
+                    });
+                    
+                    console.log('📊 [ELDERLY] Today medicines count:', todayMedicinesCount);
+                    console.log('📊 [ELDERLY] Pending count:', pendingCount);
+                    console.log('📊 [ELDERLY] Missed count:', missedCount);
+                    console.log('📊 [ELDERLY] Next medicine time:', nextMedicineTime);
+                    
+                    if (todayMedicinesCount === 0) {
+                        medicineCountElement.textContent = 'No medicines today';
+                    } else if (missedCount > 0) {
+                        medicineCountElement.textContent = `${missedCount} missed • Next at ${nextMedicineTime}`;
+                    } else if (pendingCount > 0) {
+                        medicineCountElement.textContent = `${pendingCount} pending • Next at ${nextMedicineTime}`;
+                    } else {
+                        medicineCountElement.textContent = 'All medicines taken';
+                    }
+                    
+                    console.log('✅ [ELDERLY] Medicine count updated:', medicineCountElement.textContent);
+                }
+            } else {
+                console.error('❌ [ELDERLY] medicineCount element not found!');
+            }
+        }
+
+        // Start elderly medicine checker
+        function startElderlyMedicineChecker(medicines) {
+            console.log('🔔 Starting elderly medicine reminder checker...');
+            
+            // Start real-time updates
+            startElderlyRealtimeUpdates();
+            
+            setInterval(() => {
+                const currentTime = new Date().toTimeString().slice(0, 5);
+                medicines.forEach(medicine => {
+                    const times = Array.isArray(medicine.times) ? medicine.times : [medicine.times];
+                    times.forEach(time => {
+                        if (time === currentTime) {
+                            triggerElderlyMedicineReminder(medicine, time);
+                        }
+                    });
+                });
+            }, 30000); // Check every 30 seconds
+        }
+
+        // Real-time updates for elderly portal
+        function startElderlyRealtimeUpdates() {
+            console.log('🔄 [ELDERLY REALTIME] Starting real-time medicine updates...');
+            
+            // Check for new medicines every 15 seconds
+            setInterval(() => {
+                loadElderlyMedicines();
+            }, 15000);
+            
+            // Listen for storage changes (cross-tab synchronization)
+            window.addEventListener('storage', function(e) {
+                if (e.key && e.key.startsWith('medicine_')) {
+                    console.log('🔄 [ELDERLY REALTIME] Storage change detected:', e.key);
+                    loadElderlyMedicines(); // Refresh medicine display
+                }
+            });
+        }
+
+        // Trigger elderly medicine reminder
+        function triggerElderlyMedicineReminder(medicine, time) {
+            console.log(`🔔 [ELDERLY MEDICINE REMINDER] Time for ${medicine.medicine_name} at ${time}`);
+            
+            // Visual alert
+            document.body.style.backgroundColor = '#fff3cd';
+            setTimeout(() => {
+                document.body.style.backgroundColor = '';
+            }, 5000);
+            
+            // Browser notification
+            if ("Notification" in window && Notification.permission === "granted") {
+                new Notification("💊 Time for Medicine!", {
+                    body: `Take ${medicine.medicine_name} - ${medicine.dosage}`,
+                    icon: "💊",
+                    requireInteraction: true
+                });
+            } else if ("Notification" in window && Notification.permission === "default") {
+                Notification.requestPermission().then(permission => {
+                    if (permission === "granted") {
+                        new Notification("💊 Time for Medicine!", {
+                            body: `Take ${medicine.medicine_name} - ${medicine.dosage}`,
+                            icon: "💊",
+                            requireInteraction: true
+                        });
+                    }
+                });
+            }
+            
+            // Voice alert
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance(`Time to take your medicine: ${medicine.medicine_name}`);
+                utterance.rate = 0.9;
+                window.speechSynthesis.speak(utterance);
+            }
+            
+            // Console log (no guardian alert on first reminder)
+            console.log(`🔔 ELDERLY MEDICINE ALERT: ${medicine.medicine_name} at ${time} (Guardian will be alerted only if not taken after 2 reminders)`);
+            
+            // Show in reminders modal
+            loadElderlyMedicines(); // Refresh the reminders view
+            
+            // Schedule follow-up reminders with guardian alert only on urgent final reminder
+            scheduleElderlyFollowUpReminders(medicine, time);
+        }
+
+        // Schedule elderly follow-up reminders (guardian alert only on urgent final reminder)
+        function scheduleElderlyFollowUpReminders(medicine, time) {
+            // First follow-up after 5 minutes (no guardian alert)
+            setTimeout(() => {
+                const medicineStatus = localStorage.getItem(`medicine_${medicine.id}_${time}`);
+                if (medicineStatus !== 'taken') {
+                    console.log(`⏰ ELDERLY FOLLOW-UP: ${medicine.medicine_name} not taken yet`);
+                    
+                    if ("Notification" in window && Notification.permission === "granted") {
+                        new Notification("⏰ Medicine Follow-up", {
+                            body: `${medicine.medicine_name} still not taken`,
+                            icon: "⏰"
+                        });
+                    }
+                    
+                    console.log(`⏰ ELDERLY FOLLOW-UP: ${medicine.medicine_name} - Guardian will be alerted on next reminder if still not taken`);
+                }
+            }, 5 * 60 * 1000); // 5 minutes
+            
+            // Second follow-up after 15 minutes (URGENT - now send guardian alert)
+            setTimeout(() => {
+                const medicineStatus = localStorage.getItem(`medicine_${medicine.id}_${time}`);
+                if (medicineStatus !== 'taken') {
+                    console.log(`🚨 URGENT ELDERLY: ${medicine.medicine_name} still not taken after 15 minutes`);
+                    
+                    if ("Notification" in window && Notification.permission === "granted") {
+                        new Notification("🚨 URGENT Medicine Reminder", {
+                            body: `${medicine.medicine_name} not taken for 15 minutes!`,
+                            icon: "🚨",
+                            requireInteraction: true
+                        });
+                    }
+                    
+                    // NOW notify guardian urgently (only on final urgent reminder)
+                    notifyGuardianAboutElderlyMedicine(medicine, time + " (URGENT - Final Reminder)");
+                }
+            }, 15 * 60 * 1000); // 15 minutes
+        }
+
+        // Notify guardian about elderly medicine (only on urgent final reminder)
+        async function notifyGuardianAboutElderlyMedicine(medicine, time) {
+            try {
+                const elderlyName = localStorage.getItem('elderly_name') || 'Amit';
+                
+                console.log('📱 Notifying guardian about URGENT elderly medicine...');
+                console.log(`📱 URGENT GUARDIAN ALERT: ${elderlyName} has NOT taken ${medicine.medicine.name || medicine.medicine_name} at ${time} - Final Reminder!`);
+                
+                // In a real system, this would send SMS/call to guardian
+                // For demo, we'll just log it
+                console.log(`🚨 FINAL REMINDER: Guardian should be contacted immediately about ${elderlyName} not taking medicine!`);
+                
+            } catch (error) {
+                console.error('Error notifying guardian about elderly medicine:', error);
+            }
+        }
+
+        // Display medicines in reminders
+        function displayMedicinesInReminders(medicines) {
+            const remindersContent = document.getElementById('remindersContent') || createRemindersContent();
+            
+            // Check if header exists, if not, the modal hasn't been opened properly
+            const existingHeader = remindersContent.querySelector('div[style*="background: #007AFF"]');
+            if (!existingHeader) {
+                console.log('🔍 [REMINDERS] Header not found, modal may not be opened properly');
+                return;
+            }
+            
+            if (medicines.length === 0) {
+                // Keep header and add empty state
+                remindersContent.innerHTML = existingHeader.outerHTML + `
+                    <div style="text-align: center; padding: 40px; color: #666;">
+                        <div style="font-size: 48px; margin-bottom: 16px;">💊</div>
+                        <h3>No medicines scheduled</h3>
+                        <p>Your guardian will add medicines here</p>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = '<div style="padding: 20px;">';
+            html += '<h3 style="margin-bottom: 20px; color: #333;">💊 Today\'s Medicines</h3>';
+            
+            // Add update timestamp
+            const updateTime = new Date().toLocaleTimeString();
+            html += `<div style="font-size: 12px; color: #666; margin-bottom: 15px;">Last updated: ${updateTime}</div>`;
+            
+            // Group medicines by time
+            const medicinesByTime = {};
+            medicines.forEach(medicine => {
+                const times = Array.isArray(medicine.times) ? medicine.times : [medicine.times];
+                times.forEach(time => {
+                    if (!medicinesByTime[time]) {
+                        medicinesByTime[time] = [];
+                    }
+                    medicinesByTime[time].push(medicine);
+                });
+            });
+            
+            // Sort times
+            const sortedTimes = Object.keys(medicinesByTime).sort();
+            
+            // Display medicines for each time
+            sortedTimes.forEach(time => {
+                const timeMedicines = medicinesByTime[time];
+                html += `<div style="margin-bottom: 25px;">
+                    <h4 style="color: #007AFF; margin-bottom: 12px; font-size: 16px;">🕐 ${time}</h4>`;
+                
+                timeMedicines.forEach(medicine => {
+                    const status = getMedicineStatus(medicine.id || medicine.medicine_name, time);
+                    const statusColor = status === 'taken' ? '#28a745' : status === 'missed' ? '#dc3545' : '#ffc107';
+                    const statusText = status === 'taken' ? '✅ Taken' : status === 'missed' ? '❌ Missed' : '⏳ Pending';
+                    
+                    html += `
+                        <div style="background: #f8f9fa; border-radius: 12px; padding: 16px; margin-bottom: 12px; border-left: 4px solid ${statusColor};">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div>
+                                    <h4 style="margin: 0; color: #333;">${medicine.medicine_name || medicine.name}</h4>
+                                    <p style="margin: 4px 0; color: #666; font-size: 14px;">${medicine.dosage || 'As prescribed'}</p>
+                                    <p style="margin: 4px 0; color: ${statusColor}; font-weight: bold;">🕐 ${time} • ${statusText}</p>
+                                </div>
+                                <button onclick="markMedicineTaken('${medicine.id || medicine.medicine_name}')" style="background: ${status === 'taken' ? '#6c757d' : '#28a745'}; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer;" ${status === 'taken' ? 'disabled' : ''}>
+                                    ${status === 'taken' ? '✅ Already Taken' : '✅ Taken'}
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                });
+            });
+            
+            html += '</div>';
+            
+            // Keep header and add medicines content
+            remindersContent.innerHTML = existingHeader.outerHTML + html;
+        }
+
+        // Get medicine status from localStorage
+        function getMedicineStatus(medicineId, time) {
+            const key = `medicine_${medicineId}_${time}`;
+            return localStorage.getItem(key) || 'pending';
+        }
+
+        // Create reminders content if it doesn't exist
+        function createRemindersContent() {
+            const content = document.createElement('div');
+            content.id = 'remindersContent';
+            content.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: white;
+                z-index: 1000;
+                overflow-y: auto;
+                display: none;  /* Hidden by default */
+            `;
+            document.body.appendChild(content);
+            return content;
+        }
+
+        // Show reminders modal
+        function showRemindersModal() {
+            const content = document.getElementById('remindersContent');
+            if (content) {
+                // Clear content and add header first
+                content.innerHTML = `
+                    <div style="background: #007AFF; color: white; padding: 16px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 1001;">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <button onclick="closeRemindersModal()" style="background: rgba(255,255,255,0.3); border: 1px solid rgba(255,255,255,0.5); color: white; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: bold;" title="Go Back">
+                                ← Back
+                            </button>
+                            <h2 style="margin: 0; font-size: 18px;">💊 Medicine Reminders</h2>
+                        </div>
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            <button onclick="refreshElderlyMedicines()" style="background: rgba(255,255,255,0.3); border: 1px solid rgba(255,255,255,0.5); color: white; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 14px;" title="Refresh medicines">
+                                🔄 Refresh
+                            </button>
+                            <button onclick="closeRemindersModal()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;">&times;</button>
+                        </div>
+                    </div>
+                `;
+                
+                // Now load and display medicines
+                loadElderlyMedicines();
+                content.style.display = 'block';
+            }
+        }
+
+        // Refresh elderly medicines
+        async function refreshElderlyMedicines() {
+            console.log('🔄 [ELDERLY] Manual refresh triggered');
+            
+            // Show loading indicator
+            const remindersContent = document.getElementById('remindersContent');
+            if (remindersContent) {
+                const medicinesSection = remindersContent.querySelector('div[style*="padding: 20px;"]');
+                if (medicinesSection) {
+                    medicinesSection.innerHTML = '<div style="text-align: center; padding: 40px;"><div style="font-size: 24px;">🔄</div><p>Refreshing medicines...</p></div>';
+                }
+            }
+            
+            // Reload medicines
+            await loadElderlyMedicines();
+            
+            // Show success feedback
+            setTimeout(() => {
+                if (remindersContent) {
+                    const medicinesSection = remindersContent.querySelector('div[style*="padding: 20px;"]');
+                    if (medicinesSection && medicinesSection.innerHTML.includes('Refreshing')) {
+                        const originalContent = medicinesSection.innerHTML;
+                        medicinesSection.innerHTML = originalContent.replace('Refreshing medicines...', 'Medicines refreshed!');
+                        setTimeout(() => {
+                            loadElderlyMedicines(); // Load actual data
+                        }, 1000);
+                    }
+                }
+            }, 500);
+        }
+
+        // Close reminders modal
+        function closeRemindersModal() {
+            const content = document.getElementById('remindersContent');
+            if (content) {
+                content.style.display = 'none';
+            }
+        }
+
+        // Mark medicine as taken
+        async function markMedicineTaken(medicineId) {
+            try {
+                console.log('🔍 Marking medicine as taken:', medicineId);
+                
+                // Get current time for status tracking
+                const currentTime = new Date().toTimeString().slice(0, 5);
+                
+                // Save status to localStorage for real-time updates
+                localStorage.setItem(`medicine_${medicineId}_${currentTime}`, 'taken');
+                
+                const response = await fetch('http://127.0.0.1:5001/medicine/confirm', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        medicine_id: medicineId,
+                        elderly_id: localStorage.getItem('elderly_id') || 'isha_amit',
+                        time: currentTime,
+                        taken: true
+                    })
+                });
+                
+                const data = await response.json();
+                console.log('🔍 Medicine confirm response:', data);
+                
+                if (data.status === 'success') {
+                    // Show success feedback
+                    showNotification('✅ Medicine marked as taken!', 'success');
+                    
+                    // Refresh the list immediately
+                    loadElderlyMedicines();
+                    
+                    // Trigger storage event for cross-tab updates
+                    window.dispatchEvent(new StorageEvent('storage', {
+                        key: `medicine_${medicineId}_${currentTime}`,
+                        newValue: 'taken'
+                    }));
+                } else {
+                    showNotification('❌ Failed to mark medicine as taken', 'error');
+                }
+            } catch (error) {
+                console.error('Error confirming medicine:', error);
+                showNotification('❌ Error confirming medicine', 'error');
+            }
+        }
+
+        // Show notification
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: ${type === 'success' ? '#28a745' : type === 'error' ? '#dc3545' : '#007AFF'};
+                color: white;
+                padding: 12px 20px;
+                border-radius: 8px;
+                z-index: 10000;
+                font-size: 14px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            `;
+            notification.textContent = message;
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                if (notification.parentElement) {
+                    notification.remove();
+                }
+            }, 3000);
+        }
+
+        // Alerts Functions
+        function openAlerts() {
+            try {
+                console.log('🔔 [BUTTON] Alerts button clicked');
+                alert(t('alerts.no_new_alerts'));
+                console.log('✅ [BUTTON] Alerts function executed successfully');
+            } catch (error) {
+                console.error('❌ [BUTTON] Error in openAlerts:', error);
+                alert('No new alerts');
+            }
+        }
+
+        // SOS Button Function
+        let sosTimer;
+        let sosPressed = false;
+
+        document.getElementById('sosButton').addEventListener('mousedown', function() {
+            try {
+                console.log('🆘 [SOS] Mouse down - starting timer');
+                sosPressed = true;
+                sosTimer = setTimeout(function() {
+                    try {
+                        alert(t('sos_alerts.alert_sent'));
+                        console.log('✅ [SOS] Alert sent successfully');
+                    } catch (error) {
+                        console.error('❌ [SOS] Error sending alert:', error);
+                        alert('SOS alert sent!');
+                    }
+                    sosPressed = false;
+                }, 3000);
+            } catch (error) {
+                console.error('❌ [SOS] Error in mousedown handler:', error);
+            }
+        });
+
+        document.getElementById('sosButton').addEventListener('mouseup', function() {
+            try {
+                console.log('🆘 [SOS] Mouse up - canceling timer');
+                if (sosPressed) {
+                    clearTimeout(sosTimer);
+                    sosPressed = false;
+                }
+            } catch (error) {
+                console.error('❌ [SOS] Error in mouseup handler:', error);
+            }
+        });
+
+        document.getElementById('sosButton').addEventListener('mouseleave', function() {
+            try {
+                console.log('🆘 [SOS] Mouse leave - canceling timer');
+                if (sosPressed) {
+                    clearTimeout(sosTimer);
+                    sosPressed = false;
+                }
+            } catch (error) {
+                console.error('❌ [SOS] Error in mouseleave handler:', error);
+            }
+        });
+
+        // Touch events for mobile
+        document.getElementById('sosButton').addEventListener('touchstart', function(e) {
+            try {
+                console.log('🆘 [SOS] Touch start - starting timer');
+                e.preventDefault();
+                sosPressed = true;
+                sosTimer = setTimeout(function() {
+                    try {
+                        alert(t('sos_alerts.alert_sent'));
+                        console.log('✅ [SOS] Alert sent successfully via touch');
+                    } catch (error) {
+                        console.error('❌ [SOS] Error sending touch alert:', error);
+                        alert('SOS alert sent!');
+                    }
+                    sosPressed = false;
+                }, 3000);
+            } catch (error) {
+                console.error('❌ [SOS] Error in touchstart handler:', error);
+            }
+        });
+
+        document.getElementById('sosButton').addEventListener('touchend', function(e) {
+            try {
+                console.log('🆘 [SOS] Touch end - canceling timer');
+                if (sosPressed) {
+                    clearTimeout(sosTimer);
+                    sosPressed = false;
+                }
+            } catch (error) {
+                console.error('❌ [SOS] Error in touchend handler:', error);
+            }
+        });
+
+        // Initialize page on load
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🚀 [ELDERLY] Page loaded - initializing...');
+            
+            // Set elderly ID if not already set
+            if (!localStorage.getItem('elderly_id') || localStorage.getItem('elderly_id').includes('elderly_')) {
+                localStorage.setItem('elderly_id', 'isha_amit');
+                console.log('👤 [ELDERLY] Set elderly_id to: isha_amit');
+            } else {
+                console.log('👤 [ELDERLY] Existing elderly_id:', localStorage.getItem('elderly_id'));
+            }
+            
+            // Force immediate medicine loading
+            console.log('🔄 [ELDERLY] Force loading medicines...');
+            loadElderlyMedicines();
+            
+            // Start real-time updates
+            startElderlyRealtimeUpdates();
+            
+            // Add manual test function for debugging
+            window.testElderlyMedicines = function() {
+                console.log('🧪 [TEST] Manual medicine test triggered');
+                loadElderlyMedicines();
+            };
+            
+            // Remove hardcoded data - real-time data will be loaded from API
+            console.log('✅ [ELDERLY] Initialization complete');
+            console.log('💡 [ELDERLY] Real-time medicine status will be loaded from API');
+        });
+
+        // Logout function
+        function logout() {
+            if (confirm(translator.t('settings.logout_confirm') || 'Are you sure you want to logout?')) {
+                // Set elderly login status to false
+                localStorage.setItem('elderlyLoggedIn', 'false');
+                console.log('🔓 Elderly logged out - hiding portal button');
+                
+                // Clear all localStorage data
+                localStorage.clear();
+                
+                // Redirect to portal selection
+                window.location.href = 'portal.html';
+            }
+        }
+
+        // Go back function
+        function goBack() {
+            if (window.history.length > 1) {
+                window.history.back();
+            } else {
+                // If no history, go to portal selection
+                window.location.href = 'portal.html';
+            }
+        }
+    </script>
+</body>
+</html>

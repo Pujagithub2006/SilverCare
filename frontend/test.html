@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>VOIS Assistant - SilverCare</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="SilverCare">
+    <meta name="theme-color" content="#2563eb">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            background: #ffffff; 
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+        }
+        
+        .mobile-container {
+            width: 100%;
+            max-width: 375px;
+            height: 100vh;
+            max-height: 812px;
+            background: #ffffff;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 0 40px rgba(0,0,0,0.1);
+        }
+        
+        .mobile-header {
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            color: white;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: relative;
+            z-index: 1000;
+        }
+        
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .back-btn {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 18px;
+        }
+        
+        .back-btn:hover {
+            background: rgba(255,255,255,0.3);
+            transform: scale(1.05);
+        }
+        
+        .back-btn:active {
+            transform: scale(0.95);
+        }
+        
+        .mobile-header span {
+            font-size: 18px;
+            font-weight: 600;
+        }
+        
+        .clear-btn {
+            font-size: 12px; 
+            color: white; 
+            background: rgba(255,255,255,0.2); 
+            border: none;
+            border-radius: 8px; 
+            padding: 6px 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .clear-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+        
+        #messages { 
+            flex: 1; 
+            padding: 20px; 
+            overflow-y: auto; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 15px; 
+            background: #fafbfc;
+            height: calc(100vh - 140px);
+            max-height: calc(812px - 140px);
+        }
+        
+        .msg { 
+            padding: 14px 18px; 
+            border-radius: 20px; 
+            max-width: 80%; 
+            word-wrap: break-word;
+            font-size: 16px;
+            line-height: 1.4;
+        }
+        
+        .bot { 
+            background: #f1f3f4; 
+            color: #333;
+            align-self: flex-start; 
+            border-bottom-left-radius: 8px;
+        }
+        
+        .user { 
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            color: white; 
+            align-self: flex-end; 
+            border-bottom-right-radius: 8px;
+        }
+        
+        .input-area { 
+            display: flex; 
+            border-top: 1px solid #e5e7eb; 
+            padding: 20px;
+            background: white;
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+        }
+        
+        input { 
+            flex: 1; 
+            border: none; 
+            outline: none; 
+            padding: 14px 18px;
+            border-radius: 25px;
+            border: 1px solid #e5e7eb;
+            font-size: 16px;
+            background: #f9fafb;
+            transition: all 0.2s ease;
+        }
+        
+        input:focus {
+            border-color: #2563eb;
+            background: white;
+        }
+        
+        .input-area button {
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            color: white;
+            border: none;
+            padding: 14px 18px;
+            border-radius: 50%;
+            margin-left: 12px;
+            cursor: pointer;
+            font-size: 16px;
+            width: 52px;
+            height: 52px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+        
+        .input-area button:hover {
+            transform: scale(1.05);
+        }
+        
+        .input-area button:active {
+            transform: scale(0.95);
+        }
+        
+        .typing {
+            background: #f1f3f4;
+            align-self: flex-start;
+            padding: 14px 18px;
+            border-radius: 20px;
+            display: flex;
+            gap: 4px;
+            border-bottom-left-radius: 8px;
+        }
+        
+        .dot {
+            width: 6px;
+            height: 6px;
+            background: #6b7280;
+            border-radius: 50%;
+            animation: bounce 1.3s infinite;
+        }
+        
+        .dot:nth-child(2) { animation-delay: 0.15s; }
+        .dot:nth-child(3) { animation-delay: 0.3s; }
+        
+        @keyframes bounce {
+            0%, 60%, 100% { transform: translateY(0); }
+            30% { transform: translateY(-6px); }
+        }
+        
+        /* Desktop fallback - show mobile frame */
+        @media (min-width: 400px) {
+            body {
+                background: #f0f2f5;
+                padding: 20px;
+            }
+            
+            .mobile-container {
+                border-radius: 30px;
+                overflow: hidden;
+            }
+        }
+        
+        /* Mobile native app feel */
+        @media (max-width: 399px) {
+            .mobile-container {
+                max-width: 100%;
+                max-height: 100vh;
+                border-radius: 0;
+            }
+            
+            #messages {
+                height: calc(100vh - 140px);
+                max-height: none;
+            }
+        }
+        
+        /* iPhone notch simulation */
+        @media (max-width: 375px) and (min-height: 800px) {
+            .mobile-header {
+                padding-top: 40px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="mobile-container">
+        <div class="mobile-header">
+            <div class="header-left">
+                <button class="back-btn" onclick="goBack()">←</button>
+                <span>VOIS Companion 💙</span>
+            </div>
+            <button class="clear-btn" onclick="clearMemory()">Clear</button>
+        </div>
+        
+        <div id="messages"></div>
+        
+        <div class="input-area">
+            <input id="user-input" placeholder="Type hi..." onkeypress="if(event.key==='Enter') send()">
+            <button onclick="send()">➤</button>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = "http://127.0.0.1:5001";
+        let medTime = null;
+
+        function speak(text) {
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.rate = 0.9; 
+            window.speechSynthesis.speak(utterance);
+        }
+
+        async function send() {
+            const input = document.getElementById('user-input');
+            const message = input.value.trim();
+            if(!message) return;
+            
+            addMsg('user', message);
+            input.value = '';
+            
+            if (message.toLowerCase().includes("remind me at")) {
+                const timeMatch = message.match(/\d{2}:\d{2}/);
+                if (timeMatch) {
+                    medTime = timeMatch[0];
+                    addMsg('bot', `I've set a reminder for your medicine at ${medTime}. 💊`);
+                    speak(`I've set a reminder for your medicine at ${medTime}`);
+                    return;
+                }
+            }
+            
+            showTyping();
+
+            try {
+                const res = await fetch(`${API_BASE}/chat`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({message: message})
+                });
+                const data = await res.json();
+                
+                hideTyping();
+                addMsg('bot', data.reply);
+                speak(data.reply); 
+
+                if (data.reply.includes("remember your name")) {
+                    const nameMatch = data.reply.match(/name is (\w+)/i) || data.reply.match(/Hello (\w+)/i);
+                    if(nameMatch) localStorage.setItem('userName', nameMatch[1]);
+                }
+
+            } catch (e) {
+                hideTyping();
+                addMsg('bot', 'I had a tiny hiccup. Can you say that again?');
+            }
+        }
+
+        function addMsg(cls, txt) {
+            const messages = document.getElementById('messages');
+            const div = document.createElement('div');
+            div.className = 'msg ' + cls;
+            div.innerText = txt;
+            messages.appendChild(div);
+            messages.scrollTop = messages.scrollHeight;
+        }
+
+        function showTyping() {
+            const messages = document.getElementById('messages');
+            const div = document.createElement('div');
+            div.id = 'typing-indicator';
+            div.className = 'typing msg';
+            div.innerHTML = '<div class="dot"></div><div class="dot"></div><div class="dot"></div>';
+            messages.appendChild(div);
+            messages.scrollTop = messages.scrollHeight;
+        }
+
+        function hideTyping() {
+            const indicator = document.getElementById('typing-indicator');
+            if (indicator) indicator.remove();
+        }
+
+        setInterval(() => {
+            if (!medTime) return;
+            const now = new Date();
+            const currentTime = now.getHours().toString().padStart(2, '0') + ":" + 
+                                now.getMinutes().toString().padStart(2, '0');
+
+            if (currentTime === medTime) {
+                addMsg('bot', "💙 Medicine Reminder: It's time.");
+                speak("It is time for your medicine.");
+                medTime = null; 
+            }
+        }, 30000);
+
+        window.onload = () => {
+            const savedName = localStorage.getItem('userName');
+            setTimeout(() => {
+                if (savedName) {
+                    addMsg('bot', `Welcome back, ${savedName}! 💙`);
+                    speak(`Welcome back, ${savedName}`);
+                } else {
+                    addMsg('bot', "Hello! I'm your VOIS Companion. What is your name? 💙");
+                    speak("Hello! I'm your VOIS Companion. What is your name?");
+                }
+            }, 1000);
+        };  
+        
+        function clearMemory() {
+            if (confirm("Are you sure you want me to forget your name?")) {
+                localStorage.removeItem('userName');
+                location.reload(); 
+            }
+        }
+        
+        function goBack() {
+            window.close();
+            
+            setTimeout(() => {
+                window.history.back();
+            }, 100);
+        }
+    </script>
+</body>
+</html>

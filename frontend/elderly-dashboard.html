@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SilverCare - Elderly Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        body {
+            background: #f5f5f7;
+            min-height: 100vh;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 24px;
+        }
+        .elderly-info {
+            background: #007AFF;
+            color: white;
+            padding: 16px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+        .notification-area {
+            min-height: 200px;
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 20px;
+        }
+        .notification-card {
+            background: white;
+            border-left: 4px solid #007AFF;
+            padding: 16px;
+            margin-bottom: 12px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .notification-time {
+            font-size: 12px;
+            color: #6c6c70;
+            margin-bottom: 8px;
+        }
+        .notification-message {
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+        .notification-buttons {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        .btn-taken {
+            background: #34c759;
+            color: white;
+        }
+        .btn-snooze {
+            background: #ff9500;
+            color: white;
+        }
+        .btn-not-taken {
+            background: #ff3b30;
+            color: white;
+        }
+        .status {
+            text-align: center;
+            padding: 12px;
+            background: #e8f5e8;
+            border-radius: 8px;
+            color: #d9333f;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>👴 SilverCare</h1>
+            <p>Your Health Companion</p>
+        </div>
+        
+        <div class="elderly-info">
+            <h3 id="elderlyName">Loading...</h3>
+            <p id="elderlyStatus">Connecting to SilverCare...</p>
+        </div>
+        
+        <div class="notification-area">
+            <h3>Medicine Reminders</h3>
+            <div id="notificationsList">
+                <div class="status">No active reminders</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = "http://localhost:5001";
+        let elderlyId = null;
+        let notificationCheckInterval;
+
+        // Get elderly ID from URL or localStorage
+        function getElderlyId() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const id = urlParams.get('id') || localStorage.getItem('elderly_id');
+            return id;
+        }
+
+        // Register elderly session
+        async function registerSession() {
+            elderlyId = getElderlyId();
+            if (!elderlyId) {
+                document.getElementById('elderlyStatus').textContent = 'Please provide elderly ID in URL';
+                return;
+            }
+
+            try {
+                const deviceInfo = `${navigator.platform} - ${navigator.userAgent.split(' ')[0]}`;
+                
+                const response = await fetch(`${API_BASE}/elderly/register-session`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        elderly_id: elderlyId,
+                        device_info: deviceInfo
+                    })
+                });
+
+                const data = await response.json();
+                if (data.status === 'success') {
+                    document.getElementById('elderlyStatus').textContent = 'Connected and monitoring';
+                    document.getElementById('elderlyName').textContent = `Welcome, ${elderlyId}!`;
+                    startNotificationChecking();
+                } else {
+                    document.getElementById('elderlyStatus').textContent = 'Connection failed';
+                }
+            } catch (error) {
+                console.error('Session registration failed:', error);
+                document.getElementById('elderlyStatus').textContent = 'Connection error';
+            }
+        }
+
+        // Check for notifications
+        async function checkNotifications() {
+            try {
+                console.log('🔍 [ELDERLY] Checking notifications...');
+                const response = await fetch(`${API_BASE}/elderly/notifications/${elderlyId}`);
+                const data = await response.json();
+                
+                console.log('📱 [ELDERLY] Response:', data);
+                console.log('📊 [ELDERLY] Notifications count:', Object.keys(data.notifications || {}).length);
+                
+                if (data.status === 'success' && data.notifications) {
+                    displayNotifications(data.notifications);
+                } else {
+                    console.log('⚠️ [ELDERLY] No notifications or error:', data);
+                }
+            } catch (error) {
+                console.error('❌ [ELDERLY] Error checking notifications:', error);
+            }
+        }
+
+        // Display notifications
+        function displayNotifications(notifications) {
+            const container = document.getElementById('notificationsList');
+            
+            if (Object.keys(notifications).length === 0) {
+                container.innerHTML = '<div class="status">No active reminders</div>';
+                return;
+            }
+
+            container.innerHTML = '';
+            
+            Object.values(notifications).forEach(notification => {
+                const card = document.createElement('div');
+                card.className = 'notification-card';
+                
+                const time = new Date(notification.timestamp).toLocaleTimeString();
+                
+                const buttons = notification.options.map(option => {
+                    if (option === 'taken') {
+                        return `<button class="btn btn-taken" onclick="handleResponse('${notification.medicine.id}', 'taken')">✓ Taken</button>`;
+                    } else if (option === 'snooze') {
+                        return `<button class="btn btn-snooze" onclick="handleResponse('${notification.medicine.id}', 'snooze')">⏰ Snooze 2 min</button>`;
+                    } else if (option === 'not_taken') {
+                        return `<button class="btn btn-not-taken" onclick="handleResponse('${notification.medicine.id}', 'not_taken')">✗ Not Taken</button>`;
+                    }
+                }).join('');
+
+                card.innerHTML = `
+                    <div class="notification-time">${time}</div>
+                    <div class="notification-message">${notification.message}</div>
+                    <div class="notification-buttons">${buttons}</div>
+                `;
+                
+                container.appendChild(card);
+            });
+        }
+
+        // Handle notification response
+        async function handleResponse(medicineId, response) {
+            try {
+                const result = await fetch(`${API_BASE}/elderly/clear-notification`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        elderly_id: elderlyId,
+                        medicine_id: medicineId,
+                        response: response
+                    })
+                });
+
+                const data = await result.json();
+                if (data.status === 'success') {
+                    // Refresh notifications
+                    checkNotifications();
+                    
+                    // Show confirmation
+                    showConfirmation(response);
+                }
+            } catch (error) {
+                console.error('Error handling response:', error);
+            }
+        }
+
+        // Show confirmation message
+        function showConfirmation(response) {
+            const messages = {
+                'taken': '✅ Medicine marked as taken',
+                'snooze': '⏰ Reminder snoozed for 5 minutes',
+                'not_taken': '❌ Medicine marked as not taken'
+            };
+
+            const toast = document.createElement('div');
+            toast.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: #333;
+                color: white;
+                padding: 12px 20px;
+                border-radius: 8px;
+                z-index: 1000;
+            `;
+            toast.textContent = messages[response] || 'Response recorded';
+            
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.remove();
+            }, 3000);
+        }
+
+        // Start notification checking
+        function startNotificationChecking() {
+            // Check every 3 seconds for faster response
+            notificationCheckInterval = setInterval(checkNotifications, 3000);
+            // Check immediately
+            console.log('🔍 [ELDERLY] Starting notification checking...');
+            checkNotifications();
+        }
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', async () => {
+            if (elderlyId) {
+                try {
+                    await fetch(`${API_BASE}/elderly/unregister-session`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ elderly_id: elderlyId })
+                    });
+                } catch (error) {
+                    console.error('Session unregistration failed:', error);
+                }
+            }
+        });
+
+        // Initialize
+        registerSession();
+    </script>
+</body>
+</html>

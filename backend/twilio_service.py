@@ -1,9 +1,9 @@
 from twilio.rest import Client
 
 TWILIO_CONFIG = {
-    "ACCOUNT_SID": "YOUR_TWILIO_ACCOUNT_SID",  # Replace with your Twilio Account SID
-    "AUTH_TOKEN": "YOUR_TWILIO_AUTH_TOKEN",       
-    "TWILIO_PHONE": "YOUR_TWILIO_PHONE_NUMBER"  # Replace with your Twilio phone number
+    "ACCOUNT_SID": "ACac18cc74bcf1b1190b4f12209bfab258",      
+    "AUTH_TOKEN": "e827f5e89c1fe9f2144af636c2da5c35",       
+    "TWILIO_PHONE": "+15707084443",              
 }
 
 # Verification flag - set to True since valid credentials are provided
@@ -24,42 +24,6 @@ class TwilioService:
             self.client = None
             print("[TWILIO] ⚠️ WARNING: Twilio not configured!")
     
-    def send_prefall_alert_sms(self, guardian_phone, elderly_name, location, device_id):
-        """
-        Send SMS alert to guardian about prefall detection
-        
-        Args:
-            guardian_phone: Guardian's phone number
-            elderly_name: Name of elderly person
-            location: Location of elderly person
-            device_id: Device ID that detected the prefall
-        
-        Returns:
-            True if SMS sent, False otherwise
-        """
-        
-        if not TWILIO_ENABLED:
-            print(f"[SMS] Mock prefall SMS to: {guardian_phone}")
-            print(f"[SMS] Message: PREFALL WARNING - {elderly_name} at {location}")
-            return True
-        
-        try:
-            message = self.client.messages.create(
-                body=f"⚠️ SILVERCARE WARNING: Pre-fall detected for elderly at {location} (Device: {device_id}). Please check on them as they may be at risk of falling.",
-                from_=TWILIO_CONFIG["TWILIO_PHONE"],
-                to=guardian_phone
-            )
-            
-            print(f"[SMS] ✅ Prefall alert SMS sent!")
-            print(f"[SMS] Message SID: {message.sid}")
-            print(f"[SMS] To: {guardian_phone}")
-            
-            return True
-            
-        except Exception as e:
-            print(f"[SMS] ❌ Error sending prefall SMS: {e}")
-            return False
-
     def send_fall_alert_sms(self, guardian_phone, elderly_name, location, device_id):
         """
         Send SMS alert to guardian about fall detection
@@ -76,12 +40,12 @@ class TwilioService:
         
         if not TWILIO_ENABLED:
             print(f"[SMS] Mock SMS to: {guardian_phone}")
-            print(f"[SMS] Message: FALL ALERT - elderly at {location}")
+            print(f"[SMS] Message: FALL ALERT - {elderly_name} at {location}")
             return True
         
         try:
             message = self.client.messages.create(
-                body=f"🚨 SILVERCARE ALERT: Fall detected for elderly at {location} (Device: {device_id}). Please check on them immediately.",
+                body=f"🚨 SILVERCARE ALERT: Fall detected for {elderly_name} at {location} (Device: {device_id}). Please check on them immediately.",
                 from_=TWILIO_CONFIG["TWILIO_PHONE"],
                 to=guardian_phone
             )
@@ -117,7 +81,7 @@ class TwilioService:
         
         try:
             message = self.client.messages.create(
-                body=f"🚨🚨 URGENT SILVERCARE ALERT:  has NOT RESPONDED to fall alert at {location}! This is an emergency. Please call them immediately or check on them. Device: {device_id}",
+                body=f"🚨🚨 URGENT SILVERCARE ALERT: {elderly_name} has NOT RESPONDED to fall alert at {location}! This is an emergency. Please call them immediately or check on them. Device: {device_id}",
                 from_=TWILIO_CONFIG["TWILIO_PHONE"],
                 to=guardian_phone
             )
