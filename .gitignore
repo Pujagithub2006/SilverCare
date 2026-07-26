@@ -1,6 +1,15 @@
+# Python
 .venv/
 __pycache__/
 *.pyc
 
+# Node.js
+node_modules/
+
+# IDE
 .vs/
 .vscode/
+
+# Build output
+dist/
+build/
