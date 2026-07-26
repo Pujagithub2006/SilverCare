@@ -1,9 +1,3 @@
-# SilverCare: Proactive AI Platform for Elderly Assistance, Health Monitoring & Caregiver Support
-
-VOIS Innovation Marathon 2.0  
-
----
-
 ## ♦ Project Title
 **SilverCare: Proactive AI Platform for Elderly Assistance, Health Monitoring & Caregiver Support**
 
