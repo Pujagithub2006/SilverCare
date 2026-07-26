@@ -155,25 +155,8 @@ def get_medicines(elderly_id):
         if elderly_id not in medicines:
             return jsonify({"medicines": []}), 200
         
-        # Filter only active medicines and ensure confirmation_history exists
-        active_medicines = []
-        for m in medicines[elderly_id]:
-            if m.get('active', True):
-                if 'confirmation_history' not in m:
-                    # Add sample confirmation history for demonstration
-                    m['confirmation_history'] = [
-                        {
-                            "time_taken": "05:04",
-                            "taken": True,
-                            "timestamp": "2026-02-26T05:04:00.000000"
-                        },
-                        {
-                            "time_taken": "05:04", 
-                            "taken": False,
-                            "timestamp": "2026-02-27T05:04:00.000000"
-                        }
-                    ]
-                active_medicines.append(m)
+        # Filter only active medicines
+        active_medicines = [m for m in medicines[elderly_id] if m.get('active', True)]
         
         return jsonify({"medicines": active_medicines}), 200
         

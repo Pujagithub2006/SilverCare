@@ -11,46 +11,43 @@ fall_detection_bp = Blueprint('fall_detection', __name__)
 # Store fall detection state
 fall_detected = False
 
-def get_guardian_phone_for_elderly():
-    """Get phone number of latest registered guardian (simple approach)"""
-    print(" [DEBUG] get_guardian_phone_for_elderly() called")
+def get_guardian_phone_for_elderly(device_id):
+    """Get guardian phone number for elderly person based on device_id and current_user"""
     try:
+        # Load elderly data
+        elderly_file = 'data/elderly.json'
+        if os.path.exists(elderly_file):
+            with open(elderly_file, 'r') as f:
+                elderly_data = json.load(f)
+        
         # Load guardians data
         guardians_file = 'data/guardians.json'
-        print(f" [DEBUG] Loading guardians from: {guardians_file}")
-        
         if os.path.exists(guardians_file):
             with open(guardians_file, 'r') as f:
                 guardians_data = json.load(f)
-            print(f" [DEBUG] Loaded {len(guardians_data)} guardians")
         
-        # Find latest registered guardian (simple: just get first one)
-        if guardians_data:
-            # Get most recently created guardian
-            latest_guardian = None
-            latest_time = None
-            
-            for username, guardian_info in guardians_data.items():
-                created_at = guardian_info.get('created_at', '')
-                print(f" [DEBUG] Checking guardian: {username}, created: {created_at}")
+        # For single device (vois_belt), get current_user from device
+        if device_id == "vois_belt":
+            device_info = elderly_data.get(device_id)
+            if device_info:
+                current_user = device_info.get('current_user')
+                print(f"[DEBUG] Device {device_id} current_user: {current_user}")
                 
-                if created_at and (latest_time is None or created_at > latest_time):
-                    latest_time = created_at
-                    latest_guardian = guardian_info
-            
-            if latest_guardian:
-                phone = latest_guardian.get('phone')
-                guardian_name = latest_guardian.get('name', 'Unknown')
-                print(f" [SUCCESS] Latest guardian found: {guardian_name} ({phone})")
-                print(f" [SUCCESS] Created at: {latest_time}")
-                return phone
-            else:
-                print(" [ERROR] No latest guardian found!")
+                # Find the elderly person who is currently using the device
+                if current_user in elderly_data:
+                    elderly_info = elderly_data[current_user]
+                    guardian_username = elderly_info.get('guardian_username')
+                    print(f"[DEBUG] Found elderly {current_user}, guardian: {guardian_username}")
+                    
+                    if guardian_username and guardian_username in guardians_data:
+                        guardian_info = guardians_data[guardian_username]
+                        phone = guardian_info.get('phone')
+                        print(f"[DEBUG] Guardian phone: {phone}")
+                        return phone
         
-        print(" [ERROR] No guardians data found!")
         return None
     except Exception as e:
-        print(f" [ERROR] Error getting latest guardian phone: {e}")
+        print(f"Error getting guardian phone: {e}")
         return None
 
 
@@ -72,8 +69,7 @@ def detect_fall():
         device_id = data.get("device_id", "unknown")
         confidence = data.get("confidence", 1.0)
         
-        print("🚨 [FALL] detect_fall() called!")
-        print(f"📊 [FALL] Device: {device_id}, Confidence: {confidence}")
+        print(f"[FALL DETECTED] Device: {device_id}, Confidence: {confidence}")
         fall_detected = True
         
         return jsonify({
@@ -82,7 +78,7 @@ def detect_fall():
             "device_id": device_id
         }), 200
     except Exception as e:
-        print(f"❌ [FALL] Error processing fall detection: {e}")
+        print(f"Error processing fall detection: {e}")
         return jsonify({
             "status": "error",
             "message": str(e)
@@ -119,32 +115,27 @@ def notify_guardian_fall():
     try:
         data = request.get_json()
         elderly_name = data.get("elderly_name", "User")
+        device_id = data.get("device_id", "unknown")
         location = data.get("location", "Unknown location")
         
-        print("🚨 [NOTIFY] notify_guardian_fall() called!")
-        print(f"🚨 [NOTIFY] Elderly: {elderly_name}")
-        print(f"📍 [NOTIFY] Location: {location}")
+        print(f"[GUARDIAN ALERT] Fall detected for {elderly_name}")
+        print(f"[GUARDIAN ALERT] Device: {device_id}, Location: {location}")
         
         # Send SMS alert to guardian
         try:
-            print("🔍 [NOTIFY] Getting latest guardian...")
             # Find guardian linked to this elderly person
-            guardian_phone = get_guardian_phone_for_elderly()
+            guardian_phone = get_guardian_phone_for_elderly(device_id)
             
             if guardian_phone:
-                print(f"📱 [NOTIFY] Guardian phone found: {guardian_phone}")
-                
                 # Send SMS
-                print("📤 [NOTIFY] Sending fall alert SMS...")
                 sms_success = twilio_service.send_fall_alert_sms(
                     guardian_phone=guardian_phone,
                     elderly_name=elderly_name,
                     location=location,
-                    device_id="vois_belt"
+                    device_id=device_id
                 )
                 
                 # Make emergency call
-                print("📞 [NOTIFY] Making emergency call...")
                 call_success = twilio_service.make_emergency_call(
                     guardian_phone=guardian_phone,
                     elderly_name=elderly_name,
@@ -152,19 +143,19 @@ def notify_guardian_fall():
                 )
                 
                 if sms_success:
-                    print(f"✅ [SUCCESS] Fall alert SMS sent to {guardian_phone}")
+                    print(f"[SMS] ✅ Fall alert SMS sent to guardian at {guardian_phone}")
                 else:
-                    print(f"❌ [ERROR] Failed to send fall alert SMS to {guardian_phone}")
+                    print(f"[SMS] ❌ Failed to send fall alert SMS to {guardian_phone}")
                     
                 if call_success:
-                    print(f"✅ [SUCCESS] Emergency call initiated to {guardian_phone}")
+                    print(f"[CALL] ✅ Emergency call initiated to guardian at {guardian_phone}")
                 else:
-                    print(f"❌ [ERROR] Failed to initiate emergency call to {guardian_phone}")
+                    print(f"[CALL] ❌ Failed to initiate emergency call to {guardian_phone}")
             else:
-                print("❌ [ERROR] No guardian found!")
+                print(f"[SMS] ❌ No guardian found for elderly device: {device_id}")
                 
         except Exception as sms_error:
-            print(f"❌ [ERROR] SMS/Call error: {sms_error}")
+            print(f"[SMS] Error sending SMS/call: {sms_error}")
         
         return jsonify({
             "status": "success",
@@ -172,7 +163,7 @@ def notify_guardian_fall():
             "elderly_name": elderly_name
         }), 200
     except Exception as e:
-        print(f"❌ [ERROR] notify_guardian_fall error: {e}")
+        print(f"Error notifying guardian: {e}")
         return jsonify({
             "status": "error",
             "message": str(e)
@@ -263,14 +254,14 @@ def notify_guardian_no_response():
         # Send URGENT SMS alert to guardian
         try:
             # Find guardian linked to this elderly person
-            guardian_phone = get_guardian_phone_for_elderly()
+            guardian_phone = get_guardian_phone_for_elderly(device_id)
             
             if guardian_phone:
                 sms_success = twilio_service.send_urgent_alert_sms(
                     guardian_phone=guardian_phone,
                     elderly_name=elderly_name,
                     location=location,
-                    device_id="vois_belt"
+                    device_id=device_id
                 )
                 
                 # Make emergency call for urgent situation

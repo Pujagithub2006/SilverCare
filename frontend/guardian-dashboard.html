@@ -1,0 +1,2492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guardian Dashboard - SilverCare</title>
+    <link rel="stylesheet" href="styles.css">
+    
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#007AFF">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="SilverCare">
+    <meta name="description" content="SilverCare Guardian Dashboard - Monitor elderly health and safety">
+    
+    <!-- Apple Touch Icon -->
+    <link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTkyIiBoZWlnaHQ9IjE5MiIgdmlld0JveD0iMCAwIDE5MiAxOTIiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxOTIiIGhlaWdodD0iMTkyIiByeD0iMjQiIGZpbGw9IiMwMDdBRkYiLz4KPHN2ZyB3aWR0aD0iOTYiIGhlaWdodD0iOTYiIHZpZXdCb3g9IjAgMCA5NiA5NiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB4PSI0OCIgeT0iNDgiPgo8cGF0aCBkPSJNMjggNDBIMjhWNTZINDhWNDBIMjh6IiBmaWxsPSJ3aGl0ZSIvPgo8cGF0aCBkPSJNNDggNDBINjhWNTZINDhWNDBaIiBmaWxsPSJ3aGl0ZSIvPgo8L3N2Zy+">
+    
+    <!-- Manifest -->
+    <link rel="manifest" href="manifest.json">
+    <style>
+        body {
+            background: #ffffff;
+            min-height: 100vh;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            margin: 0;
+            padding: 0;
+            -webkit-font-smoothing: antialiased;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        .dashboard-container {
+            width: 100%;
+            max-width: 375px;
+            margin: 0 auto;
+            padding: 0;
+            background: #ffffff;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .header {
+            background: #ffffff;
+            border-radius: 0;
+            padding: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .back-btn {
+            background: rgba(0, 122, 255, 0.1);
+            border: 1px solid rgba(0, 122, 255, 0.2);
+            color: #007AFF;
+            padding: 8px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            margin-right: 10px;
+        }
+        
+        .back-btn:hover {
+            background: rgba(0, 122, 255, 0.2);
+            transform: translateX(-2px);
+        }
+        
+        .back-btn:active {
+            transform: translateX(0);
+        }
+
+        .guardian-info {
+            margin-bottom: 0;
+            box-shadow: 0 1px 0 rgba(0, 0, 0, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #e5e5e7;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .guardian-info h1 {
+            color: #000000;
+            margin: 0;
+            font-size: 22px;
+            font-weight: 700;
+            line-height: 1.2;
+        }
+
+        .guardian-info p {
+            color: #6c6c70;
+            margin: 2px 0 0 0;
+            font-size: 14px;
+            font-weight: 400;
+        }
+
+        .logout-btn {
+            background: #ff3b30;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 14px;
+            transition: all 0.15s ease;
+            min-height: 36px;
+            min-width: 80px;
+        }
+
+        .logout-btn:hover {
+            background: #d70015;
+            transform: scale(0.95);
+        }
+
+        .logout-btn:active {
+            transform: scale(0.9);
+        }
+
+        .elderly-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+            margin-bottom: 0;
+            flex: 1;
+            padding-bottom: 20px;
+        }
+
+        .elderly-card {
+            background: #ffffff;
+            border-radius: 0;
+            padding: 16px;
+            box-shadow: none;
+            transition: all 0.15s ease;
+            border-bottom: 1px solid #e5e5e7;
+            position: relative;
+            cursor: pointer;
+        }
+
+        .elderly-card:hover {
+            background: #f2f2f7;
+        }
+
+        .elderly-card:active {
+            background: #e5e5ea;
+            transform: scale(0.98);
+        }
+
+        .elderly-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .elderly-avatar {
+            width: 48px;
+            height: 48px;
+            background: #007AFF;
+            border-radius: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 18px;
+            font-weight: 600;
+            margin-right: 12px;
+            flex-shrink: 0;
+        }
+
+        .elderly-name {
+            font-size: 17px;
+            font-weight: 600;
+            color: #000000;
+            margin: 0;
+            line-height: 1.3;
+        }
+
+        .elderly-age {
+            color: #6c6c70;
+            font-size: 14px;
+            margin: 2px 0 0 0;
+            font-weight: 400;
+        }
+
+        .info-section {
+            margin-bottom: 12px;
+        }
+
+        .info-label {
+            font-weight: 500;
+            color: #6c6c70;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+
+        .info-value {
+            color: #000000;
+            font-size: 15px;
+            font-weight: 400;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .status-normal {
+            background: #e8f5e8;
+            color: #34c759;
+        }
+
+        .status-prefall {
+            background: #fff3cd;
+            color: #ff9500;
+        }
+
+        .status-sudden {
+            background: #ffe4e1;
+            color: #ff6347;
+        }
+
+        .status-fall {
+            background: #ffebee;
+            color: #ff3b30;
+        }
+
+        .action-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-top: 16px;
+        }
+
+        .btn {
+            padding: 12px 16px;
+            border: none;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            text-align: center;
+            min-height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .btn-primary {
+            background: #007AFF;
+            color: white;
+        }
+
+        .btn-secondary {
+            background: #f2f2f7;
+            color: #007AFF;
+            border: 1px solid #d1d1d6;
+        }
+
+        .btn:hover {
+            transform: scale(0.95);
+            opacity: 0.8;
+        }
+
+        .btn:active {
+            transform: scale(0.9);
+        }
+
+        .no-elderly {
+            background: #ffffff;
+            border-radius: 0;
+            padding: 60px 20px;
+            text-align: center;
+            box-shadow: none;
+            margin: 0;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .no-elderly h2 {
+            color: #000000;
+            margin-bottom: 12px;
+            font-size: 24px;
+            font-weight: 700;
+        }
+
+        .no-elderly p {
+            color: #6c6c70;
+            margin-bottom: 24px;
+            font-size: 16px;
+            line-height: 1.5;
+            max-width: 300px;
+        }
+
+        .add-elderly-btn {
+            background: #007AFF;
+            color: white;
+            border: none;
+            padding: 14px 28px;
+            border-radius: 24px;
+            font-size: 17px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            min-height: 50px;
+            min-width: 200px;
+        }
+
+        .add-elderly-btn:hover {
+            background: #0056b3;
+            transform: scale(0.95);
+        }
+
+        .add-elderly-btn:active {
+            transform: scale(0.9);
+        }
+
+        .loading {
+            text-align: center;
+            padding: 60px 20px;
+            color: #6c6c70;
+            font-size: 16px;
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Hardware Dashboard Styles */
+        .hardware-card {
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hardware-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        }
+
+        .hardware-card:active {
+            transform: translateY(0);
+        }
+
+        .hardware-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s;
+        }
+
+        .hardware-card:hover::before {
+            left: 100%;
+        }
+
+        .hardware-card.warning {
+            background: linear-gradient(135deg, #ff9500, #ff6961) !important;
+            animation: pulse 2s infinite;
+        }
+
+        .hardware-card.danger {
+            background: linear-gradient(135deg, #ff3b30, #d70015) !important;
+            animation: pulse 1s infinite;
+        }
+
+        .hardware-card.disconnected {
+            background: linear-gradient(135deg, #8e8e93, #636366) !important;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.7; }
+            100% { opacity: 1; }
+        }
+
+        .hardware-value {
+            font-variant-numeric: tabular-nums;
+            letter-spacing: -0.5px;
+        }
+
+        .hardware-status-indicator {
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #34c759;
+            animation: blink 2s infinite;
+        }
+
+        .hardware-status-indicator.warning {
+            background: #ff9500;
+        }
+
+        .hardware-status-indicator.danger {
+            background: #ff3b30;
+        }
+
+        .hardware-status-indicator.offline {
+            background: #8e8e93;
+            animation: none;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 320px) {
+            #hardwareDashboard {
+                grid-template-columns: 1fr !important;
+            }
+            
+            .hardware-card h4 {
+                font-size: 20px !important;
+            }
+        }
+
+        /* iOS Safari specific fixes */
+        @supports (-webkit-touch-callout: none) {
+            .hardware-card {
+                -webkit-tap-highlight-color: transparent;
+            }
+        }
+
+        /* Ensure mobile viewport */
+        @viewport {
+            width: device-width;
+            initial-scale: 1.0;
+            maximum-scale: 1.0;
+            user-scalable: no;
+        }
+
+        /* iOS Safari specific fixes */
+        @supports (-webkit-touch-callout: none) {
+            .header {
+                padding-top: env(safe-area-inset-top);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-container">
+        <div class="header">
+            <button class="back-btn" onclick="goBack()" title="Go Back">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                    <path d="M19 12H5M12 19l-7-7 7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </button>
+            <div class="guardian-info">
+                <h1 id="guardianName">Loading...</h1>
+                <p id="guardianContact">Loading...</p>
+            </div>
+            <button class="logout-btn" onclick="logout()">Logout</button>
+        </div>
+
+        <!-- Loading State -->
+        <div id="loadingState" class="loading">
+            Loading your dashboard...
+        </div>
+
+        <!-- No Elderly State -->
+        <div id="noElderlyState" class="no-elderly" style="display: none;">
+            <h2>No Elderly Members Linked Yet</h2>
+            <p>You haven't linked any elderly members to your account yet. Ask them to register using your username and password.</p>
+            <button class="add-elderly-btn" onclick="showRegistrationInstructions()">
+                View Registration Instructions
+            </button>
+        </div>
+
+        <!-- Elderly Grid -->
+        <div id="elderlyGrid" class="elderly-grid" style="display: none;">
+            <!-- Elderly cards will be dynamically added here -->
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = "http://localhost:5001";
+        let currentElderlyId = null;
+
+        // Update elderly status based on sensor data
+        function updateElderlyStatus(sensorData) {
+            const elderlyId = sensorData.deviceId || 'isha_amit';
+            const statusElement = document.getElementById(`status-${elderlyId}`);
+            
+            if (statusElement) {
+                let statusText = 'Normal';
+                let statusClass = 'status-normal';
+                
+                switch(sensorData.stateName) {
+                    case 'NORMAL':
+                        statusText = 'Normal';
+                        statusClass = 'status-normal';
+                        break;
+                    case 'PREFALL':
+                        statusText = 'Pre-Fall';
+                        statusClass = 'status-prefall';
+                        break;
+                    case 'SUDDEN_MOVEMENT':
+                        statusText = 'Sudden Movement';
+                        statusClass = 'status-sudden';
+                        break;
+                    case 'FALL_DETECTED':
+                        statusText = 'Fall Detected';
+                        statusClass = 'status-fall';
+                        break;
+                    default:
+                        statusText = 'Normal';
+                        statusClass = 'status-normal';
+                }
+                
+                statusElement.textContent = statusText;
+                statusElement.className = `status-indicator ${statusClass}`;
+                
+                console.log(`🔄 [GUARDIAN] Status updated: ${elderlyId} -> ${statusText}`);
+            }
+            
+            // Update hardware status with real sensor data
+            updateHardwareStatus(sensorData);
+        }
+
+        // Update hardware status with real sensor data
+        function updateHardwareStatus(sensorData) {
+            const elderlyId = sensorData.deviceId || 'isha_amit';
+            
+            // Update heart rate
+            const heartRateElement = document.getElementById(`heartRateValue-${elderlyId}`);
+            if (heartRateElement && sensorData.heartRate) {
+                heartRateElement.textContent = Math.round(sensorData.heartRate);
+            }
+            
+            // Update oxygen level
+            const oxygenElement = document.getElementById(`oxygenLevelValue-${elderlyId}`);
+            if (oxygenElement && sensorData.spo2) {
+                oxygenElement.textContent = Math.round(sensorData.spo2);
+            }
+            
+            // Update temperature
+            const tempElement = document.getElementById(`temperatureValue-${elderlyId}`);
+            if (tempElement && sensorData.temperature) {
+                tempElement.textContent = sensorData.temperature.toFixed(1);
+            }
+            
+            // Update belt status
+            const beltStatusElement = document.getElementById(`beltStatusValue-${elderlyId}`);
+            const beltStatusCard = document.getElementById(`beltStatusCard-${elderlyId}`);
+            const beltLastUpdateElement = document.getElementById(`beltLastUpdate-${elderlyId}`);
+            
+            if (beltStatusElement && beltStatusCard) {
+                if (sensorData.beltWorn) {
+                    beltStatusElement.textContent = 'Connected';
+                    beltStatusCard.style.background = 'linear-gradient(135deg, #34c759, #32d74b)';
+                } else {
+                    beltStatusElement.textContent = 'Disconnected';
+                    beltStatusCard.style.background = 'linear-gradient(135deg, #8e8e93, #636366)';
+                }
+                
+                if (beltLastUpdateElement) {
+                    beltLastUpdateElement.textContent = 'Just now';
+                }
+            }
+        }
+
+        // Load guardian info from localStorage
+        function loadGuardianInfo() {
+            const guardianName = localStorage.getItem('guardian_name');
+            const guardianPhone = localStorage.getItem('guardian_phone');
+            const guardianEmail = localStorage.getItem('guardian_email');
+            const guardianUsername = localStorage.getItem('guardian_username');
+
+            if (!guardianUsername) {
+                window.location.href = 'guardian-auth.html';
+                return;
+            }
+
+            document.getElementById('guardianName').textContent = guardianName || 'Guardian';
+            document.getElementById('guardianContact').textContent = 
+                guardianPhone ? `📞 ${guardianPhone}` : guardianEmail ? `✉️ ${guardianEmail}` : 'No contact info';
+
+            return guardianUsername;
+        }
+
+        // Fetch linked elderly members - REAL DATA ONLY
+        async function fetchLinkedElderly(guardianUsername) {
+            console.log('🚀 [GUARDIAN] Loading real elderly data for:', guardianUsername);
+            
+            try {
+                const response = await fetch(`${API_BASE}/guardian-elderly/${guardianUsername}`);
+                const data = await response.json();
+
+                if (response.ok && data.status === 'success') {
+                    displayElderly(data.data || []);
+                } else {
+                    console.error('❌ [GUARDIAN] API error:', data.error || data.message);
+                    document.getElementById('loadingState').style.display = 'none';
+                    document.getElementById('noElderlyState').style.display = 'block';
+                }
+            } catch (error) {
+                console.error('❌ [GUARDIAN] Network error:', error);
+                document.getElementById('loadingState').style.display = 'none';
+                document.getElementById('noElderlyState').style.display = 'block';
+            }
+        }
+
+        // Display elderly cards
+        function displayElderly(elderlyList) {
+            document.getElementById('loadingState').style.display = 'none';
+
+            if (elderlyList.length === 0) {
+                document.getElementById('noElderlyState').style.display = 'block';
+                return;
+            }
+
+            const grid = document.getElementById('elderlyGrid');
+            grid.innerHTML = '';
+            grid.style.display = 'grid';
+
+            elderlyList.forEach(elderly => {
+                const card = createElderlyCard(elderly);
+                grid.appendChild(card);
+                // Load hardware data for this elderly person
+                loadHardwareDataForDashboard(elderly.elderly_id);
+            });
+        }
+
+        // Create elderly card
+        function createElderlyCard(elderly) {
+            const card = document.createElement('div');
+            card.className = 'elderly-card';
+
+            const initials = elderly.name.split(' ').map(n => n[0]).join('').toUpperCase();
+
+            card.innerHTML = `
+                <div class="elderly-header">
+                    <div class="elderly-avatar">${initials}</div>
+                    <div>
+                        <h3 class="elderly-name">${elderly.name}</h3>
+                        <p class="elderly-age">Age: ${elderly.age || 'Not specified'}</p>
+                    </div>
+                </div>
+
+                <div class="info-section">
+                    <div class="info-label">Status</div>
+                    <span class="status-indicator status-normal" id="status-${elderly.elderly_id}">Normal</span>
+                </div>
+
+                ${elderly.phone ? `
+                <div class="info-section">
+                    <div class="info-label">Phone</div>
+                    <div class="info-value">📞 ${elderly.phone}</div>
+                </div>
+                ` : ''}
+
+                ${elderly.location ? `
+                <div class="info-section">
+                    <div class="info-label">Location</div>
+                    <div class="info-value">📍 ${elderly.location}</div>
+                </div>
+                ` : ''}
+
+                ${elderly.medical_history ? `
+                <div class="info-section">
+                    <div class="info-label">Medical History</div>
+                    <div class="info-value">${elderly.medical_history}</div>
+                </div>
+                ` : ''}
+
+                <!-- Hardware Dashboard -->
+                <div class="info-section">
+                    <div class="info-label">🖥️ Hardware Status</div>
+                    <div id="hardwareDashboard-${elderly.elderly_id}" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 8px;">
+                        <!-- Heart Rate -->
+                        <div class="hardware-card" style="background: linear-gradient(135deg, #ff3b30, #ff6961); color: white; padding: 12px; border-radius: 8px; text-align: center; position: relative;">
+                            <div style="position: absolute; top: 6px; right: 6px; font-size: 16px;">❤️</div>
+                            <h4 style="margin: 0; font-size: 18px; font-weight: 600;" id="heartRateValue-${elderly.elderly_id}">--</h4>
+                            <p style="margin: 2px 0 0 0; font-size: 10px;">Heart Rate</p>
+                            <p style="margin: 0; font-size: 8px; opacity: 0.8;">BPM</p>
+                        </div>
+                        
+                        <!-- Oxygen Level -->
+                        <div class="hardware-card" style="background: linear-gradient(135deg, #007AFF, #5ac8fa); color: white; padding: 12px; border-radius: 8px; text-align: center; position: relative;">
+                            <div style="position: absolute; top: 6px; right: 6px; font-size: 16px;">💨</div>
+                            <h4 style="margin: 0; font-size: 18px; font-weight: 600;" id="oxygenLevelValue-${elderly.elderly_id}">--</h4>
+                            <p style="margin: 2px 0 0 0; font-size: 10px;">Oxygen Level</p>
+                            <p style="margin: 0; font-size: 8px; opacity: 0.8;">SpO2%</p>
+                        </div>
+                        
+                        <!-- Temperature -->
+                        <div class="hardware-card" style="background: linear-gradient(135deg, #ff9500, #ffcc02); color: white; padding: 12px; border-radius: 8px; text-align: center; position: relative;">
+                            <div style="position: absolute; top: 6px; right: 6px; font-size: 16px;">🌡️</div>
+                            <h4 style="margin: 0; font-size: 18px; font-weight: 600;" id="temperatureValue-${elderly.elderly_id}">--</h4>
+                            <p style="margin: 2px 0 0 0; font-size: 10px;">Temperature</p>
+                            <p style="margin: 0; font-size: 8px; opacity: 0.8;">°C</p>
+                        </div>
+                        
+                        <!-- Belt Connection Status -->
+                        <div class="hardware-card disconnected" id="beltStatusCard-${elderly.elderly_id}" style="background: linear-gradient(135deg, #8e8e93, #636366); color: white; padding: 12px; border-radius: 8px; text-align: center; position: relative;">
+                            <div style="position: absolute; top: 6px; right: 6px; font-size: 16px;">⌚</div>
+                            <h4 style="margin: 0; font-size: 14px; font-weight: 600;" id="beltStatusValue-${elderly.elderly_id}">Disconnected</h4>
+                            <p style="margin: 2px 0 0 0; font-size: 10px;">Belt Status</p>
+                            <p style="margin: 0; font-size: 8px; opacity: 0.8;" id="beltLastUpdate-${elderly.elderly_id}">Never</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="action-buttons">
+                    <button class="btn btn-primary" onclick="viewDetails('${elderly.elderly_id}')">
+                        View Details
+                    </button>
+                    <button class="btn btn-secondary" onclick="checkAlerts('${elderly.elderly_id}')">
+                        Check Alerts
+                    </button>
+                    <button class="btn btn-primary" onclick="manageMedicines('${elderly.elderly_id}', '${elderly.name}')">
+                        💊 Medicines
+                    </button>
+                    <button class="btn btn-secondary" onclick="addSuggestion('${elderly.elderly_id}', '${elderly.name}')">
+                        📝 Add Suggestion
+                    </button>
+                </div>
+            `;
+
+            return card;
+        }
+
+        // View elderly details
+        function viewDetails(elderlyId) {
+            showElderlyDetailsModal(elderlyId);
+        }
+
+        // Check alerts
+        function checkAlerts(elderlyId) {
+            alert(`Alerts for ${elderlyId} - Coming soon!`);
+        }
+
+        // Manage medicines
+        function manageMedicines(elderlyId, elderlyName) {
+            currentElderlyId = elderlyId; // Set the current elderly ID
+            console.log('🎯 [GUARDIAN] Set currentElderlyId to:', elderlyId);
+            showMedicineModal(elderlyId, elderlyName);
+        }
+
+        // Add suggestion
+        function addSuggestion(elderlyId, elderlyName) {
+            // Create modal for voice suggestion
+            const modalHtml = `
+                <div id="suggestionModal" class="modal-overlay" style="
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background: rgba(0,0,0,0.3);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    z-index: 1000;
+                    padding: 20px;
+                ">
+                    <div class="modal-content" style="
+                        background: white;
+                        border-radius: 20px;
+                        padding: 0;
+                        max-width: 400px;
+                        width: 100%;
+                        max-height: 90vh;
+                        overflow-y: auto;
+                        animation: slideUp 0.3s ease-out;
+                        box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
+                    ">
+                        <div style="
+                            background: white;
+                            padding: 20px 16px;
+                            border-bottom: 1px solid #e5e5e7;
+                            position: sticky;
+                            top: 0;
+                            z-index: 10;
+                            border-radius: 20px 20px 0 0;
+                        ">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <h3 style="color: #000000; margin: 0; font-size: 20px; font-weight: 700;">📝 Add Suggestion</h3>
+                                <button onclick="closeSuggestionModal()" style="
+                                    background: none;
+                                    border: none;
+                                    font-size: 24px;
+                                    color: #6c6c70;
+                                    cursor: pointer;
+                                    padding: 4px;
+                                    line-height: 1;
+                                    min-width: 32px;
+                                    min-height: 32px;
+                                    display: flex;
+                                    align-items: center;
+                                    justify-content: center;
+                                    border-radius: 16px;
+                                ">×</button>
+                            </div>
+                        </div>
+                        
+                        <div style="padding: 16px;">
+                            <div style="margin-bottom: 16px;">
+                                <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #333;">For: <strong>${elderlyName}</strong></label>
+                            </div>
+                            
+                            <div style="margin-bottom: 16px;">
+                                <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #333;">Your Suggestion:</label>
+                                <textarea id="suggestionText" style="
+                                    width: 100%;
+                                    min-height: 120px;
+                                    padding: 12px;
+                                    border: 1px solid #ddd;
+                                    border-radius: 8px;
+                                    font-size: 16px;
+                                    resize: vertical;
+                                    box-sizing: border-box;
+                                " placeholder="Type your health suggestion here or use voice input..."></textarea>
+                            </div>
+                            
+                            <div id="voiceControls" style="margin-bottom: 20px;">
+                                <!-- Voice controls will be inserted here -->
+                            </div>
+                            
+                            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                                <button onclick="closeSuggestionModal()" style="
+                                    padding: 12px 20px;
+                                    border: 1px solid #ddd;
+                                    border-radius: 8px;
+                                    background: #f8f9fa;
+                                    color: #333;
+                                    cursor: pointer;
+                                    font-size: 14px;
+                                ">Cancel</button>
+                                <button onclick="submitSuggestionFromModal('${elderlyId}')" style="
+                                    padding: 12px 20px;
+                                    border: none;
+                                    border-radius: 8px;
+                                    background: #007bff;
+                                    color: white;
+                                    cursor: pointer;
+                                    font-size: 14px;
+                                ">Send Suggestion</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            
+            // Initialize voice controls after modal is created
+            setTimeout(() => {
+                createVoiceSuggestionUI('suggestionText', 'voiceControls');
+            }, 100);
+        }
+        
+        // Close suggestion modal
+        function closeSuggestionModal() {
+            const modal = document.getElementById('suggestionModal');
+            if (modal) {
+                modal.remove();
+            }
+            // Stop voice listening if active
+            if (voiceSuggestions.isListening) {
+                voiceSuggestions.stopListening();
+            }
+        }
+        
+        // Submit suggestion from modal
+        function submitSuggestionFromModal(elderlyId) {
+            const suggestionText = document.getElementById('suggestionText');
+            const suggestion = suggestionText.value.trim();
+            
+            if (suggestion) {
+                submitSuggestion(elderlyId, suggestion);
+                closeSuggestionModal();
+            } else {
+                alert('Please enter a suggestion before sending.');
+            }
+        }
+
+        // Show elderly details modal
+        function showElderlyDetailsModal(elderlyId) {
+            const modalHtml = `
+                <div id="elderlyDetailsModal" class="modal-overlay" style="
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background: rgba(0,0,0,0.3);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    z-index: 1000;
+                    padding: 20px;
+                ">
+                    <div class="modal-content" style="
+                        background: white;
+                        border-radius: 20px;
+                        padding: 0;
+                        max-width: 375px;
+                        width: 100%;
+                        max-height: 90vh;
+                        overflow-y: auto;
+                        animation: slideUp 0.3s ease-out;
+                        box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
+                    ">
+                        <div style="
+                            background: white;
+                            padding: 20px 16px;
+                            border-bottom: 1px solid #e5e5e7;
+                            position: sticky;
+                            top: 0;
+                            z-index: 10;
+                            border-radius: 20px 20px 0 0;
+                        ">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <h3 style="color: #000000; margin: 0; font-size: 20px; font-weight: 700;">📊 Health Dashboard</h3>
+                                <button onclick="closeElderlyDetailsModal()" style="
+                                    background: none;
+                                    border: none;
+                                    font-size: 24px;
+                                    color: #6c6c70;
+                                    cursor: pointer;
+                                    padding: 4px;
+                                    line-height: 1;
+                                    min-width: 32px;
+                                    min-height: 32px;
+                                    display: flex;
+                                    align-items: center;
+                                    justify-content: center;
+                                    border-radius: 16px;
+                                ">×</button>
+                            </div>
+                        </div>
+                        
+                        <div style="padding: 16px;">
+                            <!-- Summary Cards -->
+                            <div id="summaryCards" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 20px;">
+                                <div style="background: linear-gradient(135deg, #34c759, #32d74b); color: white; padding: 16px; border-radius: 12px; text-align: center;">
+                                    <h4 style="margin: 0; font-size: 20px; font-weight: 600;" id="takenCount">-</h4>
+                                    <p style="margin: 4px 0 0 0; font-size: 13px;">Taken</p>
+                                </div>
+                                <div style="background: linear-gradient(135deg, #ff3b30, #ff6961); color: white; padding: 16px; border-radius: 12px; text-align: center;">
+                                    <h4 style="margin: 0; font-size: 20px; font-weight: 600;" id="missedCount">-</h4>
+                                    <p style="margin: 4px 0 0 0; font-size: 13px;">Missed</p>
+                                </div>
+                                <div style="background: linear-gradient(135deg, #ff9500, #ffcc02); color: white; padding: 16px; border-radius: 12px; text-align: center;">
+                                    <h4 style="margin: 0; font-size: 20px; font-weight: 600;" id="adherenceRate">-</h4>
+                                    <p style="margin: 4px 0 0 0; font-size: 13px;">Score</p>
+                                </div>
+                                <div style="background: linear-gradient(135deg, #007AFF, #5ac8fa); color: white; padding: 16px; border-radius: 12px; text-align: center;">
+                                    <h4 style="margin: 0; font-size: 20px; font-weight: 600;" id="totalMedicines">-</h4>
+                                    <p style="margin: 4px 0 0 0; font-size: 13px;">Medicines</p>
+                                </div>
+                            </div>
+                            
+                            <!-- Monthly Calendar View -->
+                            <div style="margin-bottom: 20px;">
+                                <h4 style="color: #000000; margin-bottom: 12px; font-size: 18px; font-weight: 600;">📅 This Month</h4>
+                                <div id="calendarView" style="background: #f2f2f7; padding: 16px; border-radius: 12px;">
+                                    <p style="color: #6c6c70; text-align: center;">Loading calendar...</p>
+                                </div>
+                            </div>
+                            
+                            <!-- Medicine Schedule -->
+                            <div style="margin-bottom: 20px;">
+                                <h4 style="color: #000000; margin-bottom: 12px; font-size: 18px; font-weight: 600;">💊 Medicines</h4>
+                                <div id="medicineSchedule" style="max-height: 250px; overflow-y: auto;">
+                                    <p style="color: #6c6c70; text-align: center;">Loading schedule...</p>
+                                </div>
+                            </div>
+                            
+                            <!-- Recent Activity -->
+                            <div style="margin-bottom: 20px;">
+                                <h4 style="color: #000000; margin-bottom: 12px; font-size: 18px; font-weight: 600;">📈 Recent Activity</h4>
+                                <div id="recentActivity" style="background: #f2f2f7; padding: 16px; border-radius: 12px; max-height: 180px; overflow-y: auto;">
+                                    <p style="color: #6c6c70; text-align: center;">Loading activity...</p>
+                                </div>
+                            </div>
+                            
+                            <button onclick="refreshElderlyDetails('${elderlyId}')" style="
+                                background: #007AFF;
+                                color: white;
+                                border: none;
+                                padding: 12px 24px;
+                                border-radius: 24px;
+                                font-size: 16px;
+                                font-weight: 500;
+                                cursor: pointer;
+                                width: 100%;
+                                min-height: 48px;
+                                margin-bottom: 16px;
+                            ">🔄 Refresh</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <style>
+                    @keyframes slideUp {
+                        from {
+                            transform: translateY(100%);
+                            opacity: 0;
+                        }
+                        to {
+                            transform: translateY(0);
+                            opacity: 1;
+                        }
+                    }
+                    
+                    .modal-overlay {
+                        backdrop-filter: blur(10px);
+                    }
+                    
+                    @media (max-width: 400px) {
+                        #elderlyDetailsModal .modal-content {
+                            max-width: 100%;
+                            margin: 0 10px;
+                        }
+                    }
+                </style>
+            `;
+            
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            loadElderlyDetails(elderlyId);
+            
+            // Close modal when clicking outside
+            document.getElementById('elderlyDetailsModal').addEventListener('click', function(e) {
+                if (e.target === this) {
+                    closeElderlyDetailsModal();
+                }
+            });
+        }
+
+        // Load elderly details
+        // Load elderly details - REAL DATA ONLY
+        async function loadElderlyDetails(elderlyId) {
+            console.log('🚀 [GUARDIAN] Loading real details for:', elderlyId);
+            
+            try {
+                // Parallel loading of all real data
+                const [medicinesResponse, elderlyResponse] = await Promise.all([
+                    fetch(`${API_BASE}/medicines/${elderlyId}`),
+                    fetch(`${API_BASE}/elderly-info/${elderlyId}`)
+                ]);
+                
+                // Parse responses in parallel
+                const [medicinesData, elderlyData] = await Promise.all([
+                    medicinesResponse.json(),
+                    elderlyResponse.json()
+                ]);
+                
+                const medicines = medicinesData.medicines || [];
+                const elderly = elderlyData.data || {};
+                
+                // Calculate statistics
+                const stats = calculateMedicineStats(medicines);
+                
+                // Update summary cards
+                document.getElementById('takenCount').textContent = stats.taken;
+                document.getElementById('missedCount').textContent = stats.missed;
+                document.getElementById('adherenceRate').textContent = stats.adherenceRate + '%';
+                document.getElementById('totalMedicines').textContent = medicines.length;
+                
+                // Generate calendar view
+                generateCalendarView(medicines);
+                
+                // Display medicine schedule
+                displayMedicineSchedule(medicines);
+                
+                // Display recent activity
+                displayRecentActivity(medicines);
+                
+                console.log('✅ [GUARDIAN] Real details loaded successfully');
+                
+            } catch (error) {
+                console.error('❌ [GUARDIAN] Error loading real data:', error);
+                document.getElementById('summaryCards').innerHTML = '<p style="color: #dc3545; text-align: center;">Error loading real data from server</p>';
+            }
+        }
+
+        // Load hardware data for elderly on main dashboard
+        async function loadHardwareDataForDashboard(elderlyId) {
+            try {
+                // Fetch hardware data from backend
+                const response = await fetch(`${API_BASE}/hardware-data/${elderlyId}`);
+                const data = await response.json();
+                
+                if (response.ok && data.status === 'success') {
+                    updateDashboardHardwareCards(elderlyId, data.data);
+                } else {
+                    // Fallback to mock data for demo
+                    updateDashboardHardwareCards(elderlyId, getMockHardwareData());
+                }
+            } catch (error) {
+                console.error('Error loading hardware data:', error);
+                // Fallback to mock data
+                updateDashboardHardwareCards(elderlyId, getMockHardwareData());
+            }
+        }
+
+        // Update hardware cards on main dashboard
+        function updateDashboardHardwareCards(elderlyId, data) {
+            // Update Heart Rate
+            const heartRateElement = document.getElementById(`heartRateValue-${elderlyId}`);
+            const heartRateCard = heartRateElement?.closest('.hardware-card');
+            if (heartRateElement && data.heartRate !== undefined && data.heartRate !== null) {
+                heartRateElement.textContent = data.heartRate;
+                
+                // Update card color based on heart rate
+                heartRateCard.classList.remove('warning', 'danger');
+                if (data.heartRate < 60 || data.heartRate > 100) {
+                    heartRateCard.classList.add('danger');
+                } else if (data.heartRate < 65 || data.heartRate > 95) {
+                    heartRateCard.classList.add('warning');
+                }
+            }
+
+            // Update Oxygen Level
+            const oxygenElement = document.getElementById(`oxygenLevelValue-${elderlyId}`);
+            const oxygenCard = oxygenElement?.closest('.hardware-card');
+            if (oxygenElement && data.oxygenLevel !== undefined && data.oxygenLevel !== null) {
+                oxygenElement.textContent = data.oxygenLevel;
+                
+                // Update card color based on oxygen level
+                oxygenCard.classList.remove('warning', 'danger');
+                if (data.oxygenLevel < 90) {
+                    oxygenCard.classList.add('danger');
+                } else if (data.oxygenLevel < 95) {
+                    oxygenCard.classList.add('warning');
+                }
+            }
+
+            // Update Temperature
+            const tempElement = document.getElementById(`temperatureValue-${elderlyId}`);
+            const tempCard = tempElement?.closest('.hardware-card');
+            if (tempElement && data.temperature !== undefined && data.temperature !== null) {
+                tempElement.textContent = data.temperature;
+                
+                // Update card color based on temperature
+                tempCard.classList.remove('warning', 'danger');
+                if (data.temperature < 35 || data.temperature > 38) {
+                    tempCard.classList.add('danger');
+                } else if (data.temperature < 36 || data.temperature > 37.5) {
+                    tempCard.classList.add('warning');
+                }
+            }
+
+            // Update Belt Status
+            const beltStatusElement = document.getElementById(`beltStatusValue-${elderlyId}`);
+            const beltStatusCard = document.getElementById(`beltStatusCard-${elderlyId}`);
+            const beltLastUpdateElement = document.getElementById(`beltLastUpdate-${elderlyId}`);
+            
+            if (beltStatusElement && data.beltConnected !== undefined) {
+                if (data.beltConnected) {
+                    beltStatusElement.textContent = 'Connected';
+                    beltStatusCard.classList.remove('disconnected');
+                    beltStatusCard.style.background = 'linear-gradient(135deg, #34c759, #32d74b)';
+                } else {
+                    beltStatusElement.textContent = 'Disconnected';
+                    beltStatusCard.classList.add('disconnected');
+                    beltStatusCard.style.background = 'linear-gradient(135deg, #8e8e93, #636366)';
+                }
+                
+                // Update last seen time
+                if (beltLastUpdateElement && data.beltLastSeen) {
+                    const lastSeen = new Date(data.beltLastSeen);
+                    const now = new Date();
+                    const diffMinutes = Math.floor((now - lastSeen) / 60000);
+                    
+                    if (diffMinutes < 1) {
+                        beltLastUpdateElement.textContent = 'Just now';
+                    } else if (diffMinutes < 60) {
+                        beltLastUpdateElement.textContent = `${diffMinutes} min ago`;
+                    } else {
+                        const diffHours = Math.floor(diffMinutes / 60);
+                        beltLastUpdateElement.textContent = `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+                    }
+                }
+            }
+        }
+
+        // Load hardware data for elderly
+        async function loadHardwareData(elderlyId) {
+            try {
+                // Fetch hardware data from backend
+                const response = await fetch(`${API_BASE}/hardware-data/${elderlyId}`);
+                const data = await response.json();
+                
+                if (response.ok && data.status === 'success') {
+                    updateHardwareDashboard(data.data);
+                } else {
+                    // Fallback to mock data for demo
+                    updateHardwareDashboard(getMockHardwareData());
+                }
+            } catch (error) {
+                console.error('Error loading hardware data:', error);
+                // Fallback to mock data
+                updateHardwareDashboard(getMockHardwareData());
+            }
+        }
+
+        // Update hardware dashboard with data
+        function updateHardwareDashboard(data) {
+            // Update Heart Rate
+            const heartRateElement = document.getElementById('heartRateValue');
+            const heartRateCard = heartRateElement.closest('.hardware-card');
+            if (data.heartRate !== undefined && data.heartRate !== null) {
+                heartRateElement.textContent = data.heartRate;
+                heartRateElement.classList.add('hardware-value');
+                
+                // Update card color based on heart rate
+                heartRateCard.classList.remove('warning', 'danger');
+                if (data.heartRate < 60 || data.heartRate > 100) {
+                    heartRateCard.classList.add('danger');
+                } else if (data.heartRate < 65 || data.heartRate > 95) {
+                    heartRateCard.classList.add('warning');
+                }
+            }
+
+            // Update Oxygen Level
+            const oxygenElement = document.getElementById('oxygenLevelValue');
+            const oxygenCard = oxygenElement.closest('.hardware-card');
+            if (data.oxygenLevel !== undefined && data.oxygenLevel !== null) {
+                oxygenElement.textContent = data.oxygenLevel;
+                oxygenElement.classList.add('hardware-value');
+                
+                // Update card color based on oxygen level
+                oxygenCard.classList.remove('warning', 'danger');
+                if (data.oxygenLevel < 90) {
+                    oxygenCard.classList.add('danger');
+                } else if (data.oxygenLevel < 95) {
+                    oxygenCard.classList.add('warning');
+                }
+            }
+
+            // Update Temperature
+            const tempElement = document.getElementById('temperatureValue');
+            const tempCard = tempElement.closest('.hardware-card');
+            if (data.temperature !== undefined && data.temperature !== null) {
+                tempElement.textContent = data.temperature;
+                tempElement.classList.add('hardware-value');
+                
+                // Update card color based on temperature
+                tempCard.classList.remove('warning', 'danger');
+                if (data.temperature < 35 || data.temperature > 38) {
+                    tempCard.classList.add('danger');
+                } else if (data.temperature < 36 || data.temperature > 37.5) {
+                    tempCard.classList.add('warning');
+                }
+            }
+
+            // Update Belt Status
+            const beltStatusElement = document.getElementById('beltStatusValue');
+            const beltStatusCard = document.getElementById('beltStatusCard');
+            const beltLastUpdateElement = document.getElementById('beltLastUpdate');
+            
+            if (data.beltConnected !== undefined) {
+                if (data.beltConnected) {
+                    beltStatusElement.textContent = 'Connected';
+                    beltStatusCard.classList.remove('disconnected');
+                    beltStatusCard.style.background = 'linear-gradient(135deg, #34c759, #32d74b)';
+                } else {
+                    beltStatusElement.textContent = 'Disconnected';
+                    beltStatusCard.classList.add('disconnected');
+                    beltStatusCard.style.background = 'linear-gradient(135deg, #8e8e93, #636366)';
+                }
+                
+                // Update last seen time
+                if (data.beltLastSeen) {
+                    const lastSeen = new Date(data.beltLastSeen);
+                    const now = new Date();
+                    const diffMinutes = Math.floor((now - lastSeen) / 60000);
+                    
+                    if (diffMinutes < 1) {
+                        beltLastUpdateElement.textContent = 'Just now';
+                    } else if (diffMinutes < 60) {
+                        beltLastUpdateElement.textContent = `${diffMinutes} min ago`;
+                    } else {
+                        const diffHours = Math.floor(diffMinutes / 60);
+                        beltLastUpdateElement.textContent = `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+                    }
+                }
+            }
+
+            // Add status indicators
+            addHardwareStatusIndicators();
+        }
+
+        // Add status indicators to hardware cards
+        function addHardwareStatusIndicators() {
+            const cards = document.querySelectorAll('.hardware-card');
+            cards.forEach(card => {
+                if (!card.querySelector('.hardware-status-indicator')) {
+                    const indicator = document.createElement('div');
+                    indicator.className = 'hardware-status-indicator';
+                    card.style.position = 'relative';
+                    card.appendChild(indicator);
+                }
+            });
+        }
+
+        // Real hardware data from backend
+        function getMockHardwareData() {
+            return {
+                heartRate: 0, // No hardware connected
+                oxygenLevel: 0, // No hardware connected
+                temperature: 0, // No hardware connected
+                beltConnected: false, // No hardware connected
+                beltLastSeen: null, // No hardware connected
+                message: "No hardware connected"
+            };
+        }
+
+        // Auto-refresh hardware data every 30 seconds
+        let hardwareRefreshInterval;
+        let dashboardHardwareRefreshInterval;
+        
+        function startHardwareRefresh(elderlyId) {
+            if (hardwareRefreshInterval) {
+                clearInterval(hardwareRefreshInterval);
+            }
+            
+            hardwareRefreshInterval = setInterval(() => {
+                loadHardwareData(elderlyId);
+            }, 30000); // Refresh every 30 seconds
+        }
+
+        function startDashboardHardwareRefresh() {
+            if (dashboardHardwareRefreshInterval) {
+                clearInterval(dashboardHardwareRefreshInterval);
+            }
+            
+            dashboardHardwareRefreshInterval = setInterval(() => {
+                // Refresh hardware data for all elderly on dashboard
+                const elderlyCards = document.querySelectorAll('.elderly-card');
+                elderlyCards.forEach(card => {
+                    const elderlyId = card.querySelector('[id^="heartRateValue-"]')?.id?.split('-')[1];
+                    if (elderlyId) {
+                        loadHardwareDataForDashboard(elderlyId);
+                    }
+                });
+            }, 30000); // Refresh every 30 seconds
+        }
+
+        // Stop hardware refresh when modal closes
+        function stopHardwareRefresh() {
+            if (hardwareRefreshInterval) {
+                clearInterval(hardwareRefreshInterval);
+                hardwareRefreshInterval = null;
+            }
+        }
+
+        function stopDashboardHardwareRefresh() {
+            if (dashboardHardwareRefreshInterval) {
+                clearInterval(dashboardHardwareRefreshInterval);
+                dashboardHardwareRefreshInterval = null;
+            }
+        }
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', async () => {
+            const guardianUsername = loadGuardianInfo();
+            if (guardianUsername) {
+                await fetchLinkedElderly(guardianUsername);
+                // Start dashboard hardware refresh after elderly cards are loaded
+                setTimeout(() => {
+                    startDashboardHardwareRefresh();
+                }, 2000);
+            }
+        });
+
+        // Calculate medicine statistics
+        function calculateMedicineStats(medicines) {
+            let taken = 0;
+            let missed = 0;
+            const now = new Date();
+            const currentMonth = now.getMonth();
+            const currentYear = now.getFullYear();
+            
+            medicines.forEach(medicine => {
+                if (medicine.confirmation_history) {
+                    medicine.confirmation_history.forEach(record => {
+                        const recordDate = new Date(record.timestamp);
+                        if (recordDate.getMonth() === currentMonth && recordDate.getFullYear() === currentYear) {
+                            if (record.taken) {
+                                taken++;
+                            } else {
+                                missed++;
+                            }
+                        }
+                    });
+                }
+            });
+            
+            const total = taken + missed;
+            const adherenceRate = total > 0 ? Math.round((taken / total) * 100) : 0;
+            
+            return { taken, missed, adherenceRate, total };
+        }
+
+        // Generate calendar view
+        function generateCalendarView(medicines) {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = now.getMonth();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            
+            let calendarHtml = `
+                <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; text-align: center; font-size: 11px;">
+                    <div style="font-weight: 600; color: #86868b; padding: 4px;">S</div>
+                    <div style="font-weight: 600; color: #86868b; padding: 4px;">M</div>
+                    <div style="font-weight: 600; color: #86868b; padding: 4px;">T</div>
+                    <div style="font-weight: 600; color: #86868b; padding: 4px;">W</div>
+                    <div style="font-weight: 600; color: #86868b; padding: 4px;">T</div>
+                    <div style="font-weight: 600; color: #86868b; padding: 4px;">F</div>
+                    <div style="font-weight: 600; color: #86868b; padding: 4px;">S</div>
+            `;
+            
+            const firstDay = new Date(year, month, 1).getDay();
+            for (let i = 0; i < firstDay; i++) {
+                calendarHtml += '<div></div>';
+            }
+            
+            for (let day = 1; day <= daysInMonth; day++) {
+                const date = new Date(year, month, day);
+                const dayStats = getDayMedicineStats(medicines, date);
+                const bgColor = dayStats.adherenceRate >= 80 ? '#34c759' : 
+                              dayStats.adherenceRate >= 50 ? '#ff9500' : '#ff3b30';
+                const isToday = date.toDateString() === now.toDateString();
+                
+                calendarHtml += `
+                    <div style="
+                        background: ${bgColor};
+                        padding: 6px 2px;
+                        border-radius: 6px;
+                        font-size: 11px;
+                        cursor: pointer;
+                        border: ${isToday ? '2px solid #007AFF' : 'none'};
+                        color: white;
+                        font-weight: ${isToday ? '600' : '500'};
+                    " title="Taken: ${dayStats.taken}, Missed: ${dayStats.missed}">
+                        ${day}
+                    </div>
+                `;
+            }
+            
+            calendarHtml += '</div>';
+            
+            // Add legend
+            calendarHtml += `
+                <div style="display: flex; justify-content: center; gap: 12px; margin-top: 12px; font-size: 11px;">
+                    <div style="display: flex; align-items: center; gap: 4px;">
+                        <div style="width: 12px; height: 12px; background: #34c759; border-radius: 3px;"></div>
+                        <span style="color: #86868b;">Good</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 4px;">
+                        <div style="width: 12px; height: 12px; background: #ff9500; border-radius: 3px;"></div>
+                        <span style="color: #86868b;">Fair</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 4px;">
+                        <div style="width: 12px; height: 12px; background: #ff3b30; border-radius: 3px;"></div>
+                        <span style="color: #86868b;">Poor</span>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('calendarView').innerHTML = calendarHtml;
+        }
+
+        // Get medicine statistics for a specific day
+        function getDayMedicineStats(medicines, date) {
+            let taken = 0;
+            let missed = 0;
+            
+            medicines.forEach(medicine => {
+                if (medicine.confirmation_history) {
+                    medicine.confirmation_history.forEach(record => {
+                        const recordDate = new Date(record.timestamp);
+                        if (recordDate.toDateString() === date.toDateString()) {
+                            if (record.taken) {
+                                taken++;
+                            } else {
+                                missed++;
+                            }
+                        }
+                    });
+                }
+            });
+            
+            const total = taken + missed;
+            const adherenceRate = total > 0 ? Math.round((taken / total) * 100) : 0;
+            
+            return { taken, missed, adherenceRate };
+        }
+
+        // Display medicine schedule
+        function displayMedicineSchedule(medicines) {
+            let html = '';
+            
+            if (medicines.length === 0) {
+                html = '<p style="color: #86868b; text-align: center; padding: 20px;">No medicines scheduled</p>';
+            } else {
+                medicines.forEach(medicine => {
+                    const nextDose = getNextDoseTime(medicine);
+                    html += `
+                        <div style="
+                            background: white;
+                            border: 1px solid #e5e5e7;
+                            border-left: 4px solid #007AFF;
+                            padding: 12px;
+                            margin-bottom: 8px;
+                            border-radius: 8px;
+                        ">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                                <div style="flex: 1;">
+                                    <div style="font-weight: 600; color: #1d1d1f; font-size: 16px; margin-bottom: 4px;">${medicine.medicine_name}</div>
+                                    <div style="font-size: 13px; color: #86868b; line-height: 1.4;">
+                                        <div>${medicine.dosage} • ${Array.isArray(medicine.times) ? medicine.times.join(', ') : medicine.times}</div>
+                                        <div style="margin-top: 2px;">Next: ${nextDose}</div>
+                                    </div>
+                                </div>
+                                <div style="
+                                    padding: 4px 8px;
+                                    border-radius: 12px;
+                                    font-size: 11px;
+                                    font-weight: 600;
+                                    background: ${isActiveMedicine(medicine) ? '#e8f5e8' : '#f8d7da'};
+                                    color: ${isActiveMedicine(medicine) ? '#34c759' : '#ff3b30'};
+                                    margin-left: 8px;
+                                    white-space: nowrap;
+                                ">
+                                    ${isActiveMedicine(medicine) ? 'Active' : 'Inactive'}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+            
+            document.getElementById('medicineSchedule').innerHTML = html;
+        }
+
+        // Get next dose time
+        function getNextDoseTime(medicine) {
+            if (!isActiveMedicine(medicine)) return 'N/A';
+            
+            const now = new Date();
+            const today = now.toDateString();
+            let times = medicine.times || [];
+            
+            // Ensure times is an array
+            if (!Array.isArray(times)) {
+                times = times.split(',').map(t => t.trim());
+            }
+            
+            for (let time of times) {
+                const [hours, minutes] = time.split(':').map(Number);
+                const doseTime = new Date();
+                doseTime.setHours(hours, minutes, 0, 0);
+                
+                if (doseTime > now && doseTime.toDateString() === today) {
+                    return doseTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+                }
+            }
+            
+            return 'Tomorrow';
+        }
+
+        // Check if medicine is active
+        function isActiveMedicine(medicine) {
+            if (!medicine.active) return false;
+            
+            const now = new Date();
+            const startDate = new Date(medicine.start_date);
+            const endDate = new Date(medicine.end_date);
+            
+            return now >= startDate && now <= endDate;
+        }
+
+        // Display recent activity
+        function displayRecentActivity(medicines) {
+            let activities = [];
+            
+            medicines.forEach(medicine => {
+                if (medicine.confirmation_history) {
+                    medicine.confirmation_history.forEach(record => {
+                        activities.push({
+                            medicine: medicine.medicine_name,
+                            ...record,
+                            timestamp: new Date(record.timestamp)
+                        });
+                    });
+                }
+            });
+            
+            // Sort by timestamp (most recent first)
+            activities.sort((a, b) => b.timestamp - a.timestamp);
+            
+            // Take only last 10 activities
+            activities = activities.slice(0, 10);
+            
+            let html = '';
+            if (activities.length === 0) {
+                html = '<p style="color: #666; text-align: center;">No recent activity</p>';
+            } else {
+                activities.forEach(activity => {
+                    const statusColor = activity.taken ? '#28a745' : '#dc3545';
+                    const statusText = activity.taken ? '✓ Taken' : '✗ Missed';
+                    
+                    html += `
+                        <div style="
+                            display: flex;
+                            justify-content: space-between;
+                            align-items: center;
+                            padding: 8px 0;
+                            border-bottom: 1px solid #eee;
+                        ">
+                            <div>
+                                <strong>${activity.medicine}</strong>
+                                <div style="font-size: 12px; color: #666;">
+                                    ${activity.timestamp.toLocaleString()}
+                                </div>
+                            </div>
+                            <div style="
+                                color: ${statusColor};
+                                font-weight: bold;
+                                font-size: 12px;
+                            ">${statusText}</div>
+                        </div>
+                    `;
+                });
+            }
+            
+            document.getElementById('recentActivity').innerHTML = html;
+        }
+
+        // Refresh elderly details
+        function refreshElderlyDetails(elderlyId) {
+            loadElderlyDetails(elderlyId);
+        }
+
+        // Close elderly details modal
+        function closeElderlyDetailsModal() {
+            const modal = document.getElementById('elderlyDetailsModal');
+            if (modal) {
+                modal.remove();
+            }
+        }
+
+        // Show medicine management modal
+        function showMedicineModal(elderlyId, elderlyName) {
+            const modalHtml = `
+                <div id="medicineModal" class="modal-overlay" style="
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background: rgba(0,0,0,0.5);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    z-index: 1000;
+                ">
+                    <div class="modal-content" style="
+                        background: white;
+                        border-radius: 15px;
+                        padding: 30px;
+                        max-width: 500px;
+                        width: 90%;
+                        max-height: 80vh;
+                        overflow-y: auto;
+                    ">
+                        <h3 style="color: #667eea; margin-bottom: 20px;">💊 Manage Medicines for ${elderlyName}</h3>
+                        
+                        <div id="medicineList" style="margin-bottom: 20px;">
+                            <p>Loading medicines...</p>
+                        </div>
+                        
+                        <h4 style="color: #333; margin-bottom: 15px;">Add New Medicine</h4>
+                        <form id="medicineForm" style="display: flex; flex-direction: column; gap: 15px;">
+                            <input type="text" id="medicineName" placeholder="Medicine Name" required style="
+                                padding: 12px;
+                                border: 2px solid #e0e0e0;
+                                border-radius: 8px;
+                                font-size: 14px;
+                            ">
+                            <input type="text" id="dosage" placeholder="Dosage (e.g., 1 tablet, 5ml)" required style="
+                                padding: 12px;
+                                border: 2px solid #e0e0e0;
+                                border-radius: 8px;
+                                font-size: 14px;
+                            ">
+                            <div style="margin-bottom: 15px;">
+                                <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #333;">Medicine Schedule</label>
+                                
+                                <!-- Frequency Selection -->
+                                <div style="margin-bottom: 10px;">
+                                    <select id="frequency" onchange="updateTimeInputs()" style="
+                                        padding: 8px;
+                                        border: 2px solid #e0e0e0;
+                                        border-radius: 6px;
+                                        font-size: 14px;
+                                        width: 100%;
+                                    ">
+                                        <option value="once">Once daily</option>
+                                        <option value="twice">Twice daily</option>
+                                        <option value="thrice">Three times daily</option>
+                                        <option value="custom">Custom times</option>
+                                    </select>
+                                </div>
+                                
+                                <!-- Time Inputs Container -->
+                                <div id="timeInputs" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px;">
+                                    <div class="time-input-group" style="display: flex; gap: 10px; align-items: center;">
+                                        <input type="time" class="medicine-time-input" value="09:00" required style="
+                                            padding: 8px;
+                                            border: 2px solid #e0e0e0;
+                                            border-radius: 6px;
+                                            font-size: 14px;
+                                            flex: 1;
+                                        ">
+                                        <button type="button" onclick="removeTimeInput(this)" style="
+                                            background: #dc3545;
+                                            color: white;
+                                            border: none;
+                                            padding: 6px 12px;
+                                            border-radius: 6px;
+                                            cursor: pointer;
+                                            font-size: 12px;
+                                        ">Remove</button>
+                                    </div>
+                                </div>
+                                <button type="button" onclick="addTimeInput()" id="addTimeBtn" style="
+                                    background: #28a745;
+                                    color: white;
+                                    border: none;
+                                    padding: 8px 16px;
+                                    border-radius: 6px;
+                                    cursor: pointer;
+                                    font-size: 14px;
+                                    width: 100%;
+                                ">+ Add Another Time</button>
+                            </div>
+                            <input type="text" id="instructions" placeholder="Instructions (optional)" style="
+                                padding: 12px;
+                                border: 2px solid #e0e0e0;
+                                border-radius: 8px;
+                                font-size: 14px;
+                            ">
+                            <input type="date" id="startDate" required style="
+                                padding: 12px;
+                                border: 2px solid #e0e0e0;
+                                border-radius: 8px;
+                                font-size: 14px;
+                            ">
+                            <input type="date" id="endDate" required style="
+                                padding: 12px;
+                                border: 2px solid #e0e0e0;
+                                border-radius: 8px;
+                                font-size: 14px;
+                            ">
+                            <div style="display: flex; gap: 10px;">
+                                <button type="submit" style="
+                                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                                    color: white;
+                                    border: none;
+                                    padding: 12px 20px;
+                                    border-radius: 8px;
+                                    cursor: pointer;
+                                    font-weight: 600;
+                                ">Add Medicine</button>
+                                <button type="button" onclick="closeMedicineModal()" style="
+                                    background: #6c757d;
+                                    color: white;
+                                    border: none;
+                                    padding: 12px 20px;
+                                    border-radius: 8px;
+                                    cursor: pointer;
+                                    font-weight: 600;
+                                ">Close</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            `;
+            
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            loadMedicinesForElderly(elderlyId);
+            
+            // Set today's date as default
+            document.getElementById('startDate').valueAsDate = new Date();
+            
+            // Initialize time inputs based on default frequency
+            updateTimeInputs();
+            
+            // Set form submit handler
+            document.getElementById('medicineForm').onsubmit = function(e) {
+                e.preventDefault();
+                addMedicineForElderly(elderlyId);
+            };
+        }
+
+        // Time input management functions
+        function updateTimeInputs() {
+            const frequency = document.getElementById('frequency').value;
+            const timeInputs = document.getElementById('timeInputs');
+            const addTimeBtn = document.getElementById('addTimeBtn');
+            
+            // Clear existing inputs
+            timeInputs.innerHTML = '';
+            
+            let times = [];
+            let showAddButton = false;
+            
+            switch(frequency) {
+                case 'once':
+                    times = ['09:00'];
+                    showAddButton = true;
+                    break;
+                case 'twice':
+                    times = ['09:00', '21:00'];
+                    showAddButton = true;
+                    break;
+                case 'thrice':
+                    times = ['08:00', '14:00', '20:00'];
+                    showAddButton = true;
+                    break;
+                case 'custom':
+                    times = ['09:00'];
+                    showAddButton = true;
+                    break;
+            }
+            
+            // Create time inputs
+            times.forEach((time, index) => {
+                const timeGroup = document.createElement('div');
+                timeGroup.className = 'time-input-group';
+                timeGroup.style.cssText = 'display: flex; gap: 10px; align-items: center;';
+                
+                const label = frequency !== 'custom' ? 
+                    `<span style="min-width: 80px; font-size: 12px; color: #666;">${getDoseLabel(index, frequency)}</span>` : '';
+                
+                timeGroup.innerHTML = `
+                    ${label}
+                    <input type="time" class="medicine-time-input" value="${time}" required style="
+                        padding: 8px;
+                        border: 2px solid #e0e0e0;
+                        border-radius: 6px;
+                        font-size: 14px;
+                        flex: 1;
+                    ">
+                    ${frequency === 'custom' || times.length > 1 ? `
+                    <button type="button" onclick="removeTimeInput(this)" style="
+                        background: #dc3545;
+                        color: white;
+                        border: none;
+                        padding: 6px 12px;
+                        border-radius: 6px;
+                        cursor: pointer;
+                        font-size: 12px;
+                    ">Remove</button>` : ''}
+                `;
+                timeInputs.appendChild(timeGroup);
+            });
+            
+            // Show/hide add button
+            addTimeBtn.style.display = showAddButton ? 'block' : 'none';
+        }
+        
+        function getDoseLabel(index, frequency) {
+            const labels = {
+                'once': ['Daily'],
+                'twice': ['Morning', 'Evening'],
+                'thrice': ['Morning', 'Afternoon', 'Evening']
+            };
+            return labels[frequency][index] || '';
+        }
+
+        function addTimeInput() {
+            const timeInputs = document.getElementById('timeInputs');
+            const newTimeGroup = document.createElement('div');
+            newTimeGroup.className = 'time-input-group';
+            newTimeGroup.style.cssText = 'display: flex; gap: 10px; align-items: center;';
+            
+            const frequency = document.getElementById('frequency').value;
+            const label = frequency === 'custom' ? 
+                `<span style="min-width: 80px; font-size: 12px; color: #666;">Custom</span>` : '';
+            
+            newTimeGroup.innerHTML = `
+                ${label}
+                <input type="time" class="medicine-time-input" required style="
+                    padding: 8px;
+                    border: 2px solid #e0e0e0;
+                    border-radius: 6px;
+                    font-size: 14px;
+                    flex: 1;
+                ">
+                <button type="button" onclick="removeTimeInput(this)" style="
+                    background: #dc3545;
+                    color: white;
+                    border: none;
+                    padding: 6px 12px;
+                    border-radius: 6px;
+                    cursor: pointer;
+                    font-size: 12px;
+                ">Remove</button>
+            `;
+            timeInputs.appendChild(newTimeGroup);
+        }
+
+        function removeTimeInput(button) {
+            const timeInputs = document.getElementById('timeInputs');
+            if (timeInputs.children.length > 1) {
+                button.parentElement.remove();
+            } else {
+                alert('At least one time is required');
+            }
+        }
+
+        function getMedicineTimes() {
+            const timeInputs = document.querySelectorAll('.medicine-time-input');
+            const times = [];
+            timeInputs.forEach(input => {
+                if (input.value) {
+                    times.push(input.value);
+                }
+            });
+            return times;
+        }
+
+        // Load medicines for elderly
+        async function loadMedicinesForElderly(elderlyId) {
+            try {
+                const response = await fetch(`${API_BASE}/medicines/${elderlyId}`);
+                const data = await response.json();
+                const medicines = data.medicines || [];
+                
+                const listDiv = document.getElementById('medicineList');
+                if (medicines.length === 0) {
+                    listDiv.innerHTML = '<p style="color: #666;">No medicines scheduled</p>';
+                } else {
+                    let html = '<h5 style="color: #333; margin-bottom: 10px;">Current Medicines:</h5>';
+                    medicines.forEach(medicine => {
+                        html += `
+                            <div style="
+                                background: #f8f9fa;
+                                padding: 15px;
+                                border-radius: 8px;
+                                margin-bottom: 10px;
+                                border-left: 4px solid #667eea;
+                            ">
+                                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                                    <div>
+                                        <strong style="font-size: 16px; color: #333;">${medicine.medicine_name}</strong><br>
+                                        <span style="color: #666; font-size: 14px;">${medicine.dosage}</span><br>
+                                        <div style="margin-top: 8px;">
+                                            <span style="background: #e3f2fd; color: #1976d2; padding: 4px 8px; border-radius: 4px; font-size: 12px; margin-right: 5px;">
+                                                🕐 ${Array.isArray(medicine.times) ? medicine.times.join(', ') : medicine.times}
+                                            </span>
+                                            <span style="background: #f3e5f5; color: #7b1fa2; padding: 4px 8px; border-radius: 4px; font-size: 12px;">
+                                                📅 ${medicine.start_date} to ${medicine.end_date}
+                                            </span>
+                                        </div>
+                                        ${medicine.instructions ? `<div style="margin-top: 5px; font-style: italic; color: #666; font-size: 12px;">💡 ${medicine.instructions}</div>` : ''}
+                                    </div>
+                                    <button onclick="deleteMedicine(${medicine.id}, '${elderlyId}')" style="
+                                        background: #dc3545;
+                                        color: white;
+                                        border: none;
+                                        padding: 6px 12px;
+                                        border-radius: 4px;
+                                        cursor: pointer;
+                                        font-size: 12px;
+                                    ">Delete</button>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    listDiv.innerHTML = html;
+                }
+            } catch (error) {
+                console.error('Error loading medicines:', error);
+                document.getElementById('medicineList').innerHTML = '<p style="color: #dc3545;">Error loading medicines</p>';
+            }
+        }
+
+        // Add medicine for elderly
+        async function addMedicineForElderly(elderlyId) {
+            const guardianUsername = localStorage.getItem('guardian_username');
+            
+            // Get medicine times from the new time input system
+            const times = getMedicineTimes();
+            
+            if (times.length === 0) {
+                alert('Please add at least one medicine time');
+                return;
+            }
+            
+            const medicineData = {
+                guardian_username: guardianUsername,
+                elderly_id: elderlyId,
+                medicine_name: document.getElementById('medicineName').value,
+                dosage: document.getElementById('dosage').value,
+                times: times,
+                instructions: document.getElementById('instructions').value,
+                start_date: document.getElementById('startDate').value,
+                end_date: document.getElementById('endDate').value
+            };
+
+            try {
+                console.log('🚀 [MEDICINE ADD] Attempting to add medicine...');
+                console.log('🚀 [MEDICINE ADD] API_BASE:', API_BASE);
+                console.log('🚀 [MEDICINE ADD] Medicine data:', medicineData);
+                
+                const response = await fetch(`${API_BASE}/medicine/add`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(medicineData)
+                });
+
+                console.log('🚀 [MEDICINE ADD] Response status:', response.status);
+                console.log('🚀 [MEDICINE ADD] Response ok:', response.ok);
+
+                const data = await response.json();
+                console.log('🚀 [MEDICINE ADD] Response data:', data);
+                
+                if (response.ok) {
+                    alert('Medicine added successfully!');
+                    document.getElementById('medicineForm').reset();
+                    document.getElementById('startDate').valueAsDate = new Date();
+                    loadMedicinesForElderly(elderlyId);
+                } else {
+                    alert(`Error adding medicine: ${data.error || data.message || 'Unknown error'}`);
+                }
+            } catch (error) {
+                console.error('Error adding medicine:', error);
+                alert(`Network error: Please check if the backend server is running on ${API_BASE}`);
+            }
+        }
+
+        // Delete medicine
+        async function deleteMedicine(medicineId, elderlyId) {
+            if (!confirm('Are you sure you want to delete this medicine?')) return;
+            
+            const guardianUsername = localStorage.getItem('guardian_username');
+            
+            try {
+                const response = await fetch(`${API_BASE}/medicine/delete/${medicineId}`, {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        guardian_username: guardianUsername,
+                        elderly_id: elderlyId
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    alert('Medicine deleted successfully!');
+                    loadMedicinesForElderly(elderlyId);
+                } else {
+                    alert(`Error deleting medicine: ${data.error || data.message || 'Unknown error'}`);
+                }
+            } catch (error) {
+                console.error('Error deleting medicine:', error);
+                alert(`Network error: Please check if the backend server is running on ${API_BASE}`);
+            }
+        }
+
+        // Submit suggestion
+        async function submitSuggestion(elderlyId, suggestion) {
+            const guardianUsername = localStorage.getItem('guardian_username');
+            
+            try {
+                console.log('🚀 [SUGGESTION] Submitting suggestion...');
+                console.log('🚀 [SUGGESTION] Elderly ID:', elderlyId);
+                console.log('🚀 [SUGGESTION] Guardian:', guardianUsername);
+                console.log('🚀 [SUGGESTION] Suggestion:', suggestion);
+                
+                const response = await fetch(`${API_BASE}/medicine/suggestions/${elderlyId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        guardian_username: guardianUsername,
+                        suggestion: suggestion
+                    })
+                });
+
+                console.log('🚀 [SUGGESTION] Response status:', response.status);
+                console.log('🚀 [SUGGESTION] Response ok:', response.ok);
+
+                const data = await response.json();
+                console.log('🚀 [SUGGESTION] Response data:', data);
+                
+                if (response.ok) {
+                    alert('Suggestion added successfully!');
+                    // Refresh the suggestions list
+                    loadElderlyDetails(elderlyId);
+                } else {
+                    alert(`Error adding suggestion: ${data.error || data.message || 'Unknown error'}`);
+                }
+            } catch (error) {
+                console.error('Error adding suggestion:', error);
+                alert(`Network error: Please check if the backend server is running on ${API_BASE}`);
+            }
+        }
+
+        // Close medicine modal
+        function closeMedicineModal() {
+            const modal = document.getElementById('medicineModal');
+            if (modal) {
+                modal.remove();
+            }
+        }
+
+        // Show registration instructions
+        function showRegistrationInstructions() {
+            const instructions = `
+To link an elderly member to your account:
+
+1. Ask elderly person to visit: http://localhost:8000/elderly-auth.html
+2. They should fill in their personal information
+3. They must enter your username and password in Guardian Connection section
+4. Once registered, they will appear in your dashboard
+
+Important: The elderly person needs your exact username and password to link to your account.
+            `;
+            alert(instructions);
+        }
+
+        // Logout
+        function logout() {
+            localStorage.clear();
+            window.location.href = 'guardian-auth.html';
+        }
+
+        // Go back function
+        function goBack() {
+            if (window.history.length > 1) {
+                window.history.back();
+            } else {
+                // If no history, go to portal selection
+                window.location.href = 'portal.html';
+            }
+        }
+
+        // Initialize real-time updates with optimized intervals
+        function initializeRealtimeUpdates() {
+            console.log('🔄 [GUARDIAN REALTIME] Starting optimized real-time updates...');
+            
+            // Listen for storage changes (cross-tab synchronization)
+            window.addEventListener('storage', function(e) {
+                if (e.key && e.key.startsWith('medicine_')) {
+                    console.log('🔄 [GUARDIAN REALTIME] Medicine status changed:', e.key);
+                    refreshElderlyDetails(currentElderlyId);
+                }
+            });
+            
+            // Check for status changes every 30 seconds (reduced from 15 for better performance)
+            setInterval(() => {
+                if (currentElderlyId) {
+                    refreshElderlyDetails(currentElderlyId);
+                }
+            }, 30000); // Check every 30 seconds instead of 15
+        }
+
+        // Initialize page with optimized loading
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🚀 [GUARDIAN] Page loading started...');
+            
+            // Load essential info first
+            loadGuardianInfo();
+            
+            // Start real-time updates after basic load
+            setTimeout(() => {
+                initializeRealtimeUpdates();
+            }, 500);
+            
+            // Fetch elderly data with minimal delay
+            setTimeout(() => {
+                fetchLinkedElderly(localStorage.getItem('guardian_username') || 'isha');
+            }, 200);
+            
+            // PWA features (non-blocking)
+            setTimeout(() => {
+                if ('serviceWorker' in navigator) {
+                    registerServiceWorker();
+                }
+                showInstallBanner();
+            }, 1000);
+        });
+
+        // Register Service Worker
+        function registerServiceWorker() {
+            const swCode = `
+                self.addEventListener('install', (event) => {
+                    event.waitUntil(
+                        caches.open('silvercare-v1').then((cache) => {
+                            return cache.addAll([
+                                '/',
+                                '/guardian-dashboard.html',
+                                '/guardian-auth.html',
+                                '/elderly-auth.html'
+                            ]);
+                        })
+                    );
+                });
+
+                self.addEventListener('fetch', (event) => {
+                    event.respondWith(
+                        caches.match(event.request).then((response) => {
+                            return response || fetch(event.request);
+                        })
+                    );
+                });
+            `;
+            
+            const blob = new Blob([swCode], { type: 'application/javascript' });
+            const swUrl = URL.createObjectURL(blob);
+            
+            navigator.serviceWorker.register(swUrl).then(registration => {
+                console.log('Service Worker registered');
+            }).catch(error => {
+                console.log('Service Worker registration failed');
+            });
+        }
+
+        // Show Install Banner
+        function showInstallBanner() {
+            // Check if already installed
+            if (window.matchMedia('(display-mode: standalone)').matches) {
+                return; // Already installed
+            }
+            
+            // Create install banner
+            const banner = document.createElement('div');
+            banner.id = 'installBanner';
+            banner.style.cssText = `
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                background: linear-gradient(135deg, #007AFF, #5ac8fa);
+                color: white;
+                padding: 16px;
+                text-align: center;
+                z-index: 1000;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                gap: 16px;
+            `;
+            
+            banner.innerHTML = `
+                <div style="flex: 1;">
+                    <div style="font-weight: 600; margin-bottom: 4px;">📱 Install SilverCare App</div>
+                    <div style="font-size: 14px; opacity: 0.9;">Add to home screen for better experience</div>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button onclick="dismissInstallBanner()" style="
+                        background: rgba(255,255,255,0.2);
+                        border: none;
+                        color: white;
+                        padding: 8px 16px;
+                        border-radius: 20px;
+                        font-size: 14px;
+                        cursor: pointer;
+                    ">Later</button>
+                    <button onclick="installApp()" style="
+                        background: white;
+                        color: #007AFF;
+                        border: none;
+                        padding: 8px 16px;
+                        border-radius: 20px;
+                        font-size: 14px;
+                        font-weight: 600;
+                        cursor: pointer;
+                    ">Install</button>
+                </div>
+            `;
+            
+            document.body.appendChild(banner);
+        }
+
+        // Dismiss Install Banner
+        function dismissInstallBanner() {
+            const banner = document.getElementById('installBanner');
+            if (banner) {
+                banner.remove();
+            }
+        }
+
+        // Install App
+        function installApp() {
+            // For iOS Safari
+            if (navigator.userAgent.match(/iPhone|iPad|iPod/)) {
+                showIOSInstructions();
+            }
+            // For Android Chrome
+            else if (navigator.userAgent.match(/Android/)) {
+                showAndroidInstructions();
+            }
+            // For others
+            else {
+                showGenericInstructions();
+            }
+        }
+
+        // Show iOS Instructions
+        function showIOSInstructions() {
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0,0,0,0.8);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 2000;
+                padding: 20px;
+            `;
+            
+            modal.innerHTML = `
+                <div style="
+                    background: white;
+                    border-radius: 20px;
+                    padding: 24px;
+                    max-width: 350px;
+                    width: 100%;
+                    text-align: center;
+                ">
+                    <h3 style="color: #000; margin-bottom: 16px;">📱 Install SilverCare</h3>
+                    <div style="color: #6c6c70; margin-bottom: 20px; line-height: 1.5;">
+                        <div style="margin-bottom: 12px;"><strong>Step 1:</strong> Tap the Share button <span style="font-size: 20px;">⎋</span></div>
+                        <div style="margin-bottom: 12px;"><strong>Step 2:</strong> Scroll down and tap "Add to Home Screen"</div>
+                        <div><strong>Step 3:</strong> Tap "Add" to install the app</div>
+                    </div>
+                    <button onclick="this.closest('div').parentElement.remove()" style="
+                        background: #007AFF;
+                        color: white;
+                        border: none;
+                        padding: 12px 24px;
+                        border-radius: 24px;
+                        font-size: 16px;
+                        font-weight: 500;
+                        cursor: pointer;
+                        width: 100%;
+                    ">Got it!</button>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            dismissInstallBanner();
+        }
+
+        // Show Android Instructions
+        function showAndroidInstructions() {
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0,0,0,0.8);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 2000;
+                padding: 20px;
+            `;
+            
+            modal.innerHTML = `
+                <div style="
+                    background: white;
+                    border-radius: 20px;
+                    padding: 24px;
+                    max-width: 350px;
+                    width: 100%;
+                    text-align: center;
+                ">
+                    <h3 style="color: #000; margin-bottom: 16px;">📱 Install SilverCare</h3>
+                    <div style="color: #6c6c70; margin-bottom: 20px; line-height: 1.5;">
+                        <div style="margin-bottom: 12px;"><strong>Step 1:</strong> Tap the menu button <span style="font-size: 20px;">⋮</span></div>
+                        <div style="margin-bottom: 12px;"><strong>Step 2:</strong> Tap "Add to Home screen" or "Install app"</div>
+                        <div><strong>Step 3:</strong> Tap "Install" to add the app</div>
+                    </div>
+                    <button onclick="this.closest('div').parentElement.remove()" style="
+                        background: #007AFF;
+                        color: white;
+                        border: none;
+                        padding: 12px 24px;
+                        border-radius: 24px;
+                        font-size: 16px;
+                        font-weight: 500;
+                        cursor: pointer;
+                        width: 100%;
+                    ">Got it!</button>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            dismissInstallBanner();
+        }
+
+        // Show Generic Instructions
+        function showGenericInstructions() {
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0,0,0,0.8);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 2000;
+                padding: 20px;
+            `;
+            
+            modal.innerHTML = `
+                <div style="
+                    background: white;
+                    border-radius: 20px;
+                    padding: 24px;
+                    max-width: 350px;
+                    width: 100%;
+                    text-align: center;
+                ">
+                    <h3 style="color: #000; margin-bottom: 16px;">📱 Install SilverCare</h3>
+                    <div style="color: #6c6c70; margin-bottom: 20px;">
+                        Look for "Add to Home Screen" or "Install App" in your browser menu to install this app.
+                    </div>
+                    <button onclick="this.closest('div').parentElement.remove()" style="
+                        background: #007AFF;
+                        color: white;
+                        border: none;
+                        padding: 12px 24px;
+                        border-radius: 24px;
+                        font-size: 16px;
+                        font-weight: 500;
+                        cursor: pointer;
+                        width: 100%;
+                    ">Got it!</button>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            dismissInstallBanner();
+        }
+    </script>
+    
+    <script src="scripts/translator.js"></script>
+    <script src="scripts/voice-suggestions.js"></script>
+</body>
+</html>

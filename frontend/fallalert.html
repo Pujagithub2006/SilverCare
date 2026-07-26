@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-translate="fallalert.title">Fall Detected</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container fall-alert-page">
+        <!-- Alert Banner -->
+        <div class="alert-banner">
+            <svg width="40" height="40" viewBox="0 0 40 40" fill="white">
+                <path d="M20 4L4 36h32L20 4z" fill="white" opacity="0.9"/>
+                <text x="20" y="28" text-anchor="middle" fill="#DC2626" font-size="20" font-weight="bold">!</text>
+            </svg>
+            <h1 class="alert-title" data-translate="fallalert.alert_title">FALL DETECTED!</h1>
+        </div>
+
+        <!-- Main Content -->
+        <div class="fall-alert-content">
+            <h2 class="alert-heading" data-translate="fallalert.sending_alert_in">Sending alert in...</h2>
+            <p class="alert-subheading" data-translate="fallalert.please_confirm_status">Please confirm your status.</p>
+
+            <!-- Timer -->
+            <div class="timer-container">
+                <div class="timer-circle">
+                    <div class="timer-number" id="timerDisplay">10</div>
+                    <div class="timer-label" data-translate="fallalert.seconds">SECONDS</div>
+                </div>
+            </div>
+
+            <!-- Info Message -->
+            <div class="info-message">
+                <svg width="32" height="32" viewBox="0 0 32 32" fill="#6B7280">
+                    <path d="M16 4C9.4 4 4 9.4 4 16s5.4 12 12 12 12-5.4 12-12S22.6 4 16 4zm2 18h-4v-8h4v8zm0-10h-4V8h4v4z"/>
+                </svg>
+                <p class="info-text" data-translate="fallalert.contacting_guardian">We are contacting your guardian automatically when the timer ends.</p>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="alert-actions">
+            <button class="alert-button primary-alert" onclick="requestHelpNow()">
+                <svg width="28" height="28" viewBox="0 0 28 28" fill="white">
+                    <path d="M14 2v10M14 16v10M4 14h10M18 14h10M6 6l7 7M22 6l-7 7M6 22l7-7M22 22l-7-7" stroke="white" stroke-width="3" stroke-linecap="round"/>
+                </svg>
+                <span data-translate="fallalert.need_help_now">Need Help Now</span>
+            </button>
+            
+            <button class="alert-button safe-alert" onclick="confirmSafe()">
+                <svg width="28" height="28" viewBox="0 0 28 28" fill="currentColor">
+                    <circle cx="14" cy="14" r="14" fill="currentColor"/>
+                    <path d="M8 14l4 4 8-8" stroke="white" stroke-width="3" fill="none" stroke-linecap="round"/>
+                </svg>
+                <span data-translate="fallalert.i_am_safe">I am Safe</span>
+            </button>
+        </div>
+    </div>
+
+    <script src="scripts/translator.js"></script>
+    <script src="script.js"></script>
+    <script>
+        // Stop monitoring when on fallalert page
+        if (fallCheckInterval) {
+            clearInterval(fallCheckInterval);
+        }
+        
+        // Notify guardian immediately when fall is detected
+        async function notifyGuardianOfFall() {
+            try {
+                const payload = {
+                    elderly_name: "User",
+                    device_id: "belt_001",
+                    location: "Home"
+                }
+                const response = await fetch("http://127.0.0.1:5001/notify-guardian-fall", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload)
+                })
+                const data = await response.json()
+                console.log("[GUARDIAN NOTIFICATION] Fall detected - Guardian notified:", data)
+            } catch (error) {
+                console.log("[GUARDIAN NOTIFICATION] Error notifying guardian:", error)
+            }
+        }
+        
+        // Notify guardian when page loads
+        notifyGuardianOfFall()
+        
+        // Start countdown timer
+        let timeLeft = 10;
+        const timerInterval = setInterval(() => {
+            timeLeft--;
+            document.getElementById('timerDisplay').textContent = timeLeft;
+            
+            if (timeLeft <= 0) {
+                clearInterval(timerInterval);
+                contactGuardian();
+            }
+        }, 1000);
+
+        // Request help immediately when "Need Help Now" is clicked
+        async function requestHelpNow() {
+            console.log('🚨 [FALL ALERT] User requested immediate help!');
+            
+            // Clear the countdown timer
+            clearInterval(timerInterval);
+            
+            // Show immediate help message
+            document.getElementById('timerDisplay').textContent = 'HELP!';
+            document.querySelector('.alert-message').textContent = 'Emergency help requested! Contacting guardian now...';
+            
+            // Trigger emergency call immediately
+            try {
+                const response = await fetch('http://127.0.0.1:5001/api/emergency', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ emergency: true, user_requested: true })
+                });
+                
+                const data = await response.json();
+                console.log('🚨 [FALL ALERT] Emergency triggered:', data);
+                
+                // Update UI to show help is on the way
+                document.querySelector('.alert-message').textContent = 'Emergency services contacted! Guardian is being notified immediately.';
+                
+                // Play emergency sound if available
+                if ('vibrate' in navigator) {
+                    navigator.vibrate([200, 100, 200, 100, 200]);
+                }
+                
+            } catch (error) {
+                console.error('❌ [FALL ALERT] Error triggering emergency:', error);
+                document.querySelector('.alert-message').textContent = 'Error contacting emergency services. Please call for help manually!';
+            }
+        }
+
+        // Confirm safe when "I am Safe" is clicked
+        async function confirmSafe() {
+            console.log('✅ [FALL ALERT] User confirmed they are safe!');
+            
+            // Clear the countdown timer
+            clearInterval(timerInterval);
+            
+            // Show safe message
+            document.querySelector('.alert-message').textContent = 'Great! You confirmed you are safe. Redirecting to home...';
+            
+            // Notify backend that user is safe
+            try {
+                const response = await fetch('http://127.0.0.1:5001/api/response', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ response: 'safe', user_confirmed: true })
+                });
+                
+                const data = await response.json();
+                console.log('✅ [FALL ALERT] Safe confirmation sent:', data);
+                
+                // Redirect back to main portal after 2 seconds
+                setTimeout(() => {
+                    window.location.href = 'index.html';
+                }, 2000);
+                
+            } catch (error) {
+                console.error('❌ [FALL ALERT] Error confirming safe:', error);
+                // Still redirect even if API fails
+                setTimeout(() => {
+                    window.location.href = 'index.html';
+                }, 2000);
+            }
+        }
+
+        // Contact guardian when timer expires (auto-emergency)
+        async function contactGuardian() {
+            console.log('🚨 [FALL ALERT] Timer expired - Auto-contacting guardian!');
+            
+            // Show emergency message
+            document.querySelector('.alert-message').textContent = 'No response received! Contacting guardian automatically...';
+            document.getElementById('timerDisplay').textContent = 'EMERGENCY';
+            
+            // Trigger emergency call
+            try {
+                const response = await fetch('http://127.0.0.1:5001/api/emergency', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ emergency: true, auto_triggered: true })
+                });
+                
+                const data = await response.json();
+                console.log('🚨 [FALL ALERT] Auto-emergency triggered:', data);
+                
+                // Update UI
+                document.querySelector('.alert-message').textContent = 'Emergency services contacted! Guardian is being notified automatically.';
+                
+                // Keep showing emergency alert
+                document.body.style.backgroundColor = '#ff4444';
+                
+            } catch (error) {
+                console.error('❌ [FALL ALERT] Error in auto-emergency:', error);
+                document.querySelector('.alert-message').textContent = 'Error contacting emergency services. Please call for help manually!';
+            }
+        }
+    </script>
+</body>
+</html>

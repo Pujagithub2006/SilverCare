@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SilverCare Portal</title>
+    <link rel="stylesheet" href="styles.css">
+    
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#007AFF">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="SilverCare">
+    <meta name="description" content="SilverCare - Elderly Care and Health Monitoring System">
+    
+    <!-- Apple Touch Icon -->
+    <link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTkyIiBoZWlnaHQ9IjE5MiIgdmlld0JveD0iMCAwIDE5MiAxOTIiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxOTIiIGhlaWdodD0iMTkyIiByeD0iMjQiIGZpbGw9IiMwMDdBRkYiLz4KPHN2ZyB3aWR0aD0iOTYiIGhlaWdodD0iOTYiIHZpZXdCb3g9IjAgMCA5NiA5NiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB4PSI0OCIgeT0iNDgiPgo8cGF0aCBkPSJNMjggNDBIMjhWNTZINDhWNDBIMjh6IiBmaWxsPSJ3aGl0ZSIvPgo8cGF0aCBkPSJNNDggNDBINjhWNTZINDhWNDBaIiBmaWxsPSJ3aGl0ZSIvPgo8L3N2Zz4KPC9zdmc+">
+    
+    <!-- Manifest -->
+    <link rel="manifest" href="data:application/json;base64,ewogICJuYW1lIjogIlNpbHZlckNhcmUiLAogICJzaG9ydF9uYW1lIjogIlNpbHZlckNhcmUiLAogICJzdGFydF91cmwiIjogImh0dHA6Ly9sb2NhbGhvc3Q6ODA4MC9wb3J0YWwuaHRtbCIsCiAgImRpc3BsYXkiOiAic3RhbmRhbG9uZSIsCiAgImJhY2tncm91bmRfY29sb3IiOiAiI2ZmZmZmZiIsCiAgInRoZW1lX2NvbG9yIjogIiMwMDdBRkYiLAogICJvcmllbnRhdGlvbiI6ICJwb3J0cmFpdCIsCiAgImljb25zIjogWwogICAgewogICAgICAic3JjIjogImRhdGE6aW1hZ2Uvc3ZnK3htbDtiYXNlNjQsUEhOMlpXMWlabk1sY21sa1pTSTZJblI1YXkxdmNHVnlZWFJ2Y2s5cFpDNWtiM2N1Wkc5amFXRmtaVjl0WVhOMFpYSXVZMjl0Wlc1MGNHeGxMbU52YlM5MmFXUmxieTVzTjJOMFlXNTBjR3hsTG1OdmJTOXVjR1Y2WVdSMWN5NWhiV1U2YzJsdmNHVnlYMlJ2IiwKICAgICAgInNpemVzIjogIjE5MngxOTIiLAogICAgICAidHlwZSI6ICJpbWFnZS9zdmcreG1sIiwKICAgICAgInB1cnBvc2UiOiAiYW55IG1hc2sibGUiCiAgICB9CiAgXQp9">
+    
+    <style>
+        body {
+            background: #ffffff;
+            min-height: 100vh;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+            padding: 20px;
+            padding-bottom: 100px; /* Space for install banner */
+            -webkit-font-smoothing: antialiased;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        .portal-container {
+            background: #ffffff;
+            border-radius: 20px;
+            padding: 40px 20px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            max-width: 375px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .portal-title {
+            color: #000000;
+            font-size: 32px;
+            margin-bottom: 8px;
+            font-weight: 700;
+        }
+
+        .portal-subtitle {
+            color: #6c6c70;
+            font-size: 16px;
+            margin-bottom: 40px;
+            font-weight: 400;
+        }
+
+        .portal-options {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .portal-button {
+            background: #007AFF;
+            color: white;
+            border: none;
+            padding: 16px 24px;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            min-height: 52px;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .portal-button:hover {
+            transform: scale(0.95);
+            opacity: 0.8;
+        }
+
+        .portal-button:active {
+            transform: scale(0.9);
+        }
+
+        .portal-button.elderly {
+            background: #34c759;
+            transition: all 0.3s ease;
+        }
+
+        .portal-button.elderly:hover {
+            opacity: 0.8;
+        }
+
+        .portal-button.elderly.hidden {
+            display: none;
+        }
+
+        .icon {
+            font-size: 20px;
+        }
+
+        /* Mobile Specific */
+        @media (max-width: 400px) {
+            body {
+                padding: 10px;
+                padding-bottom: 80px; /* Space for install banner */
+            }
+            
+            .portal-container {
+                padding: 30px 16px;
+                margin: 0;
+            }
+            
+            .portal-options {
+                gap: 12px;
+            }
+            
+            .install-banner {
+                padding: 12px;
+                flex-direction: column;
+                gap: 12px;
+            }
+            
+            .install-banner-buttons {
+                width: 100%;
+                justify-content: space-between;
+            }
+            
+            .install-banner-btn {
+                flex: 1;
+                padding: 10px 16px;
+            }
+        }
+
+        /* Install Banner */
+        .install-banner {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(135deg, #007AFF, #5ac8fa);
+            color: white;
+            padding: 16px;
+            text-align: center;
+            z-index: 1000;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+            box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .install-banner.hidden {
+            display: none;
+        }
+
+        .install-banner-content {
+            flex: 1;
+        }
+
+        .install-banner-title {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .install-banner-subtitle {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .install-banner-buttons {
+            display: flex;
+            gap: 8px;
+        }
+
+        .install-banner-btn {
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            border: none;
+            transition: all 0.15s ease;
+        }
+
+        .install-banner-btn.later {
+            background: rgba(255,255,255,0.2);
+            color: white;
+        }
+
+        .install-banner-btn.install {
+            background: white;
+            color: #007AFF;
+        }
+    </style>
+</head>
+<body>
+    <div class="portal-container">
+        <h1 class="portal-title">SilverCare</h1>
+        <p class="portal-subtitle">Choose your portal to continue</p>
+        
+        <div class="portal-options">
+            <a href="guardian-auth.html" class="portal-button">
+                <span class="icon">👤</span>
+                <span>Guardian Portal</span>
+            </a>
+            
+            <a href="elderly-login.html" class="portal-button elderly">
+                <span class="icon">👴</span>
+                <span>Elderly Login/Register</span>
+            </a>
+            
+            <a href="index.html" class="portal-button elderly" id="elderlyPortalBtn">
+                <span class="icon">🏠</span>
+                <span>Elderly Portal</span>
+                <small style="font-size: 12px; opacity: 0.8; margin-left: 4px;">(Logged In)</small>
+            </a>
+        </div>
+    </div>
+
+    <!-- Install Banner -->
+    <div id="installBanner" class="install-banner hidden">
+        <div class="install-banner-content">
+            <div class="install-banner-title">📱 Install SilverCare App</div>
+            <div class="install-banner-subtitle">Add to home screen for better experience</div>
+        </div>
+        <div class="install-banner-buttons">
+            <button class="install-banner-btn later" onclick="dismissInstallBanner()">Later</button>
+            <button class="install-banner-btn install" onclick="installApp()">Install</button>
+        </div>
+    </div>
+
+    <script>
+        let deferredPrompt;
+        // Check elderly login status on page load
+        function checkElderlyLoginStatus() {
+            const elderlyLoggedIn = localStorage.getItem('elderlyLoggedIn');
+            const elderlyPortalBtn = document.getElementById('elderlyPortalBtn');
+            
+            if (elderlyLoggedIn === 'true') {
+                // Elderly is logged in - show portal button
+                elderlyPortalBtn.style.display = 'flex';
+                console.log('✅ Elderly is logged in - showing portal button');
+            } else {
+                // Elderly is logged out - hide portal button
+                elderlyPortalBtn.style.display = 'none';
+                console.log('❌ Elderly is logged out - hiding portal button');
+            }
+        }
+
+        // Listen for login/logout events from other pages
+        window.addEventListener('storage', function(e) {
+            if (e.key === 'elderlyLoggedIn') {
+                console.log('🔄 Elderly login status changed:', e.newValue);
+                checkElderlyLoginStatus();
+            }
+        });
+
+        // Listen for custom events from same page
+        window.addEventListener('elderlyLoginChanged', function(e) {
+            console.log('🔄 Elderly login status changed (custom event):', e.detail.loggedIn);
+            checkElderlyLoginStatus();
+        });
+
+        // Check login status when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            checkElderlyLoginStatus();
+        });
+
+        // Check login status periodically (for cross-tab sync)
+        setInterval(checkElderlyLoginStatus, 1000);
+
+        // Check if already installed
+        if (window.matchMedia('(display-mode: standalone)').matches) {
+            // Already installed - don't show banner
+        } else {
+            // Show install banner after a delay
+            setTimeout(() => {
+                showInstallBanner();
+            }, 2000);
+        }
+
+        // Listen for install prompt
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+        });
+
+        // Show install banner
+        function showInstallBanner() {
+            const banner = document.getElementById('installBanner');
+            if (!window.matchMedia('(display-mode: standalone)').matches) {
+                banner.classList.remove('hidden');
+            }
+        }
+
+        // Dismiss install banner
+        function dismissInstallBanner() {
+            const banner = document.getElementById('installBanner');
+            banner.classList.add('hidden');
+        }
+
+        // Install app
+        function installApp() {
+            // For iOS Safari
+            if (navigator.userAgent.match(/iPhone|iPad|iPod/)) {
+                showIOSInstructions();
+            }
+            // For Android Chrome with native install prompt
+            else if (deferredPrompt) {
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then((choiceResult) => {
+                    if (choiceResult.outcome === 'accepted') {
+                        console.log('App installed');
+                        dismissInstallBanner();
+                    }
+                    deferredPrompt = null;
+                });
+            }
+            // For Android Chrome without native prompt
+            else if (navigator.userAgent.match(/Android/)) {
+                showAndroidInstructions();
+            }
+            // For others
+            else {
+                showGenericInstructions();
+            }
+        }
+
+        // Test functions for demonstration
+        function simulateLogin() {
+            localStorage.setItem('elderlyLoggedIn', 'true');
+            console.log('🧪 Simulated elderly login');
+            checkElderlyLoginStatus();
+            
+            // Dispatch custom event for cross-tab communication
+            window.dispatchEvent(new CustomEvent('elderlyLoginChanged', {
+                detail: { loggedIn: true }
+            }));
+        }
+
+        function simulateLogout() {
+            localStorage.setItem('elderlyLoggedIn', 'false');
+            console.log('🧪 Simulated elderly logout');
+            checkElderlyLoginStatus();
+            
+            // Dispatch custom event for cross-tab communication
+            window.dispatchEvent(new CustomEvent('elderlyLoginChanged', {
+                detail: { loggedIn: false }
+            }));
+        }
+
+        // Show iOS Instructions
+        function showIOSInstructions() {
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0,0,0,0.8);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 2000;
+                padding: 20px;
+            `;
+            
+            modal.innerHTML = `
+                <div style="
+                    background: white;
+                    border-radius: 20px;
+                    padding: 24px;
+                    max-width: 350px;
+                    width: 100%;
+                    text-align: center;
+                ">
+                    <h3 style="color: #000; margin-bottom: 16px;">📱 Install SilverCare</h3>
+                    <div style="color: #6c6c70; margin-bottom: 20px; line-height: 1.5;">
+                        <div style="margin-bottom: 12px;"><strong>Step 1:</strong> Tap the Share button <span style="font-size: 20px;">⎋</span></div>
+                        <div style="margin-bottom: 12px;"><strong>Step 2:</strong> Scroll down and tap "Add to Home Screen"</div>
+                        <div><strong>Step 3:</strong> Tap "Add" to install the app</div>
+                    </div>
+                    <button onclick="this.closest('div').parentElement.remove()" style="
+                        background: #007AFF;
+                        color: white;
+                        border: none;
+                        padding: 12px 24px;
+                        border-radius: 24px;
+                        font-size: 16px;
+                        font-weight: 500;
+                        cursor: pointer;
+                        width: 100%;
+                    ">Got it!</button>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            dismissInstallBanner();
+        }
+
+        // Show Android Instructions
+        function showAndroidInstructions() {
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0,0,0,0.8);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 2000;
+                padding: 20px;
+            `;
+            
+            modal.innerHTML = `
+                <div style="
+                    background: white;
+                    border-radius: 20px;
+                    padding: 24px;
+                    max-width: 350px;
+                    width: 100%;
+                    text-align: center;
+                ">
+                    <h3 style="color: #000; margin-bottom: 16px;">📱 Install SilverCare</h3>
+                    <div style="color: #6c6c70; margin-bottom: 20px; line-height: 1.5;">
+                        <div style="margin-bottom: 12px;"><strong>Step 1:</strong> Tap the menu button <span style="font-size: 20px;">⋮</span></div>
+                        <div style="margin-bottom: 12px;"><strong>Step 2:</strong> Tap "Add to Home screen" or "Install app"</div>
+                        <div><strong>Step 3:</strong> Tap "Install" to add the app</div>
+                    </div>
+                    <button onclick="this.closest('div').parentElement.remove()" style="
+                        background: #007AFF;
+                        color: white;
+                        border: none;
+                        padding: 12px 24px;
+                        border-radius: 24px;
+                        font-size: 16px;
+                        font-weight: 500;
+                        cursor: pointer;
+                        width: 100%;
+                    ">Got it!</button>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            dismissInstallBanner();
+        }
+
+        // Show Generic Instructions
+        function showGenericInstructions() {
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0,0,0,0.8);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 2000;
+                padding: 20px;
+            `;
+            
+            modal.innerHTML = `
+                <div style="
+                    background: white;
+                    border-radius: 20px;
+                    padding: 24px;
+                    max-width: 350px;
+                    width: 100%;
+                    text-align: center;
+                ">
+                    <h3 style="color: #000; margin-bottom: 16px;">📱 Install SilverCare</h3>
+                    <div style="color: #6c6c70; margin-bottom: 20px;">
+                        Look for "Add to Home Screen" or "Install App" in your browser menu to install this app.
+                    </div>
+                    <button onclick="this.closest('div').parentElement.remove()" style="
+                        background: #007AFF;
+                        color: white;
+                        border: none;
+                        padding: 12px 24px;
+                        border-radius: 24px;
+                        font-size: 16px;
+                        font-weight: 500;
+                        cursor: pointer;
+                        width: 100%;
+                    ">Got it!</button>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            dismissInstallBanner();
+        }
+
+        // Hide install banner if app is already installed
+        window.addEventListener('appinstalled', () => {
+            dismissInstallBanner();
+        });
+
+        // Register Service Worker
+        if ('serviceWorker' in navigator) {
+            const swCode = `
+                self.addEventListener('install', (event) => {
+                    event.waitUntil(
+                        caches.open('silvercare-v1').then((cache) => {
+                            return cache.addAll([
+                                '/',
+                                '/portal.html',
+                                '/guardian-auth.html',
+                                '/guardian-dashboard.html',
+                                '/elderly-auth.html',
+                                '/index.html'
+                            ]);
+                        })
+                    );
+                });
+
+                self.addEventListener('fetch', (event) => {
+                    event.respondWith(
+                        caches.match(event.request).then((response) => {
+                            return response || fetch(event.request);
+                        })
+                    );
+                });
+            `;
+            
+            const blob = new Blob([swCode], { type: 'application/javascript' });
+            const swUrl = URL.createObjectURL(blob);
+            
+            navigator.serviceWorker.register(swUrl).then(registration => {
+                console.log('Service Worker registered');
+            }).catch(error => {
+                console.log('Service Worker registration failed');
+            });
+        }
+    </script>
+</body>
+</html>

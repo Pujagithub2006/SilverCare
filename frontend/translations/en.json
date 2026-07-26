@@ -1,0 +1,124 @@
+{
+  "common": {
+    "connected": "Connected",
+    "sos": "SOS",
+    "press_for_help": "PRESS FOR HELP",
+    "press_and_hold": "Press and hold for 3 seconds",
+    "language": "Language",
+    "app_title": "SilverCare - Home",
+    "active": "Active",
+    "navigation": {
+      "home": "Home",
+      "reminders": "Reminders",
+      "health": "Health Monitoring",
+      "emergency": "Emergency",
+      "settings": "Settings",
+      "assistant": "Assistant"
+    }
+  },
+  "reminders": {
+    "title": "Medicine Reminders",
+    "morning_medicine": "Morning Medicine",
+    "afternoon_medicine": "Afternoon Medicine", 
+    "night_medicine": "Night Medicine",
+    "take_now": "Take Now",
+    "taken": "Taken",
+    "skipped": "Skipped",
+    "medicine_time": "Medicines at 2 PM",
+    "coming_soon": "Medicine reminders will be shown here"
+  },
+  "health": {
+    "title": "Health Dashboard",
+    "total_medicines": "Total Medicines",
+    "taken": "Taken",
+    "missed": "Missed",
+    "todays_medicines": "Today's Medicines",
+    "loading_medicines": "Loading medicines...",
+    "guardian_suggestions": "Guardian Suggestions",
+    "loading_suggestions": "Loading suggestions...",
+    "health_tips": "Health Tips",
+    "stay_hydrated": "Stay Hydrated",
+    "drink_water": "Drink at least 8 glasses of water daily",
+    "daily_walk": "Daily Walk",
+    "walk_15_min": "Take a 15-minute walk for better health",
+    "good_sleep": "Good Sleep",
+    "sleep_message": "Aim for 7-8 hours of quality sleep",
+    "no_medicines": "No medicines scheduled",
+    "no_medicines_message": "You don't have any medicines for today",
+    "no_suggestions": "No suggestions",
+    "no_suggestions_message": "Your guardian hasn't added any suggestions yet",
+    "dose_labels": {
+      "morning": "Morning",
+      "afternoon": "Afternoon", 
+      "evening": "Evening",
+      "daily": "Daily"
+    }
+  },
+  "emergency": {
+    "title": "Emergency Contacts",
+    "call_guardian": "Call Guardian",
+    "call_doctor": "Call Doctor",
+    "emergency_services": "Emergency Services",
+    "location": "Current Location"
+  },
+  "dashboard": {
+    "title": "Guardian Dashboard",
+    "elderly_status": "Elderly Status",
+    "recent_alerts": "Recent Alerts",
+    "device_status": "Device Status",
+    "acknowledge": "Acknowledge",
+    "view_details": "View Details",
+    "active": "Active",
+    "offline": "Offline",
+    "emergency_alert": "Emergency Alert",
+    "fall_detected": "Fall Detected",
+    "medicine_missed": "Medicine Missed",
+    "no_response": "No Response"
+  },
+  "alerts": {
+    "fall_detected_title": "Fall Detected!",
+    "fall_detected_message": "A fall has been detected. Please check immediately.",
+    "medicine_reminder": "Medicine Reminder",
+    "time_for_medicine": "It's time to take your medicine",
+    "device_offline": "Device Offline",
+    "device_offline_message": "The device is not responding. Please check the connection.",
+    "no_new_alerts": "No new alerts"
+  },
+  "settings": {
+    "title": "Settings",
+    "profile": "Profile",
+    "notifications": "Notifications",
+    "language": "Language",
+    "about": "About",
+    "logout": "Logout",
+    "logout_confirm": "Are you sure you want to logout?"
+  },
+  "chat": {
+    "title": "VOIS Companion 💙",
+    "placeholder": "Type hi...",
+    "bot_response": "I'm here to help! What would you like to know?"
+  },
+  "voice": {
+    "start_recording": "Start Recording",
+    "stop_recording": "Stop Recording",
+    "listening": "Listening...",
+    "voice_input": "Voice Input",
+    "microphone_not_allowed": "Microphone permission denied. Please allow microphone access.",
+    "microphone_not_found": "Microphone not found. Please check your device.",
+    "voice_not_supported": "Voice input is not supported in this browser. Please try Chrome or Edge.",
+    "suggestion_placeholder": "Type your health suggestion here or use voice input..."
+  },
+  "sos_alerts": {
+    "alert_sent": "SOS Alert Sent! Help is on the way."
+  },
+  "fallalert": {
+    "title": "Fall Detected",
+    "alert_title": "FALL DETECTED!",
+    "sending_alert_in": "Sending alert in...",
+    "please_confirm_status": "Please confirm your status.",
+    "seconds": "SECONDS",
+    "contacting_guardian": "We are contacting your guardian automatically when the timer ends.",
+    "need_help_now": "Need Help Now",
+    "i_am_safe": "I am Safe"
+  }
+}
