@@ -1,0 +1,346 @@
+{
+  "purva_jagruti": {
+    "elderly_id": "purva_jagruti",
+    "name": "jagruti",
+    "age": 89,
+    "medical_history": "high bp",
+    "phone": "9322976719",
+    "location": "Home",
+    "guardian_username": "purva",
+    "created_at": "2026-02-10T18:37:45.206260"
+  },
+  "vaish_pooja_nikam": {
+    "elderly_id": "vaish_pooja_nikam",
+    "name": "Pooja Nikam",
+    "age": 79,
+    "medical_history": "High BP",
+    "phone": "9011443024",
+    "location": "Home",
+    "guardian_username": "vaish",
+    "created_at": "2026-02-19T13:11:07.298105",
+    "guardian_suggestions": [
+      {
+        "id": 1,
+        "suggestion": "sleep on time",
+        "created_at": "2026-02-19T17:23:25.512177",
+        "active": true
+      }
+    ]
+  },
+  "gauri_rekha": {
+    "elderly_id": "gauri_rekha",
+    "name": "Rekha",
+    "age": 90,
+    "medical_history": "Diabeties",
+    "phone": "9011443024",
+    "location": "Home",
+    "guardian_username": "gauri",
+    "created_at": "2026-02-19T17:27:45.560680",
+    "guardian_suggestions": [
+      {
+        "id": 1,
+        "suggestion": "sleep on time",
+        "created_at": "2026-02-19T17:29:44.096236",
+        "active": true
+      }
+    ]
+  },
+  "trupti_praju": {
+    "elderly_id": "trupti_praju",
+    "name": "praju",
+    "age": 87,
+    "medical_history": "high bp",
+    "phone": "9011443024",
+    "location": "Home",
+    "guardian_username": "trupti",
+    "created_at": "2026-02-19T17:38:20.838229",
+    "guardian_suggestions": [
+      {
+        "id": 1,
+        "suggestion": "take medicines on time",
+        "created_at": "2026-02-19T17:38:54.953520",
+        "active": true
+      }
+    ]
+  },
+  "vaish2_puja_nikam": {
+    "elderly_id": "vaish2_puja_nikam",
+    "name": "Puja Nikam",
+    "age": 80,
+    "medical_history": "High BP",
+    "phone": "9011443024",
+    "location": "Hospital",
+    "guardian_username": "vaish2",
+    "created_at": "2026-02-20T10:31:17.256489"
+  },
+  "puja_vaishnavi": {
+    "elderly_id": "puja_vaishnavi",
+    "name": "Vaishnavi",
+    "age": 88,
+    "medical_history": "Diabetes",
+    "phone": "9011443024",
+    "location": "Home",
+    "guardian_username": "puja",
+    "created_at": "2026-02-25T18:26:18.252931"
+  },
+  "pujas_vaishnavi": {
+    "elderly_id": "pujas_vaishnavi",
+    "name": "Vaishnavi",
+    "age": 77,
+    "medical_history": "Diabetes",
+    "phone": "9011443024",
+    "location": "Home",
+    "guardian_username": "pujas",
+    "created_at": "2026-02-26T01:45:48.310864"
+  },
+  "vaishn_pooja": {
+    "elderly_id": "vaishn_pooja",
+    "name": "Pooja",
+    "age": 99,
+    "medical_history": "Diabetes",
+    "phone": "8668677427",
+    "location": "Home",
+    "guardian_username": "vaishn",
+    "created_at": "2026-02-26T13:22:44.525877"
+  },
+  "pujasa_vaishnavi": {
+    "elderly_id": "pujasa_vaishnavi",
+    "name": "Vaishnavi",
+    "age": 88,
+    "medical_history": "High BP",
+    "phone": "8668677427",
+    "location": "Home",
+    "guardian_username": "pujasa",
+    "created_at": "2026-02-26T14:39:36.857124"
+  },
+  "harsh_nayana": {
+    "elderly_id": "harsh_nayana",
+    "name": "nayana",
+    "age": 80,
+    "medical_history": "diabeties",
+    "phone": "9322757538",
+    "location": "Home",
+    "guardian_username": "harsh",
+    "created_at": "2026-02-26T17:05:14.996213"
+  },
+  "vois_belt": {
+    "device_id": "vois_belt",
+    "device_name": "SilverCare Belt",
+    "current_user": "harsh_nayana",
+    "available_users": [
+      "harsh_nayana",
+      "pujasa_vaishnavi",
+      "vaishn_pooja",
+      "auto_test_guardian_auto_test_elderly"
+    ],
+    "status": "active",
+    "last_seen": "2026-02-26T19:21:51.161842",
+    "created_at": "2026-02-26T18:30:00Z"
+  },
+  "test_guardian_new_test_elderly": {
+    "elderly_id": "test_guardian_new_test_elderly",
+    "name": "Test Elderly",
+    "age": 75,
+    "medical_history": "Hypertension",
+    "phone": "9876543211",
+    "location": "Home",
+    "guardian_username": "test_guardian_new",
+    "created_at": "2026-02-26T19:10:40.039029"
+  },
+  "twilio_test_guardian_twilio_test_elderly": {
+    "elderly_id": "twilio_test_guardian_twilio_test_elderly",
+    "name": "Twilio Test Elderly",
+    "age": 75,
+    "medical_history": "Hypertension",
+    "phone": "9876543221",
+    "location": "Home",
+    "guardian_username": "twilio_test_guardian",
+    "created_at": "2026-02-26T19:12:08.196483"
+  },
+  "auto_test_guardian_auto_test_elderly": {
+    "elderly_id": "auto_test_guardian_auto_test_elderly",
+    "name": "Auto Test Elderly",
+    "age": 72,
+    "medical_history": "Arthritis",
+    "phone": "9988776656",
+    "location": "Home",
+    "guardian_username": "auto_test_guardian",
+    "created_at": "2026-02-26T19:21:51.156044"
+  },
+  "dia_nayan": {
+    "elderly_id": "dia_nayan",
+    "name": "nayan",
+    "age": 80,
+    "medical_history": "diabeties",
+    "phone": "9322976710",
+    "location": "Home",
+    "guardian_username": "dia",
+    "created_at": "2026-02-26T20:40:51.932950"
+  },
+  "katrina_salman": {
+    "elderly_id": "katrina_salman",
+    "name": "salman",
+    "age": 80,
+    "medical_history": "diabeties",
+    "phone": "9322976710",
+    "location": "Home",
+    "guardian_username": "katrina",
+    "created_at": "2026-02-26T21:27:46.795150"
+  },
+  "kareena_saif": {
+    "elderly_id": "kareena_saif",
+    "name": "Saif",
+    "age": 88,
+    "medical_history": "High BP",
+    "phone": "9011443024",
+    "location": "Home",
+    "guardian_username": "kareena",
+    "created_at": "2026-02-26T21:40:34.285267"
+  },
+  "abhi_megha": {
+    "elderly_id": "abhi_megha",
+    "name": "megha",
+    "age": 80,
+    "medical_history": "bp",
+    "phone": "9322976710",
+    "location": "Home",
+    "guardian_username": "abhi",
+    "created_at": "2026-02-27T00:51:19.431933"
+  },
+  "samiksha_aastha": {
+    "elderly_id": "samiksha_aastha",
+    "name": "Aastha",
+    "age": 88,
+    "medical_history": "high BP",
+    "phone": "9011443024",
+    "location": "Home",
+    "guardian_username": "samiksha",
+    "created_at": "2026-02-27T01:48:46.083003"
+  },
+  "rashmika_vijay": {
+    "elderly_id": "rashmika_vijay",
+    "name": "vijay",
+    "age": 70,
+    "medical_history": "high bp",
+    "phone": "9322976710",
+    "location": "Home",
+    "guardian_username": "rashmika",
+    "created_at": "2026-02-27T02:45:45.738916"
+  },
+  "riya_vedu": {
+    "elderly_id": "riya_vedu",
+    "name": "vedu",
+    "age": 80,
+    "medical_history": "heart problem",
+    "phone": "9322757538",
+    "location": "Home",
+    "guardian_username": "riya",
+    "created_at": "2026-02-27T02:59:18.530969"
+  },
+  "sia_ram_patil": {
+    "elderly_id": "sia_ram_patil",
+    "name": "ram patil",
+    "age": 80,
+    "medical_history": "high bp",
+    "phone": "9322976710",
+    "location": "Home",
+    "guardian_username": "sia",
+    "created_at": "2026-02-27T04:56:32.628357",
+    "guardian_suggestions": [
+      {
+        "id": 1,
+        "suggestion": "take a sleep of 7 to 8 hours",
+        "created_at": "2026-02-27T05:02:50.957407",
+        "active": true
+      },
+      {
+        "id": 2,
+        "suggestion": "\u0935\u0915\u094d\u0924 \u092a\u0930 \u0916\u093e\u0928\u093e \u0916\u093e\u0915\u0930 \u0938\u094b \u091c\u093e\u090f",
+        "created_at": "2026-02-27T05:07:17.538039",
+        "active": true
+      }
+    ]
+  },
+  "poonam_ram": {
+    "elderly_id": "poonam_ram",
+    "name": "Ram",
+    "age": 78,
+    "medical_history": "High bp",
+    "phone": "9011443024",
+    "location": "Home",
+    "guardian_username": "poonam",
+    "created_at": "2026-02-27T05:12:09.306141",
+    "guardian_suggestions": [
+      {
+        "id": 1,
+        "suggestion": "\u0916\u093e\u0928\u093e \u0916\u093e\u0915\u0930 \u0938\u094b \u091c\u093e\u090f",
+        "created_at": "2026-02-27T05:21:24.685371",
+        "active": true
+      },
+      {
+        "id": 2,
+        "suggestion": "\u091c\u0932\u094d\u0926\u0940 \u0916\u093e\u0928\u093e \u0916\u093e\u0915\u0930 \u0938\u094b \u091c\u093e\u090f",
+        "created_at": "2026-02-27T06:43:51.784327",
+        "active": true
+      }
+    ]
+  },
+  "rina_om": {
+    "elderly_id": "rina_om",
+    "name": "om",
+    "age": 79,
+    "medical_history": "bp",
+    "phone": "9322976710",
+    "location": "Home",
+    "guardian_username": "rina",
+    "created_at": "2026-02-27T07:09:26.661976"
+  },
+  "jag_llll": {
+    "elderly_id": "jag_llll",
+    "name": "llll",
+    "age": 88,
+    "medical_history": "bb",
+    "phone": "9322757599",
+    "location": "home",
+    "guardian_username": "jag",
+    "created_at": "2026-02-27T07:17:03.630636"
+  },
+  "ooo_mmm": {
+    "elderly_id": "ooo_mmm",
+    "name": "mmm",
+    "age": 90,
+    "medical_history": "cc",
+    "phone": "9011443024",
+    "location": "home",
+    "guardian_username": "ooo",
+    "created_at": "2026-02-27T07:19:25.341632"
+  },
+  "sita_rajan": {
+    "elderly_id": "sita_rajan",
+    "name": "rajan",
+    "age": 80,
+    "medical_history": "diabeties",
+    "phone": "9011443024",
+    "location": "Home",
+    "guardian_username": "sita",
+    "created_at": "2026-02-27T12:03:10.665992",
+    "guardian_suggestions": [
+      {
+        "id": 1,
+        "suggestion": "\u091c\u0932\u094d\u0926\u0940 \u0916\u093e\u0928\u093e \u0916\u093e\u0915\u0930 \u0938\u094b \u091c\u093e\u090f",
+        "created_at": "2026-02-27T12:23:09.533846",
+        "active": true
+      }
+    ]
+  },
+  "roshni_akansha": {
+    "elderly_id": "roshni_akansha",
+    "name": "akansha",
+    "age": 80,
+    "medical_history": "diabeties",
+    "phone": "9322976719",
+    "location": "kdnnks",
+    "guardian_username": "roshni",
+    "created_at": "2026-07-14T20:18:53.143111"
+  }
+}

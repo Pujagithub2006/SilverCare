@@ -1,0 +1,92 @@
+{
+  "vaish_pooja_nikam": [
+    {
+      "id": 1,
+      "medicine_name": "Paracetmol",
+      "dosage": "1 ",
+      "times": [
+        "17:25"
+      ],
+      "instructions": "after dinner",
+      "start_date": "2026-02-19",
+      "end_date": "2026-02-20",
+      "created_at": "2026-02-19T17:24:16.292329",
+      "active": true
+    }
+  ],
+  "gauri_rekha": [
+    {
+      "id": 1,
+      "medicine_name": "Paracetmol",
+      "dosage": "1",
+      "times": [
+        "17:31"
+      ],
+      "instructions": "Take water",
+      "start_date": "2026-02-19",
+      "end_date": "2026-02-20",
+      "created_at": "2026-02-19T17:29:21.092485",
+      "active": true
+    }
+  ],
+  "trupti_praju": [
+    {
+      "id": 1,
+      "medicine_name": "Paracetmol",
+      "dosage": "1 ",
+      "times": [
+        "17:41"
+      ],
+      "instructions": "",
+      "start_date": "2026-02-19",
+      "end_date": "2026-02-28",
+      "created_at": "2026-02-19T17:39:18.314823",
+      "active": true
+    }
+  ],
+  "sia_ram_patil": [
+    {
+      "id": 1,
+      "medicine_name": "paracetamol",
+      "dosage": "1",
+      "times": [
+        "05:04"
+      ],
+      "instructions": "after meal",
+      "start_date": "2026-02-26",
+      "end_date": "2026-02-28",
+      "created_at": "2026-02-27T05:03:13.143013",
+      "active": true
+    }
+  ],
+  "poonam_ram": [
+    {
+      "id": 1,
+      "medicine_name": "paracetamol",
+      "dosage": "1 tablet",
+      "times": [
+        "06:45"
+      ],
+      "instructions": "before meal",
+      "start_date": "2026-02-27",
+      "end_date": "2026-03-01",
+      "created_at": "2026-02-27T06:44:36.703845",
+      "active": true
+    }
+  ],
+  "sita_rajan": [
+    {
+      "id": 1,
+      "medicine_name": "paracetamol",
+      "dosage": "1 tablet",
+      "times": [
+        "12:24"
+      ],
+      "instructions": "before meal",
+      "start_date": "2026-02-27",
+      "end_date": "2026-03-01",
+      "created_at": "2026-02-27T12:23:33.293889",
+      "active": true
+    }
+  ]
+}
