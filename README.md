@@ -105,12 +105,6 @@ Using a wearable waistband with multi-sensors, smart detection logic, medicine r
 
 ---
 
-## ♦ GitHub Repository Link
-
-https://github.com/Pujagithub2006/VOIS-and-Team-89
-
----
-
 ## ♦ How to Run the Project
 
 1. Clone the repository  
