@@ -1,8 +1,15 @@
 import axios from 'axios';
 
+const normalizeBaseUrl = (value) => (value || '').replace(/\/$/, '');
+
+const resolveBaseUrl = (fallback) => {
+  const configuredValue = import.meta.env?.VITE_API_BASE_URL || import.meta.env?.VITE_BACKEND_URL;
+  return normalizeBaseUrl(configuredValue) || fallback;
+};
+
 // Backend Base URLs
-const API_BASE = 'http://localhost:8080/api'; // Spring Boot backend
-const LEGACY_API_BASE = 'http://127.0.0.1:5001'; // Python backend
+const API_BASE = resolveBaseUrl('http://localhost:5001');
+const LEGACY_API_BASE = resolveBaseUrl('http://127.0.0.1:5001');
 
 const api = axios.create({
   baseURL: API_BASE,
@@ -10,6 +17,20 @@ const api = axios.create({
     'Content-Type': 'application/json',
   },
 });
+
+const normalizeEmergencyPayload = (payload = {}) => {
+  const normalized = { ...payload };
+  if (!normalized.elderly_name && !normalized.elderlyName && !normalized.name) {
+    normalized.elderly_name = 'User';
+  }
+  if (!normalized.guardian_username && !normalized.guardianUsername) {
+    normalized.guardian_username = localStorage.getItem('guardian_username') || '';
+  }
+  if (!normalized.location) {
+    normalized.location = 'Unknown location';
+  }
+  return normalized;
+};
 
 // ==================== ELDERLY API SERVICES ====================
 
@@ -27,7 +48,7 @@ export const elderlyLogin = async (name, phone) => {
 
 export const elderlyRegister = async (elderlyData) => {
   try {
-    const response = await api.post('/elderly/register', elderlyData);
+    const response = await api.post('/elderly-register', elderlyData);
     return response.data;
   } catch (error) {
     const legacyResponse = await axios.post(`${LEGACY_API_BASE}/elderly-register`, elderlyData);
@@ -38,7 +59,7 @@ export const elderlyRegister = async (elderlyData) => {
 // Elderly Session Management
 export const registerElderlySession = async (elderlyId, deviceInfo) => {
   try {
-    const response = await api.post('/elderly/session/register', { elderly_id: elderlyId, device_info: deviceInfo });
+    const response = await api.post('/elderly/register-session', { elderly_id: elderlyId, device_info: deviceInfo });
     return response.data;
   } catch (error) {
     const legacyResponse = await axios.post(`${LEGACY_API_BASE}/elderly/register-session`, { elderly_id: elderlyId, device_info: deviceInfo });
@@ -48,7 +69,7 @@ export const registerElderlySession = async (elderlyId, deviceInfo) => {
 
 export const unregisterElderlySession = async (elderlyId) => {
   try {
-    const response = await api.post('/elderly/session/unregister', { elderly_id: elderlyId });
+    const response = await api.post('/elderly/unregister-session', { elderly_id: elderlyId });
     return response.data;
   } catch (error) {
     const legacyResponse = await axios.post(`${LEGACY_API_BASE}/elderly/unregister-session`, { elderly_id: elderlyId });
@@ -69,7 +90,7 @@ export const getElderlyNotifications = async (elderlyId) => {
 
 export const clearElderlyNotification = async (elderlyId, medicineId, response) => {
   try {
-    const apiResponse = await api.post('/elderly/notification/clear', { elderly_id: elderlyId, medicine_id: medicineId, response });
+    const apiResponse = await api.post('/elderly/clear-notification', { elderly_id: elderlyId, medicine_id: medicineId, response });
     return apiResponse.data;
   } catch (error) {
     const legacyResponse = await axios.post(`${LEGACY_API_BASE}/elderly/clear-notification`, { elderly_id: elderlyId, medicine_id: medicineId, response });
@@ -80,7 +101,7 @@ export const clearElderlyNotification = async (elderlyId, medicineId, response) 
 // Fall Detection & Emergency
 export const notifyGuardianFall = async (payload) => {
   try {
-    const response = await api.post('/fall/notify-guardian', payload);
+    const response = await api.post('/notify-guardian-fall', normalizeEmergencyPayload(payload));
     return response.data;
   } catch (error) {
     const legacyResponse = await axios.post(`${LEGACY_API_BASE}/notify-guardian-fall`, payload);
@@ -90,7 +111,7 @@ export const notifyGuardianFall = async (payload) => {
 
 export const triggerEmergency = async (payload) => {
   try {
-    const response = await api.post('/emergency/trigger', payload);
+    const response = await api.post('/emergency-call', normalizeEmergencyPayload(payload));
     return response.data;
   } catch (error) {
     const legacyResponse = await axios.post(`${LEGACY_API_BASE}/api/emergency`, payload);
@@ -100,7 +121,7 @@ export const triggerEmergency = async (payload) => {
 
 export const confirmSafe = async (payload) => {
   try {
-    const response = await api.post('/emergency/safe', payload);
+    const response = await api.post('/notify-guardian-safe', normalizeEmergencyPayload(payload));
     return response.data;
   } catch (error) {
     const legacyResponse = await axios.post(`${LEGACY_API_BASE}/api/response`, payload);
@@ -119,11 +140,31 @@ export const getMedicines = async (elderlyId) => {
   }
 };
 
+export const confirmMedicineTaken = async ({ medicineId, elderlyId, timeTaken, taken = true }) => {
+  try {
+    const response = await api.post('/medicine/confirm', {
+      medicine_id: medicineId,
+      elderly_id: elderlyId,
+      time_taken: timeTaken,
+      taken,
+    });
+    return response.data;
+  } catch (error) {
+    const legacyResponse = await axios.post(`${LEGACY_API_BASE}/medicine/confirm`, {
+      medicine_id: medicineId,
+      elderly_id: elderlyId,
+      time_taken: timeTaken,
+      taken,
+    });
+    return legacyResponse.data;
+  }
+};
+
 // ==================== GUARDIAN API SERVICES ====================
 
 export async function guardianLogin(username, password) {
   try {
-    const response = await api.post('/guardian/login', { username, password });
+    const response = await api.post('/guardian-login', { username, password });
     return { ok: true, data: response.data };
   } catch (error) {
     const legacyResponse = await fetch(`${LEGACY_API_BASE}/guardian-login`, {
@@ -137,7 +178,7 @@ export async function guardianLogin(username, password) {
 
 export async function guardianRegister(userData) {
   try {
-    const response = await api.post('/guardian/register', userData);
+    const response = await api.post('/guardian-register', userData);
     return { ok: true, data: response.data };
   } catch (error) {
     const legacyResponse = await fetch(`${LEGACY_API_BASE}/guardian-register`, {
@@ -151,7 +192,7 @@ export async function guardianRegister(userData) {
 
 export async function fetchLinkedElderly(guardianUsername) {
   try {
-    const response = await api.get(`/guardian/elderly/${guardianUsername}`);
+    const response = await api.get(`/guardian-elderly/${guardianUsername}`);
     return { ok: true, data: response.data };
   } catch (error) {
     const legacyResponse = await fetch(`${LEGACY_API_BASE}/guardian-elderly/${guardianUsername}`);

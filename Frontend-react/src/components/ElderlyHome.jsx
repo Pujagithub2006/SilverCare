@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getMedicines } from '../services/api';
+import { getMedicines, confirmMedicineTaken } from '../services/api';
 
 const ElderlyHome = () => {
   const navigate = useNavigate();
@@ -158,19 +158,14 @@ const ElderlyHome = () => {
       const currentTime = new Date().toTimeString().slice(0, 5);
       localStorage.setItem(`medicine_${medicineId}_${currentTime}`, 'taken');
 
-      const response = await fetch('http://127.0.0.1:5001/medicine/confirm', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          medicine_id: medicineId,
-          elderly_id: localStorage.getItem('elderly_id') || 'isha_amit',
-          time: currentTime,
-          taken: true
-        })
+      const data = await confirmMedicineTaken({
+        medicineId,
+        elderlyId: localStorage.getItem('elderly_id') || 'isha_amit',
+        timeTaken: currentTime,
+        taken: true,
       });
 
-      const data = await response.json();
-      if (data.status === 'success') {
+      if (data.status === 'success' || data.message?.includes('marked')) {
         loadElderlyMedicines();
       }
     } catch (error) {
