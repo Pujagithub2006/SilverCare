@@ -20,8 +20,17 @@ public class SensorDataRequest {
     @JsonProperty("beltWorn")
     private Boolean beltWorn;
 
+    @JsonProperty("beltType")
+    private String beltType; // Waist Belt vs Wrist Belt
+
     private Double acceleration;
     private Long timestamp;
+
+    private Double latitude;
+    private Double longitude;
+
+    @JsonProperty("micMessageAudio")
+    private String micMessageAudio; // Base64 or voice message
 
     public SensorDataRequest() {}
 
@@ -58,9 +67,21 @@ public class SensorDataRequest {
     public Boolean getBeltWorn() { return beltWorn; }
     public void setBeltWorn(Boolean beltWorn) { this.beltWorn = beltWorn; }
 
+    public String getBeltType() { return beltType; }
+    public void setBeltType(String beltType) { this.beltType = beltType; }
+
     public Double getAcceleration() { return acceleration; }
     public void setAcceleration(Double acceleration) { this.acceleration = acceleration; }
 
     public Long getTimestamp() { return timestamp; }
     public void setTimestamp(Long timestamp) { this.timestamp = timestamp; }
+
+    public Double getLatitude() { return latitude; }
+    public void setLatitude(Double latitude) { this.latitude = latitude; }
+
+    public Double getLongitude() { return longitude; }
+    public void setLongitude(Double longitude) { this.longitude = longitude; }
+
+    public String getMicMessageAudio() { return micMessageAudio; }
+    public void setMicMessageAudio(String micMessageAudio) { this.micMessageAudio = micMessageAudio; }
 }

@@ -20,8 +20,23 @@ public class Elderly {
     private String phone;
     private String location;
 
-    @Column(name = "guardian_username", nullable = false)
-    private String guardianUsername;
+    @Column(name = "guardian_username")
+    private String guardianUsername; // Kept for legacy compatibility / primary contact
+
+    @Column(name = "neighbour_name")
+    private String neighbourName;
+
+    @Column(name = "neighbour_phone")
+    private String neighbourPhone;
+
+    @Column(name = "primary_belt_type")
+    private String primaryBeltType; // Waist Belt / Wrist Belt
+
+    @Column(name = "primary_device_id")
+    private String primaryDeviceId; // e.g. vois_belt / esp32c3_wrist
+
+    private Double latitude;
+    private Double longitude;
 
     @Column(name = "created_at")
     private String createdAt;
@@ -47,6 +62,15 @@ public class Elderly {
         if (location == null) {
             location = "Home";
         }
+        if (latitude == null) {
+            latitude = 18.5204; // Default city coordinates (e.g. Pune/Mumbai)
+        }
+        if (longitude == null) {
+            longitude = 73.8567;
+        }
+        if (primaryBeltType == null) {
+            primaryBeltType = "Waist Belt";
+        }
     }
 
     public String getElderlyId() { return elderlyId; }
@@ -70,6 +94,24 @@ public class Elderly {
     public String getGuardianUsername() { return guardianUsername; }
     public void setGuardianUsername(String guardianUsername) { this.guardianUsername = guardianUsername; }
 
+    public String getNeighbourName() { return neighbourName; }
+    public void setNeighbourName(String neighbourName) { this.neighbourName = neighbourName; }
+
+    public String getNeighbourPhone() { return neighbourPhone; }
+    public void setNeighbourPhone(String neighbourPhone) { this.neighbourPhone = neighbourPhone; }
+
+    public String getPrimaryBeltType() { return primaryBeltType; }
+    public void setPrimaryBeltType(String primaryBeltType) { this.primaryBeltType = primaryBeltType; }
+
+    public String getPrimaryDeviceId() { return primaryDeviceId; }
+    public void setPrimaryDeviceId(String primaryDeviceId) { this.primaryDeviceId = primaryDeviceId; }
+
+    public Double getLatitude() { return latitude; }
+    public void setLatitude(Double latitude) { this.latitude = latitude; }
+
+    public Double getLongitude() { return longitude; }
+    public void setLongitude(Double longitude) { this.longitude = longitude; }
+
     public String getCreatedAt() { return createdAt; }
     public void setCreatedAt(String createdAt) { this.createdAt = createdAt; }
 
@@ -83,6 +125,12 @@ public class Elderly {
         private String phone;
         private String location;
         private String guardianUsername;
+        private String neighbourName;
+        private String neighbourPhone;
+        private String primaryBeltType;
+        private String primaryDeviceId;
+        private Double latitude;
+        private Double longitude;
         private String createdAt;
 
         public ElderlyBuilder elderlyId(String elderlyId) { this.elderlyId = elderlyId; return this; }
@@ -92,10 +140,23 @@ public class Elderly {
         public ElderlyBuilder phone(String phone) { this.phone = phone; return this; }
         public ElderlyBuilder location(String location) { this.location = location; return this; }
         public ElderlyBuilder guardianUsername(String guardianUsername) { this.guardianUsername = guardianUsername; return this; }
+        public ElderlyBuilder neighbourName(String neighbourName) { this.neighbourName = neighbourName; return this; }
+        public ElderlyBuilder neighbourPhone(String neighbourPhone) { this.neighbourPhone = neighbourPhone; return this; }
+        public ElderlyBuilder primaryBeltType(String primaryBeltType) { this.primaryBeltType = primaryBeltType; return this; }
+        public ElderlyBuilder primaryDeviceId(String primaryDeviceId) { this.primaryDeviceId = primaryDeviceId; return this; }
+        public ElderlyBuilder latitude(Double latitude) { this.latitude = latitude; return this; }
+        public ElderlyBuilder longitude(Double longitude) { this.longitude = longitude; return this; }
         public ElderlyBuilder createdAt(String createdAt) { this.createdAt = createdAt; return this; }
 
         public Elderly build() {
-            return new Elderly(elderlyId, name, age, medicalHistory, phone, location, guardianUsername, createdAt);
+            Elderly e = new Elderly(elderlyId, name, age, medicalHistory, phone, location, guardianUsername, createdAt);
+            e.setNeighbourName(neighbourName);
+            e.setNeighbourPhone(neighbourPhone);
+            e.setPrimaryBeltType(primaryBeltType);
+            e.setPrimaryDeviceId(primaryDeviceId);
+            e.setLatitude(latitude);
+            e.setLongitude(longitude);
+            return e;
         }
     }
 }

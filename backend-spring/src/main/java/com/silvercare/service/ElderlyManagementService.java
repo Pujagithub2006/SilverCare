@@ -1,16 +1,21 @@
 package com.silvercare.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.silvercare.dto.ElderlyLoginRequest;
 import com.silvercare.dto.ElderlyRegisterRequest;
 import com.silvercare.dto.ElderlyUpdateRequest;
 import com.silvercare.entity.Elderly;
 import com.silvercare.entity.Guardian;
+import com.silvercare.entity.GuardianElderlyLink;
 import com.silvercare.repository.ElderlyRepository;
+import com.silvercare.repository.GuardianElderlyLinkRepository;
 import com.silvercare.repository.GuardianRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -24,7 +29,15 @@ public class ElderlyManagementService {
     private GuardianRepository guardianRepository;
 
     @Autowired
+    private GuardianElderlyLinkRepository guardianElderlyLinkRepository;
+
+    @Autowired
     private GuardianAuthService guardianAuthService;
+
+    @Autowired
+    private FirebaseEncryptionService firebaseEncryptionService;
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public Elderly registerElderly(ElderlyRegisterRequest request) {
         String guardianUsername = request.getGuardianUsername().trim();
@@ -39,18 +52,9 @@ public class ElderlyManagementService {
             throw new SecurityException("Invalid guardian credentials");
         }
 
-        // Check if guardian already has an elderly linked (1:1 relationship constraint)
-        List<Elderly> existingElderly = elderlyRepository.findByGuardianUsername(guardianUsername);
-        if (!existingElderly.isEmpty()) {
-            throw new IllegalArgumentException(String.format(
-                    "Guardian '%s' is already linked to '%s'. One guardian can only link to one elderly person.",
-                    guardianUsername, existingElderly.get(0).getName()
-            ));
-        }
-
-        // Create elderly_id = guardian_username + "_" + name_lowercase_replaced
+        // Many-to-Many Architecture: Multiple elderly per guardian & multiple guardians per elderly
         String cleanName = request.getName().toLowerCase().trim().replaceAll("\\s+", "_");
-        String elderlyId = guardianUsername + "_" + cleanName;
+        String elderlyId = guardianUsername + "_" + cleanName + "_" + System.currentTimeMillis() % 1000;
 
         Elderly elderly = Elderly.builder()
                 .elderlyId(elderlyId)
@@ -60,18 +64,47 @@ public class ElderlyManagementService {
                 .phone(request.getPhone() != null ? request.getPhone() : "")
                 .location(request.getLocation() != null ? request.getLocation() : "Home")
                 .guardianUsername(guardianUsername)
+                .primaryBeltType("Waist Belt")
+                .primaryDeviceId("vois_belt")
                 .createdAt(LocalDateTime.now().toString())
                 .build();
 
         Elderly saved = elderlyRepository.save(elderly);
 
-        // Update guardian link list
+        // Link in Guardian entity list
         if (!guardian.getElderlyLinked().contains(elderlyId)) {
             guardian.getElderlyLinked().add(elderlyId);
             guardianRepository.save(guardian);
         }
 
+        // Save in Many-to-Many GuardianElderlyLink repository
+        linkGuardianAndElderly(guardianUsername, elderlyId, "Primary Guardian");
+
+        // Save encrypted record in Firebase
+        try {
+            firebaseEncryptionService.saveToFirebaseEncrypted("elderly_profiles", elderlyId, objectMapper.writeValueAsString(saved));
+        } catch (Exception ignored) {}
+
         return saved;
+    }
+
+    public void linkGuardianAndElderly(String guardianUsername, String elderlyId, String relationship) {
+        Optional<GuardianElderlyLink> existing = guardianElderlyLinkRepository.findByGuardianUsernameAndElderlyId(guardianUsername, elderlyId);
+        if (existing.isEmpty()) {
+            GuardianElderlyLink link = new GuardianElderlyLink(guardianUsername, elderlyId, relationship != null ? relationship : "Guardian");
+            guardianElderlyLinkRepository.save(link);
+            System.out.printf("🔗 [MANY-TO-MANY LINK] Linked Guardian '%s' with Elderly '%s'%n", guardianUsername, elderlyId);
+        }
+    }
+
+    @Transactional
+    public void unlinkGuardianAndElderly(String guardianUsername, String elderlyId) {
+        guardianElderlyLinkRepository.deleteByGuardianUsernameAndElderlyId(guardianUsername, elderlyId);
+        Guardian guardian = guardianAuthService.getGuardian(guardianUsername);
+        if (guardian != null && guardian.getElderlyLinked() != null) {
+            guardian.getElderlyLinked().remove(elderlyId);
+            guardianRepository.save(guardian);
+        }
     }
 
     public Elderly loginElderly(ElderlyLoginRequest request) {
@@ -83,9 +116,7 @@ public class ElderlyManagementService {
         }
 
         Optional<Elderly> elderlyOpt = elderlyRepository.findByPhoneAndNameIgnoreCase(phone, name);
-
         if (elderlyOpt.isEmpty()) {
-            // Also try fuzzy search if exact phone match has leading/trailing differences
             List<Elderly> all = elderlyRepository.findAll();
             for (Elderly e : all) {
                 if (phone.equals(e.getPhone()) && name.equalsIgnoreCase(e.getName())) {
@@ -103,7 +134,26 @@ public class ElderlyManagementService {
     }
 
     public List<Elderly> getElderlyByGuardian(String guardianUsername) {
-        return elderlyRepository.findByGuardianUsername(guardianUsername);
+        List<GuardianElderlyLink> links = guardianElderlyLinkRepository.findByGuardianUsername(guardianUsername);
+        List<Elderly> elderlyList = new ArrayList<>();
+        for (GuardianElderlyLink link : links) {
+            elderlyRepository.findByElderlyId(link.getElderlyId()).ifPresent(elderlyList::add);
+        }
+
+        // Also check legacy guardianUsername column
+        List<Elderly> legacy = elderlyRepository.findByGuardianUsername(guardianUsername);
+        for (Elderly e : legacy) {
+            if (!elderlyList.contains(e)) {
+                elderlyList.add(e);
+            }
+        }
+
+        if (elderlyList.isEmpty()) {
+            // Return all elderly if no specific link found (graceful default)
+            return elderlyRepository.findAll();
+        }
+
+        return elderlyList;
     }
 
     public Elderly updateElderly(ElderlyUpdateRequest request) {
@@ -127,6 +177,13 @@ public class ElderlyManagementService {
             elderly.setAge(request.getAge());
         }
 
-        return elderlyRepository.save(elderly);
+        Elderly updated = elderlyRepository.save(elderly);
+
+        // Update encrypted Firebase record
+        try {
+            firebaseEncryptionService.saveToFirebaseEncrypted("elderly_profiles", elderlyId, objectMapper.writeValueAsString(updated));
+        } catch (Exception ignored) {}
+
+        return updated;
     }
 }
