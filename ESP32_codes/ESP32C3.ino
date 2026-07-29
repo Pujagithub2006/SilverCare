@@ -9,6 +9,10 @@
 #include <ArduinoJson.h>
 #include <SoftwareSerial.h>
 
+// =========================================================================
+//  SILVERCARE - SENIOR SAFETY WRIST BELT (ESP32-C3 WRIST BOARD)
+// =========================================================================
+
 // ---------- SMS FALLBACK VARIABLES ----------
 bool twilioSMSSent = false;
 bool gsmSMSSent = false;
@@ -16,26 +20,28 @@ unsigned long lastSMSTime = 0;
 const unsigned long SMS_RETRY_INTERVAL = 30000; // 30 seconds between SMS
 
 // ---------- GSM CONFIGURATION ----------
-
-#define GSM_TX 16  // ESP32 RX → GSM TX
-#define GSM_RX 17  // ESP32 TX → GSM RX
+#define GSM_TX 20  // ESP32-C3 RX → GSM TX
+#define GSM_RX 21  // ESP32-C3 TX → GSM RX
 #define GSM_BAUD 9600
 SoftwareSerial gsmSerial(GSM_RX, GSM_TX);
 
-// ---------- WiFi CONFIGURATION ----------
-const char* ssid = "...";
-const char* password = "43214321";
+// ---------- WiFi & BACKEND SERVER CONFIGURATION ----------
+const char* ssid = "WiFi_SSID_Name";
+const char* password = "WiFi_Password";
+// Public Server / Backend Endpoint URL (port 5002)
 const char* serverURL = "http://192.168.43.167:5002/api/sensor-data";
 
-// ---------- PINS ----------
+// ---------- PINS (Tuned for ESP32-C3) ----------
 #define TEMP_PIN 4 
-#define BUZZER_PIN 18
-#define BUTTON_PIN 19
+#define BUZZER_PIN 5
+#define PANIC_BUTTON_PIN 6
+#define MIC_BUTTON_PIN 7
 
-// Device ID - This identifies which elderly person this belt belongs to
-String deviceId = "vois_belt"; // Change this to link to different elderly person
-// Example: "gauri_shiv", "john_doe", etc.
-// The backend will lookup guardians for this elderly person
+// Hardware Identification
+String deviceId = "c3_wrist_belt";  // Wrist Belt Device ID
+String beltType = "Wrist Belt";     // Hardware Belt Classification
+double gpsLat = 18.5204;             // GPS Latitude
+double gpsLng = 73.8567;             // GPS Longitude
 
 // ---------- OBJECTS ----------
 Adafruit_MPU6050 mpu;
@@ -65,6 +71,7 @@ enum SystemState {
 
 SystemState currentState = NORMAL;
 SystemState lastState = NORMAL;
+String lastAlertType = "";
 
 // ---------- VARIABLES ----------
 bool beltWorn = false;
@@ -73,24 +80,26 @@ float spo2 = 0;
 unsigned long fallTime = 0;
 unsigned long lastSendTime = 0;
 const unsigned long SEND_INTERVAL = 1000; // Send every 1 second
+String micMessage = "";
 
 void setup() {
   Serial.begin(115200);
   delay(1000);
 
   pinMode(BUZZER_PIN, OUTPUT);
-  pinMode(BUTTON_PIN, INPUT_PULLUP);
+  pinMode(PANIC_BUTTON_PIN, INPUT_PULLUP);
+  pinMode(MIC_BUTTON_PIN, INPUT_PULLUP);
 
-  Wire.begin(21, 22);
+  // ESP32-C3 I2C Pins (SDA: 8, SCL: 9)
+  Wire.begin(8, 9);
 
-  Serial.println("=== SENIOR SAFETY BELT SYSTEM START ===");
+  Serial.println("=== SILVERCARE SENIOR SAFETY WRIST BELT (ESP32-C3) START ===");
 
   // ========== GSM Module Initialization ==========
   gsmSerial.begin(GSM_BAUD);
   Serial.println("📱 Initializing GSM Module...");
   delay(1000);
   
-  // Test GSM module
   gsmSerial.println("AT");
   delay(1000);
   if (gsmSerial.available()) {
@@ -99,7 +108,6 @@ void setup() {
     Serial.println("❌ GSM Module Not Responding");
   }
   
-  // Set SMS mode to text
   gsmSerial.println("AT+CMGF=1");
   delay(1000);
 
@@ -120,7 +128,7 @@ void setup() {
     Serial.print("IP Address: ");
     Serial.println(WiFi.localIP());
   } else {
-    Serial.println("\n❌ WiFi Failed - Will continue with local operation");
+    Serial.println("\n❌ WiFi Failed - Local Operation Active");
   }
 
   // ========== Sensors Initialization ==========
@@ -137,11 +145,11 @@ void setup() {
   maxSensor.setup();
   tempSensor.begin();
 
-  Serial.println("✅ ALL SENSORS INITIALIZED");
-  Serial.println("=====================================");
+  Serial.println("✅ ALL WRIST BELT SENSORS INITIALIZED SUCCESSFULLY");
+  Serial.println("=================================================");
 }
 
-void sendDataToServer(SystemState state, float hr, float oxygen, float temp, bool worn, float acc) {
+void sendDataToServer(SystemState state, float hr, float oxygen, float temp, bool worn, float acc, String micAudio) {
   if (WiFi.status() != WL_CONNECTED) {
     Serial.println("⚠️ WiFi not connected - skipping send");
     return;
@@ -151,8 +159,10 @@ void sendDataToServer(SystemState state, float hr, float oxygen, float temp, boo
   http.begin(serverURL);
   http.addHeader("Content-Type", "application/json");
 
-  // Create JSON payload
-  StaticJsonDocument<256> doc;
+  // Create JSON payload matching Spring Boot SensorDataRequest DTO
+  StaticJsonDocument<384> doc;
+  doc["deviceId"] = deviceId;
+  doc["beltType"] = beltType;
   doc["state"] = (int)state;
   doc["stateName"] = getStateName(state);
   doc["heartRate"] = hr;
@@ -160,24 +170,32 @@ void sendDataToServer(SystemState state, float hr, float oxygen, float temp, boo
   doc["temperature"] = temp;
   doc["beltWorn"] = worn;
   doc["acceleration"] = acc;
-  doc["deviceId"] = deviceId; // Send elderly person's ID instead of hardcoded phone
+  doc["latitude"] = gpsLat;
+  doc["longitude"] = gpsLng;
+  doc["micMessageAudio"] = micAudio;
   doc["timestamp"] = millis();
 
   String payload;
   serializeJson(doc, payload);
 
-  Serial.print("📤 Sending: ");
+  Serial.print("📤 [WRIST BELT TELEMETRY SENT]: ");
   Serial.println(payload);
 
   int httpResponseCode = http.POST(payload);
 
   if (httpResponseCode > 0) {
-    Serial.print("✅ Server Response: ");
-    Serial.println(httpResponseCode);
     String response = http.getString();
-    Serial.println(response);
+    Serial.print("✅ Server Response Code: ");
+    Serial.println(httpResponseCode);
+
+    // If Guardian acknowledged "I am Fine" on frontend, clear local buzzer
+    if (response.indexOf("ACKNOWLEDGED") != -1 || response.indexOf("I am Fine") != -1) {
+      Serial.println("💚 [GUARDIAN ACKNOWLEDGED]: Clearing local buzzer and state!");
+      digitalWrite(BUZZER_PIN, LOW);
+      currentState = NORMAL;
+    }
   } else {
-    Serial.print("❌ HTTP Error: ");
+    Serial.print("❌ HTTP POST Error: ");
     Serial.println(httpResponseCode);
   }
 
@@ -198,61 +216,44 @@ String getStateName(SystemState state) {
 void sendSmartSMSAlert(String alertType, String message) {
   unsigned long currentTime = millis();
   
-  // Check if enough time has passed since last SMS
   if (currentTime - lastSMSTime < SMS_RETRY_INTERVAL) {
-    Serial.println("📱 [SMS] Skipping - too soon since last SMS");
     return;
   }
   
-  // Reset SMS flags for new alert
   if (alertType != lastAlertType) {
     twilioSMSSent = false;
     gsmSMSSent = false;
+    lastAlertType = alertType;
   }
   
   Serial.println("📱 [SMS] Smart SMS System Activated");
   
-  // Try Twilio SMS first (if WiFi available)
   if (WiFi.status() == WL_CONNECTED && !twilioSMSSent) {
     Serial.println("📡 [TWILIO] Attempting SMS via WiFi...");
     bool twilioSuccess = sendTwilioSMS(alertType, message);
-    
     if (twilioSuccess) {
       twilioSMSSent = true;
       lastSMSTime = currentTime;
-      Serial.println("✅ [TWILIO] SMS sent successfully - GSM backup not needed");
       return;
-    } else {
-      Serial.println("❌ [TWILIO] SMS failed - Will try GSM backup");
     }
-  } else if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("❌ [WIFI] No connection - Skipping Twilio, using GSM");
-  } else {
-    Serial.println("📡 [TWILIO] SMS already sent - GSM backup not needed");
   }
   
-  // Fallback to GSM SMS if Twilio failed or no WiFi
   if (!gsmSMSSent) {
     Serial.println("📱 [GSM] Sending backup SMS...");
     bool gsmSuccess = sendGSMAlert(alertType, message);
-    
     if (gsmSuccess) {
       gsmSMSSent = true;
       lastSMSTime = currentTime;
-      Serial.println("✅ [GSM] Backup SMS sent successfully");
-    } else {
-      Serial.println("❌ [GSM] Backup SMS also failed - No SMS sent!");
     }
   }
 }
 
-// ========== TWILIO SMS FUNCTION ==========
 bool sendTwilioSMS(String alertType, String message) {
-  // Create JSON payload for Twilio SMS request
-  StaticJsonDocument<200> doc;
+  StaticJsonDocument<256> doc;
   doc["alert_type"] = alertType;
   doc["message"] = message;
   doc["device_id"] = deviceId;
+  doc["belt_type"] = beltType;
   doc["timestamp"] = millis();
   
   String payload;
@@ -262,66 +263,33 @@ bool sendTwilioSMS(String alertType, String message) {
   http.begin("http://192.168.43.167:5002/api/twilio-sms");
   http.addHeader("Content-Type", "application/json");
   
-  Serial.print("📡 [TWILIO] Sending SMS request: ");
-  Serial.println(payload);
-  
   int httpResponseCode = http.POST(payload);
-  
-  if (httpResponseCode == 200) {
-    String response = http.getString();
-    Serial.println("✅ [TWILIO] SMS request successful: " + response);
-    http.end();
-    return true;
-  } else {
-    Serial.print("❌ [TWILIO] SMS request failed: ");
-    Serial.println(httpResponseCode);
-    http.end();
-    return false;
-  }
+  http.end();
+  return (httpResponseCode == 200);
 }
 
-// ========== GSM SMS FUNCTION ==========
 bool sendGSMAlert(String alertType, String message) {
-  Serial.println("📱 [GSM] Sending SMS Alert...");
+  String guardianPhone = "+919322757538";
   
-  // Guardian phone number (can be configured)
-  String guardianPhone = "+919322757538"; // Update with actual guardian number
-  
-  // Send SMS command
   gsmSerial.println("AT+CMGS=\"" + guardianPhone + "\"");
   delay(1000);
   
-  // Send message content
-  String smsMessage = "🚨 SILVERCARE ALERT - " + alertType + "\n" + message + "\nDevice: " + deviceId + "\nTime: " + millis();
+  String smsMessage = "🚨 SILVERCARE ALERT - " + alertType + "\n" + message + "\nDevice: " + deviceId + " (" + beltType + ")";
   gsmSerial.println(smsMessage);
   delay(1000);
   
-  // Send Ctrl+Z to finish
   gsmSerial.write(26);
   delay(3000);
   
-  // Check response
   while(gsmSerial.available()) {
     String response = gsmSerial.readString();
-    Serial.println("GSM Response: " + response);
-    if (response.indexOf("OK") != -1) {
-      Serial.println("✅ [GSM] SMS Sent Successfully!");
-      return true;
-    } else if (response.indexOf("ERROR") != -1) {
-      Serial.println("❌ [GSM] SMS Failed");
-      return false;
-    }
+    if (response.indexOf("OK") != -1) return true;
   }
-  
-  Serial.println("❌ [GSM] No response from module");
   return false;
 }
 
-// Global variable to track last alert type
-String lastAlertType = "";
-
 void loop() {
-  // ---------- MPU6050 ----------
+  // ---------- MPU6050 READING ----------
   sensors_event_t acc, gyro, temp;
   mpu.getEvent(&acc, &gyro, &temp);
 
@@ -331,118 +299,73 @@ void loop() {
   float accMag = sqrt(ax * ax + ay * ay + az * az);
   float accMagG = accMag / 9.8;
 
-  // ---------- MAX30102 ----------
+  // ---------- MAX30102 READING ----------
   long irValue = maxSensor.getIR();
   long redValue = maxSensor.getRed();
 
   heartRate = map(irValue, 5000, 50000, 60, 110);
   spo2 = map(redValue, 5000, 50000, 88, 98);
 
-  // ---------- TEMPERATURE ----------
+  // ---------- TEMPERATURE READING ----------
   tempSensor.requestTemperatures();
   float bodyTemp = tempSensor.getTempCByIndex(0);
 
-  // ---------- BELT WORN ----------
+  // ---------- BELT WORN CHECK ----------
   beltWorn = (irValue > IR_WORN_THRESHOLD && bodyTemp > TEMP_WORN_THRESHOLD);
+  bool vitalsAbnormal = (heartRate < HR_LOW || heartRate > HR_HIGH || spo2 < SPO2_LOW);
 
-  bool vitalsAbnormal =
-    (heartRate < HR_LOW || heartRate > HR_HIGH || spo2 < SPO2_LOW);
+  // ---------- MICROPHONE / PANIC BUTTON TRIGGER ----------
+  if (digitalRead(MIC_BUTTON_PIN) == LOW || digitalRead(PANIC_BUTTON_PIN) == LOW) {
+    micMessage = "Senior citizen pressed Wrist Belt Panic/Mic button: 'Emergency! Please assist!'";
+    currentState = FALL_DETECTED;
+    Serial.println("🚨 [WRIST PANIC BUTTON PRESSED]: " + micMessage);
+  }
 
-  // ---------- STATE PERSISTENCE ----------
+  // ---------- STATE MACHINE ----------
   if (currentState == FALL_DETECTED) {
     goto STATE_OUTPUT;
   }
 
-  if (
-    accMagG > INSTABILITY_THRESHOLD &&
-    accMagG <= SUDDEN_THRESHOLD &&
-    beltWorn &&
-    vitalsAbnormal
-  ) {
+  if (accMagG > INSTABILITY_THRESHOLD && accMagG <= SUDDEN_THRESHOLD && beltWorn && vitalsAbnormal) {
     currentState = PREFALL;
-  }
-
-  else if (
-    accMagG > SUDDEN_THRESHOLD &&
-    accMagG <= FALL_THRESHOLD
-  ) {
+    micMessage = "Pre-fall instability detected on Wrist Belt. Voice prompt triggered.";
+  } else if (accMagG > SUDDEN_THRESHOLD && accMagG <= FALL_THRESHOLD) {
     currentState = SUDDEN_MOVEMENT;
-  }
-
-  else if (
-    accMagG > FALL_THRESHOLD &&
-    beltWorn
-  ) {
+  } else if (accMagG > FALL_THRESHOLD && beltWorn) {
     currentState = FALL_DETECTED;
     fallTime = millis();
-  }
-
-  else {
+    micMessage = "EMERGENCY: Heavy impact detected on Wrist Belt! Immediate assistance required.";
+  } else {
     currentState = NORMAL;
   }
 
-  // ---------- SERIAL MONITOR OUTPUT ----------
-  Serial.println("\n================ SYSTEM STATUS ================");
-  Serial.print("Acceleration (G): "); Serial.println(accMagG);
-
-  Serial.print("IR Value: "); Serial.println(irValue);
-  Serial.print("RED Value: "); Serial.println(redValue);
-
-  Serial.print("Heart Rate (BPM): "); Serial.println(heartRate);
-  Serial.print("SpO2 (%): "); Serial.println(spo2);
-
-  Serial.print("Body Temperature (°C): "); Serial.println(bodyTemp);
-  Serial.print("Belt Worn: "); Serial.println(beltWorn ? "YES" : "NO");
-
-  Serial.print("FINAL STATE: ");
   STATE_OUTPUT:
   switch (currentState) {
     case NORMAL:
-      Serial.println("✅ NORMAL");
       digitalWrite(BUZZER_PIN, LOW);
       break;
 
     case PREFALL:
-      Serial.println("⚠️ PRE-FALL (INSTABILITY + ABNORMAL VITALS)");
-      Serial.println("ACTION: Voice Prompt → 'Are you okay?'");
-      Serial.println("ACTION: Smart SMS System Activated");
       digitalWrite(BUZZER_PIN, LOW);
-      sendSmartSMSAlert("PRE-FALL", "Pre-fall detected! Please check on elderly person.");
+      sendSmartSMSAlert("PRE-FALL", "Pre-fall detected on Wrist Belt! Please check senior ward.");
       break;
 
     case SUDDEN_MOVEMENT:
-      Serial.println("⚠️ SUDDEN MOVEMENT (MOTION ONLY)");
       digitalWrite(BUZZER_PIN, LOW);
       break;
 
     case FALL_DETECTED:
-      Serial.println("🚨 FALL CONFIRMED");
-      Serial.println("ACTION: CALL GUARDIAN");
-      Serial.println("ACTION: SEND EMERGENCY SMS");
-      Serial.println("ACTION: Smart SMS System Activated");
       digitalWrite(BUZZER_PIN, HIGH);
-      sendSmartSMSAlert("FALL", "EMERGENCY: Fall detected! Immediate assistance required!");
+      sendSmartSMSAlert("FALL", "EMERGENCY: Fall detected on Wrist Belt! Immediate assistance required!");
       break;
   }
 
-  // ---------- USER OVERRIDE ----------
-  if (digitalRead(BUTTON_PIN) == LOW) {
-    Serial.println("USER RESPONSE: I'M OK");
-    digitalWrite(BUZZER_PIN, LOW);
-    currentState = NORMAL;
-  }
-
-  // ---------- SEND DATA TO SERVER (throttled) ----------
+  // ---------- SEND TELEMETRY TO SPRING BOOT SERVER ----------
   unsigned long currentTime = millis();
   if (currentTime - lastSendTime >= SEND_INTERVAL) {
-    sendDataToServer(currentState, heartRate, spo2, bodyTemp, beltWorn, accMagG);
+    sendDataToServer(currentState, heartRate, spo2, bodyTemp, beltWorn, accMagG, micMessage);
     lastSendTime = currentTime;
   }
 
-  Serial.println("==============================================");
   delay(500);
 }
-
-
-//ESP32 code (change IP address according to the laptop where website is running)
-
