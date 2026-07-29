@@ -7,9 +7,9 @@ const resolveBaseUrl = (fallback) => {
   return normalizeBaseUrl(configuredValue) || fallback;
 };
 
-// Backend Base URLs
-const API_BASE = resolveBaseUrl('http://localhost:5001');
-const LEGACY_API_BASE = resolveBaseUrl('http://127.0.0.1:5001');
+// Backend Base URLs (Defaulting to 5002 matching ESP32 firmware)
+const API_BASE = resolveBaseUrl('http://localhost:5002');
+const LEGACY_API_BASE = resolveBaseUrl('http://127.0.0.1:5002');
 
 const api = axios.create({
   baseURL: API_BASE,
@@ -32,15 +32,93 @@ const normalizeEmergencyPayload = (payload = {}) => {
   return normalized;
 };
 
+// ==================== SENSOR & ALERT HARDWARE API SERVICES ====================
+
+export const fetchSensorData = async () => {
+  try {
+    const response = await api.get('/api/sensor-data');
+    return response.data;
+  } catch (error) {
+    const legacy = await axios.get(`${LEGACY_API_BASE}/api/sensor-data`);
+    return legacy.data;
+  }
+};
+
+export const fetchDeviceStatus = async () => {
+  try {
+    const response = await api.get('/api/device-status');
+    return response.data;
+  } catch (error) {
+    const legacy = await axios.get(`${LEGACY_API_BASE}/api/device-status`);
+    return legacy.data;
+  }
+};
+
+export const acknowledgeAlert = async (alertId, guardianUsername, responseMessage = 'I am Fine') => {
+  try {
+    const response = await api.post('/api/alerts/acknowledge', {
+      alertId,
+      guardianUsername,
+      responseMessage,
+    });
+    return response.data;
+  } catch (error) {
+    const legacy = await axios.post(`${LEGACY_API_BASE}/api/alerts/acknowledge`, {
+      alertId,
+      guardianUsername,
+      responseMessage,
+    });
+    return legacy.data;
+  }
+};
+
+export const fetchActiveAlerts = async (elderlyId) => {
+  try {
+    const response = await api.get(`/api/alerts/active/${elderlyId}`);
+    return response.data;
+  } catch (error) {
+    const legacy = await axios.get(`${LEGACY_API_BASE}/api/alerts/active/${elderlyId}`);
+    return legacy.data;
+  }
+};
+
+export const uploadVoiceMessage = async (elderlyId, deviceId, audioData, triggerEvent = 'MANUAL') => {
+  try {
+    const response = await api.post('/api/alerts/voice-message', {
+      elderlyId,
+      deviceId,
+      audioData,
+      triggerEvent,
+    });
+    return response.data;
+  } catch (error) {
+    const legacy = await axios.post(`${LEGACY_API_BASE}/api/alerts/voice-message`, {
+      elderlyId,
+      deviceId,
+      audioData,
+      triggerEvent,
+    });
+    return legacy.data;
+  }
+};
+
+export const fetchFirebaseRecords = async () => {
+  try {
+    const response = await api.get('/api/alerts/firebase-encrypted-storage');
+    return response.data;
+  } catch (error) {
+    const legacy = await axios.get(`${LEGACY_API_BASE}/api/alerts/firebase-encrypted-storage`);
+    return legacy.data;
+  }
+};
+
 // ==================== ELDERLY API SERVICES ====================
 
-// Elderly Authentication
 export const elderlyLogin = async (name, phone) => {
   try {
     const response = await api.post('/elderly/login', { name, phone });
     return response.data;
   } catch (error) {
-    console.log('Falling back to legacy backend');
     const legacyResponse = await axios.post(`${LEGACY_API_BASE}/elderly-login`, { name, phone });
     return legacyResponse.data;
   }
@@ -56,7 +134,6 @@ export const elderlyRegister = async (elderlyData) => {
   }
 };
 
-// Elderly Session Management
 export const registerElderlySession = async (elderlyId, deviceInfo) => {
   try {
     const response = await api.post('/elderly/register-session', { elderly_id: elderlyId, device_info: deviceInfo });
@@ -77,7 +154,6 @@ export const unregisterElderlySession = async (elderlyId) => {
   }
 };
 
-// Notifications
 export const getElderlyNotifications = async (elderlyId) => {
   try {
     const response = await api.get(`/elderly/notifications/${elderlyId}`);
@@ -98,7 +174,6 @@ export const clearElderlyNotification = async (elderlyId, medicineId, response) 
   }
 };
 
-// Fall Detection & Emergency
 export const notifyGuardianFall = async (payload) => {
   try {
     const response = await api.post('/notify-guardian-fall', normalizeEmergencyPayload(payload));
@@ -129,7 +204,6 @@ export const confirmSafe = async (payload) => {
   }
 };
 
-// Medicine Management (Elderly)
 export const getMedicines = async (elderlyId) => {
   try {
     const response = await api.get(`/medicines/${elderlyId}`);
