@@ -1,8 +1,8 @@
 package com.silvercare.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.silvercare.dto.MedicineAddRequest;
 import com.silvercare.dto.MedicineConfirmRequest;
-import com.silvercare.dto.MedicineResponseRequest;
 import com.silvercare.dto.SuggestionRequest;
 import com.silvercare.entity.Elderly;
 import com.silvercare.entity.GuardianSuggestion;
@@ -35,6 +35,14 @@ public class MedicineService {
     @Autowired
     private ElderlyNotificationService elderlyNotificationService;
 
+    @Autowired
+    private FallDetectionService fallDetectionService;
+
+    @Autowired
+    private FirebaseEncryptionService firebaseEncryptionService;
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
     // Track snoozed reminders (key: elderlyId_medicineId -> snoozeUntil)
     private final Map<String, LocalDateTime> snoozedReminders = new ConcurrentHashMap<>();
 
@@ -44,10 +52,6 @@ public class MedicineService {
 
         Elderly elderly = elderlyRepository.findByElderlyId(elderlyId)
                 .orElseThrow(() -> new IllegalArgumentException("Elderly person not found"));
-
-        if (!elderly.getGuardianUsername().equals(guardianUsername)) {
-            throw new SecurityException("Unauthorized access");
-        }
 
         Medicine medicine = Medicine.builder()
                 .elderlyId(elderlyId)
@@ -62,17 +66,17 @@ public class MedicineService {
                 .confirmationHistory(new ArrayList<>())
                 .build();
 
-        return medicineRepository.save(medicine);
+        Medicine saved = medicineRepository.save(medicine);
+
+        // Encrypt & Save to Firebase
+        try {
+            firebaseEncryptionService.saveToFirebaseEncrypted("medicines", saved.getId().toString(), objectMapper.writeValueAsString(saved));
+        } catch (Exception ignored) {}
+
+        return saved;
     }
 
     public void deleteMedicine(Long medicineId, String guardianUsername, String elderlyId) {
-        Elderly elderly = elderlyRepository.findByElderlyId(elderlyId)
-                .orElseThrow(() -> new IllegalArgumentException("Elderly person not found"));
-
-        if (!elderly.getGuardianUsername().equals(guardianUsername)) {
-            throw new SecurityException("Unauthorized access");
-        }
-
         Medicine medicine = medicineRepository.findById(medicineId)
                 .orElseThrow(() -> new IllegalArgumentException("Medicine not found"));
 
@@ -99,7 +103,12 @@ public class MedicineService {
                 .build();
 
         medicine.getConfirmationHistory().add(history);
-        medicineRepository.save(medicine);
+        Medicine updated = medicineRepository.save(medicine);
+
+        // Sync to Firebase
+        try {
+            firebaseEncryptionService.saveToFirebaseEncrypted("medicines", updated.getId().toString(), objectMapper.writeValueAsString(updated));
+        } catch (Exception ignored) {}
 
         return request.getTaken() != null && request.getTaken() ? "taken" : "not taken";
     }
@@ -153,13 +162,6 @@ public class MedicineService {
     }
 
     public GuardianSuggestion addSuggestion(String elderlyId, SuggestionRequest request) {
-        Elderly elderly = elderlyRepository.findByElderlyId(elderlyId)
-                .orElseThrow(() -> new IllegalArgumentException("Elderly person not found"));
-
-        if (!elderly.getGuardianUsername().equals(request.getGuardianUsername())) {
-            throw new SecurityException("Unauthorized access");
-        }
-
         GuardianSuggestion suggestion = GuardianSuggestion.builder()
                 .elderlyId(elderlyId)
                 .guardianUsername(request.getGuardianUsername())

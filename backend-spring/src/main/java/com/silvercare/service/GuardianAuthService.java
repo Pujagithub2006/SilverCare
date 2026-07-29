@@ -1,5 +1,6 @@
 package com.silvercare.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.silvercare.dto.GuardianLoginRequest;
 import com.silvercare.dto.GuardianRegisterRequest;
 import com.silvercare.dto.GuardianUpdateRequest;
@@ -20,6 +21,11 @@ public class GuardianAuthService {
 
     @Autowired
     private GuardianRepository guardianRepository;
+
+    @Autowired
+    private FirebaseEncryptionService firebaseEncryptionService;
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public String hashPassword(String password) {
         if (password == null) return "";
@@ -64,7 +70,14 @@ public class GuardianAuthService {
                 .createdAt(LocalDateTime.now().toString())
                 .build();
 
-        return guardianRepository.save(guardian);
+        Guardian saved = guardianRepository.save(guardian);
+
+        // Encrypt & Save to Firebase Database
+        try {
+            firebaseEncryptionService.saveToFirebaseEncrypted("guardians", username, objectMapper.writeValueAsString(saved));
+        } catch (Exception ignored) {}
+
+        return saved;
     }
 
     public Guardian loginGuardian(GuardianLoginRequest request) {
@@ -106,6 +119,13 @@ public class GuardianAuthService {
             guardian.setName(request.getName());
         }
 
-        return guardianRepository.save(guardian);
+        Guardian updated = guardianRepository.save(guardian);
+
+        // Encrypt & Save to Firebase
+        try {
+            firebaseEncryptionService.saveToFirebaseEncrypted("guardians", username, objectMapper.writeValueAsString(updated));
+        } catch (Exception ignored) {}
+
+        return updated;
     }
 }
