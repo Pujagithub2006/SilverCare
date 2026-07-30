@@ -7,41 +7,39 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
-#include <SoftwareSerial.h>
+#include <NimBLEDevice.h>
 
 // =========================================================================
-//  SILVERCARE - SENIOR SAFETY WRIST BELT (ESP32-C3 WRIST BOARD)
+//  SILVERCARE - SENIOR SAFETY WRIST BELT (ESP32 BLE SERVER)
 // =========================================================================
 
-// ---------- SMS FALLBACK VARIABLES ----------
-bool twilioSMSSent = false;
-bool gsmSMSSent = false;
-unsigned long lastSMSTime = 0;
-const unsigned long SMS_RETRY_INTERVAL = 30000; // 30 seconds between SMS
+// ---------- BLE CONFIGURATION ----------
+#define BLE_SERVICE_UUID        "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
+#define BLE_CHARACTERISTIC_UUID "beb5483e-36e1-4688-b7f5-ea07361b26a8"
+#define DEVICE_NAME             "SilverCare_Wrist"
 
 // ---------- GSM CONFIGURATION ----------
-#define GSM_TX 20  // ESP32-C3 RX → GSM TX
-#define GSM_RX 21  // ESP32-C3 TX → GSM RX
+#define GSM_TX 17
+#define GSM_RX 16
 #define GSM_BAUD 9600
-SoftwareSerial gsmSerial(GSM_RX, GSM_TX);
+HardwareSerial gsmSerial(2);
 
 // ---------- WiFi & BACKEND SERVER CONFIGURATION ----------
 const char* ssid = "WiFi_SSID_Name";
 const char* password = "WiFi_Password";
-// Public Server / Backend Endpoint URL (port 5002)
 const char* serverURL = "http://192.168.43.167:5002/api/sensor-data";
 
-// ---------- PINS (Tuned for ESP32-C3) ----------
+// ---------- PINS ----------
 #define TEMP_PIN 4 
 #define BUZZER_PIN 5
-#define PANIC_BUTTON_PIN 6
-#define MIC_BUTTON_PIN 7
+#define PANIC_BUTTON_PIN 25
+#define MIC_BUTTON_PIN 26
 
 // Hardware Identification
-String deviceId = "c3_wrist_belt";  // Wrist Belt Device ID
-String beltType = "Wrist Belt";     // Hardware Belt Classification
-double gpsLat = 18.5204;             // GPS Latitude
-double gpsLng = 73.8567;             // GPS Longitude
+String deviceId = "c3_wrist_belt";
+String beltType = "Wrist Belt";
+double gpsLat = 18.5204;
+double gpsLng = 73.8567;
 
 // ---------- OBJECTS ----------
 Adafruit_MPU6050 mpu;
@@ -70,18 +68,47 @@ enum SystemState {
 };
 
 SystemState currentState = NORMAL;
-SystemState lastState = NORMAL;
 String lastAlertType = "";
+
+// ---------- BLE VARIABLES ----------
+BLEServer* pServer = NULL;
+BLECharacteristic* pCharacteristic = NULL;
+bool deviceConnected = false;
+bool oldDeviceConnected = false;
 
 // ---------- VARIABLES ----------
 bool beltWorn = false;
 float heartRate = 0;
 float spo2 = 0;
+float bodyTemp = 0;
 unsigned long fallTime = 0;
 unsigned long lastSendTime = 0;
-const unsigned long SEND_INTERVAL = 1000; // Send every 1 second
+const unsigned long SEND_INTERVAL = 1000;
 String micMessage = "";
+unsigned long lastBLEBroadcast = 0;
+const unsigned long BLE_BROADCAST_INTERVAL = 500;
 
+// =========================================================================
+//  BLE SERVER CALLBACKS
+// =========================================================================
+class MyServerCallbacks : public BLEServerCallbacks {
+  void onConnect(BLEServer* pServer) {
+    deviceConnected = true;
+    Serial.println("✅ [BLE] Wrist band connected to Waist band");
+  }
+
+  void onDisconnect(BLEServer* pServer) {
+    deviceConnected = false;
+    Serial.println("❌ [BLE] Wrist band disconnected from Waist band");
+    // Restart advertising
+    pServer->getAdvertising()->start();
+    Serial.println("🔄 [BLE] Advertising restarted");
+  }
+};
+
+// =========================================================================
+//  SETUP
+// =========================================================================
 void setup() {
   Serial.begin(115200);
   delay(1000);
@@ -90,13 +117,13 @@ void setup() {
   pinMode(PANIC_BUTTON_PIN, INPUT_PULLUP);
   pinMode(MIC_BUTTON_PIN, INPUT_PULLUP);
 
-  // ESP32-C3 I2C Pins (SDA: 8, SCL: 9)
-  Wire.begin(8, 9);
+  // ESP32-C3 I2C Pins (SDA: 18, SCL: 19)
+  Wire.begin(18, 19);
 
-  Serial.println("=== SILVERCARE SENIOR SAFETY WRIST BELT (ESP32-C3) START ===");
+  Serial.println("=== SILVERCARE SENIOR SAFETY WRIST BELT (BLE SERVER) ===");
 
   // ========== GSM Module Initialization ==========
-  gsmSerial.begin(GSM_BAUD);
+  gsmSerial.begin(GSM_BAUD, SERIAL_8N1, GSM_RX, GSM_TX);
   Serial.println("📱 Initializing GSM Module...");
   delay(1000);
   
@@ -145,10 +172,41 @@ void setup() {
   maxSensor.setup();
   tempSensor.begin();
 
-  Serial.println("✅ ALL WRIST BELT SENSORS INITIALIZED SUCCESSFULLY");
+  // ========== BLE Initialization ==========
+  NimBLEDevice::init(DEVICE_NAME);
+  
+  // Create BLE Server
+  pServer = NimBLEDevice::createServer();
+  pServer->setCallbacks(new MyServerCallbacks());
+  
+  // Create BLE Service
+  BLEService* pService = pServer->createService(BLE_SERVICE_UUID);
+  
+  // Create BLE Characteristic
+  pCharacteristic = pService->createCharacteristic(
+    BLE_CHARACTERISTIC_UUID,
+    NIMBLE_PROPERTY::READ | 
+    NIMBLE_PROPERTY::NOTIFY
+  );
+  
+  // Start Service
+  pService->start();
+  
+  // Start Advertising
+  BLEAdvertising* pAdvertising = pServer->getAdvertising();
+  pAdvertising->addServiceUUID(BLE_SERVICE_UUID);
+  pAdvertising->setScanResponse(true);
+  pAdvertising->setMinPreferred(0x06);
+  pAdvertising->setMaxPreferred(0x12);
+  pAdvertising->start();
+  
+  Serial.println("✅ BLE Server started - Waiting for Waist band to connect");
   Serial.println("=================================================");
 }
 
+// =========================================================================
+//  FUNCTIONS
+// =========================================================================
 void sendDataToServer(SystemState state, float hr, float oxygen, float temp, bool worn, float acc, String micAudio) {
   if (WiFi.status() != WL_CONNECTED) {
     Serial.println("⚠️ WiFi not connected - skipping send");
@@ -159,7 +217,6 @@ void sendDataToServer(SystemState state, float hr, float oxygen, float temp, boo
   http.begin(serverURL);
   http.addHeader("Content-Type", "application/json");
 
-  // Create JSON payload matching Spring Boot SensorDataRequest DTO
   StaticJsonDocument<384> doc;
   doc["deviceId"] = deviceId;
   doc["beltType"] = beltType;
@@ -188,7 +245,6 @@ void sendDataToServer(SystemState state, float hr, float oxygen, float temp, boo
     Serial.print("✅ Server Response Code: ");
     Serial.println(httpResponseCode);
 
-    // If Guardian acknowledged "I am Fine" on frontend, clear local buzzer
     if (response.indexOf("ACKNOWLEDGED") != -1 || response.indexOf("I am Fine") != -1) {
       Serial.println("💚 [GUARDIAN ACKNOWLEDGED]: Clearing local buzzer and state!");
       digitalWrite(BUZZER_PIN, LOW);
@@ -212,8 +268,12 @@ String getStateName(SystemState state) {
   }
 }
 
-// ========== SMART SMS FALLBACK FUNCTION ==========
 void sendSmartSMSAlert(String alertType, String message) {
+  static unsigned long lastSMSTime = 0;
+  static bool twilioSMSSent = false;
+  static bool gsmSMSSent = false;
+  const unsigned long SMS_RETRY_INTERVAL = 30000;
+  
   unsigned long currentTime = millis();
   
   if (currentTime - lastSMSTime < SMS_RETRY_INTERVAL) {
@@ -288,6 +348,24 @@ bool sendGSMAlert(String alertType, String message) {
   return false;
 }
 
+void broadcastHeartData() {
+  if (!deviceConnected) return;
+  
+  // Format: "HR:SPO2:IR:TEMP"
+  String dataPacket = String(heartRate) + ":" + 
+                      String(spo2) + ":" + 
+                      String(maxSensor.getIR()) + ":" + 
+                      String(bodyTemp);
+  
+  pCharacteristic->setValue(dataPacket.c_str());
+  pCharacteristic->notify();
+  
+  Serial.println("📡 [BLE] Data sent to Waist: " + dataPacket);
+}
+
+// =========================================================================
+//  MAIN LOOP
+// =========================================================================
 void loop() {
   // ---------- MPU6050 READING ----------
   sensors_event_t acc, gyro, temp;
@@ -303,12 +381,18 @@ void loop() {
   long irValue = maxSensor.getIR();
   long redValue = maxSensor.getRed();
 
+  // More realistic HR/SpO2 mapping
   heartRate = map(irValue, 5000, 50000, 60, 110);
+  if (heartRate < 40) heartRate = 0;
+  if (heartRate > 180) heartRate = 180;
+  
   spo2 = map(redValue, 5000, 50000, 88, 98);
+  if (spo2 < 70) spo2 = 0;
+  if (spo2 > 100) spo2 = 100;
 
   // ---------- TEMPERATURE READING ----------
   tempSensor.requestTemperatures();
-  float bodyTemp = tempSensor.getTempCByIndex(0);
+  bodyTemp = tempSensor.getTempCByIndex(0);
 
   // ---------- BELT WORN CHECK ----------
   beltWorn = (irValue > IR_WORN_THRESHOLD && bodyTemp > TEMP_WORN_THRESHOLD);
@@ -360,12 +444,30 @@ void loop() {
       break;
   }
 
-  // ---------- SEND TELEMETRY TO SPRING BOOT SERVER ----------
-  unsigned long currentTime = millis();
-  if (currentTime - lastSendTime >= SEND_INTERVAL) {
-    sendDataToServer(currentState, heartRate, spo2, bodyTemp, beltWorn, accMagG, micMessage);
-    lastSendTime = currentTime;
+  // ---------- BROADCAST HEART DATA VIA BLE ----------
+  unsigned long currentMillis = millis();
+  if (currentMillis - lastBLEBroadcast >= BLE_BROADCAST_INTERVAL) {
+    broadcastHeartData();
+    lastBLEBroadcast = currentMillis;
   }
 
-  delay(500);
+  // ---------- SEND TELEMETRY TO SPRING BOOT SERVER ----------
+  if (currentMillis - lastSendTime >= SEND_INTERVAL) {
+    sendDataToServer(currentState, heartRate, spo2, bodyTemp, beltWorn, accMagG, micMessage);
+    lastSendTime = currentMillis;
+  }
+
+  // ---------- BLE CONNECTION STATE HANDLING ----------
+  if (!deviceConnected && oldDeviceConnected) {
+    delay(500);
+    pServer->getAdvertising()->start();
+    Serial.println("🔄 [BLE] Advertising restarted");
+    oldDeviceConnected = deviceConnected;
+  }
+  
+  if (deviceConnected && !oldDeviceConnected) {
+    oldDeviceConnected = deviceConnected;
+  }
+
+  delay(100);
 }
