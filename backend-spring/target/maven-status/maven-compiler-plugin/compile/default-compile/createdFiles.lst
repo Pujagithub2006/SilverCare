@@ -1,0 +1,8 @@
+com\silvercare\dto\ElderlyVoiceMessageRequest.class
+com\silvercare\repository\GuardianElderlyLinkRepository.class
+com\silvercare\controller\AlertController.class
+com\silvercare\dto\AlertAcknowledgeRequest.class
+com\silvercare\entity\GuardianElderlyLink.class
+com\silvercare\entity\AlertRecord.class
+com\silvercare\service\FirebaseEncryptionService.class
+com\silvercare\repository\AlertRecordRepository.class
