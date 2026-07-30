@@ -260,9 +260,29 @@ public class FallDetectionService {
         return "+919322757538";
     }
 
-    public void notifyGuardianFall(String elderlyName, String deviceId, String location) {
+    public void notifyGuardianNoResponse(String elderlyName,
+                                        String deviceId,
+                                        String location) {
+
         String elderlyId = resolveElderlyIdForDevice(deviceId);
-        handleFallAlert(deviceId, "Waist Belt", 18.5204, 73.8567, null);
+        List<Guardian> guardians = getAllGuardiansForElderly(elderlyId);
+
+        for (Guardian guardian : guardians) {
+            if (guardian.getPhone() != null && !guardian.getPhone().isEmpty()) {
+                twilioService.sendUrgentAlertSms(
+                        guardian.getPhone(),
+                        elderlyName,
+                        "No guardian has responded. Immediate assistance required at " + location,
+                        deviceId
+                );
+
+                twilioService.makeNoResponseAlertCall(
+                        guardian.getPhone(),
+                        elderlyName,
+                        location
+                );
+            }
+        }
     }
 
     public void notifyGuardianNoResponse(String elderlyName, String deviceId, String location) {
