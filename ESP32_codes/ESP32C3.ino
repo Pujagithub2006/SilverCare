@@ -7,7 +7,7 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
-#include <SoftwareSerial.h>
+// #include <SoftwareSerial.h>
 
 // =========================================================================
 //  SILVERCARE - SENIOR SAFETY WRIST BELT (ESP32-C3 WRIST BOARD)
@@ -20,10 +20,15 @@ unsigned long lastSMSTime = 0;
 const unsigned long SMS_RETRY_INTERVAL = 30000; // 30 seconds between SMS
 
 // ---------- GSM CONFIGURATION ----------
-#define GSM_TX 20  // ESP32-C3 RX → GSM TX
-#define GSM_RX 21  // ESP32-C3 TX → GSM RX
+// #define GSM_TX 20  // ESP32-C3 RX → GSM TX
+// #define GSM_RX 21  // ESP32-C3 TX → GSM RX
 #define GSM_BAUD 9600
-SoftwareSerial gsmSerial(GSM_RX, GSM_TX);
+// SoftwareSerial gsmSerial(GSM_RX, GSM_TX);
+
+HardwareSerial gsmSerial(2);   // UART2
+
+#define GSM_TX 17   // ESP32 TX -> GSM RX
+#define GSM_RX 16   // ESP32 RX -> GSM TX
 
 // ---------- WiFi & BACKEND SERVER CONFIGURATION ----------
 const char* ssid = "WiFi_SSID_Name";
@@ -34,8 +39,10 @@ const char* serverURL = "http://192.168.43.167:5002/api/sensor-data";
 // ---------- PINS (Tuned for ESP32-C3) ----------
 #define TEMP_PIN 4 
 #define BUZZER_PIN 5
-#define PANIC_BUTTON_PIN 6
-#define MIC_BUTTON_PIN 7
+// #define PANIC_BUTTON_PIN 6
+// #define MIC_BUTTON_PIN 7
+#define PANIC_BUTTON_PIN 25
+#define MIC_BUTTON_PIN 26
 
 // Hardware Identification
 String deviceId = "c3_wrist_belt";  // Wrist Belt Device ID
@@ -91,12 +98,13 @@ void setup() {
   pinMode(MIC_BUTTON_PIN, INPUT_PULLUP);
 
   // ESP32-C3 I2C Pins (SDA: 8, SCL: 9)
-  Wire.begin(8, 9);
+  Wire.begin(18, 19);
 
   Serial.println("=== SILVERCARE SENIOR SAFETY WRIST BELT (ESP32-C3) START ===");
 
   // ========== GSM Module Initialization ==========
-  gsmSerial.begin(GSM_BAUD);
+  // gsmSerial.begin(GSM_BAUD);
+  gsmSerial.begin(GSM_BAUD, SERIAL_8N1, GSM_RX, GSM_TX);
   Serial.println("📱 Initializing GSM Module...");
   delay(1000);
   
