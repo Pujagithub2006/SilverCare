@@ -44,7 +44,6 @@ export default function GuardianAuthPage() {
     setLoginLoading(true);
 
     try {
-      console.log('🔍 Attempting guardian login to backend...');
       const { ok, data } = await guardianLogin(username, password);
 
       if (ok && data.status === 'success') {
@@ -59,11 +58,11 @@ export default function GuardianAuthPage() {
           navigate('/guardian-dashboard');
         }, 1500);
       } else {
-        showAlert(true, data.message || 'Login failed', 'error');
+        showAlert(true, (data && data.message) || 'Invalid username or password', 'error');
       }
-    } catch (error) {
-      console.error('Login error:', error);
-      showAlert(true, 'Error connecting to server', 'error');
+    } catch (err) {
+      console.error(err);
+      showAlert(true, 'Server connection error', 'error');
     } finally {
       setLoginLoading(false);
     }
@@ -78,47 +77,41 @@ export default function GuardianAuthPage() {
     const email = regEmail.trim();
 
     if (!name || !username || !password || !phone || !email) {
-      showAlert(false, 'Please fill all fields', 'error');
-      return;
-    }
-
-    if (password.length < 6) {
-      showAlert(false, 'Password must be at least 6 characters', 'error');
+      showAlert(false, 'Please fill in all fields', 'error');
       return;
     }
 
     setRegLoading(true);
 
     try {
-      console.log('🔍 Attempting guardian registration to backend...');
-      const { ok, data } = await guardianRegister({ name, username, password, phone, email });
+      const { ok, data } = await guardianRegister({
+        name,
+        username,
+        password,
+        phone,
+        email
+      });
 
       if (ok && data.status === 'success') {
-        showAlert(false, 'Registration successful! Switching to login...', 'success');
-
-        setRegName('');
-        setRegUsername('');
-        setRegPassword('');
-        setRegPhone('');
-        setRegEmail('');
-
+        showAlert(false, 'Registration successful! Please log in.', 'success');
         setTimeout(() => {
           setIsLogin(true);
           setLoginUsername(username);
+          setLoginPassword('');
         }, 1500);
       } else {
-        showAlert(false, data.message || 'Registration failed', 'error');
+        showAlert(false, (data && data.message) || 'Registration failed', 'error');
       }
-    } catch (error) {
-      console.error('Registration error:', error);
-      showAlert(false, 'Error connecting to server', 'error');
+    } catch (err) {
+      console.error(err);
+      showAlert(false, 'Server connection error', 'error');
     } finally {
       setRegLoading(false);
     }
   };
 
   const goBack = () => {
-    navigate('/portal');
+    navigate('/');
   };
 
   return (
@@ -129,146 +122,39 @@ export default function GuardianAuthPage() {
       alignItems: 'center',
       justifyContent: 'center',
       fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
-      padding: '20px'
+      padding: '20px',
+      boxSizing: 'border-box'
     }}>
-      <style>{`
-        .auth-card {
-          background: white;
-          border-radius: 20px;
-          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-          padding: 40px;
-          max-width: 450px;
-          width: 100%;
-          margin: 20px;
-          position: relative;
-        }
-
-        .back-btn-auth {
-          position: absolute;
-          top: 20px;
-          left: 20px;
-          background: rgba(102, 126, 234, 0.1);
-          border: 1px solid rgba(102, 126, 234, 0.2);
-          color: #667eea;
-          padding: 8px;
-          border-radius: 8px;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          transition: all 0.2s ease;
-        }
-
-        .back-btn-auth:hover {
-          background: rgba(102, 126, 234, 0.2);
-          transform: translateX(-2px);
-        }
-
-        .auth-header {
-          text-align: center;
-          margin-bottom: 30px;
-        }
-
-        .auth-header h1 {
-          color: #667eea;
-          margin-bottom: 10px;
-          font-size: 28px;
-        }
-
-        .auth-header p {
-          color: #666;
-          font-size: 14px;
-        }
-
-        .form-group {
-          margin-bottom: 20px;
-        }
-
-        .form-group label {
-          display: block;
-          margin-bottom: 8px;
-          color: #333;
-          font-weight: 500;
-          font-size: 14px;
-        }
-
-        .form-group input {
-          width: 100%;
-          padding: 12px 15px;
-          border: 2px solid #e0e0e0;
-          border-radius: 8px;
-          font-size: 14px;
-          transition: border-color 0.3s;
-          box-sizing: border-box;
-        }
-
-        .form-group input:focus {
-          outline: none;
-          border-color: #667eea;
-          background-color: #f8f9ff;
-        }
-
-        .btn-auth {
-          width: 100%;
-          padding: 12px;
-          border: none;
-          border-radius: 8px;
-          font-size: 16px;
-          font-weight: 600;
-          cursor: pointer;
-          transition: all 0.3s;
-          margin-bottom: 15px;
-        }
-
-        .btn-primary-auth {
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-          color: white;
-        }
-
-        .btn-primary-auth:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
-        }
-
-        .toggle-form {
-          text-align: center;
-          color: #666;
-          font-size: 14px;
-        }
-
-        .toggle-form button {
-          background: none;
-          border: none;
-          color: #667eea;
-          font-weight: 600;
-          cursor: pointer;
-          padding: 0;
-          font-size: 14px;
-          text-decoration: underline;
-        }
-
-        .alert-box {
-          padding: 12px 15px;
-          border-radius: 8px;
-          margin-bottom: 20px;
-          font-size: 14px;
-        }
-
-        .alert-success {
-          background: #d4edda;
-          color: #155724;
-          border: 1px solid #c3e6cb;
-        }
-
-        .alert-error {
-          background: #f8d7da;
-          color: #721c24;
-          border: 1px solid #f5c6cb;
-        }
-      `}</style>
-
-      <div className="auth-card">
-        <button className="back-btn-auth" onClick={goBack} title="Go Back">
+      <div className="container" style={{
+        background: 'white',
+        borderRadius: '20px',
+        boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
+        padding: '40px',
+        maxWidth: '450px',
+        width: '100%',
+        margin: '20px',
+        position: 'relative',
+        boxSizing: 'border-box'
+      }}>
+        <button 
+          className="back-btn" 
+          onClick={goBack} 
+          title="Go Back"
+          style={{
+            position: 'absolute',
+            top: '20px',
+            left: '20px',
+            background: 'rgba(102, 126, 234, 0.1)',
+            border: '1px solid rgba(102, 126, 234, 0.2)',
+            color: '#667eea',
+            padding: '8px',
+            borderRadius: '8px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}
+        >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
             <path d="M19 12H5M12 19l-7-7 7-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
@@ -276,20 +162,28 @@ export default function GuardianAuthPage() {
 
         {isLogin ? (
           <div>
-            <div className="auth-header">
-              <h1>Guardian Login</h1>
-              <p>Access your elderly family members</p>
+            <div className="auth-header" style={{ textAlign: 'center', marginBottom: '30px', marginTop: '10px' }}>
+              <h1 style={{ color: '#667eea', marginBottom: '10px', fontSize: '28px', fontWeight: 700 }}>Guardian Login</h1>
+              <p style={{ color: '#666', fontSize: '14px', margin: 0 }}>Access your elderly family members</p>
             </div>
 
             {loginAlert.show && (
-              <div className={`alert-box alert-${loginAlert.type}`}>
+              <div style={{
+                padding: '12px 15px',
+                borderRadius: '8px',
+                marginBottom: '20px',
+                fontSize: '14px',
+                background: loginAlert.type === 'success' ? '#d4edda' : '#f8d7da',
+                color: loginAlert.type === 'success' ? '#155724' : '#721c24',
+                border: loginAlert.type === 'success' ? '1px solid #c3e6cb' : '1px solid #f5c6cb'
+              }}>
                 {loginAlert.message}
               </div>
             )}
 
             <form onSubmit={handleLoginSubmit}>
-              <div className="form-group">
-                <label htmlFor="loginUsername">Username</label>
+              <div className="form-group" style={{ marginBottom: '20px', textAlign: 'left' }}>
+                <label htmlFor="loginUsername" style={{ display: 'block', marginBottom: '8px', color: '#333', fontWeight: 500, fontSize: '14px' }}>Username</label>
                 <input
                   type="text"
                   id="loginUsername"
@@ -297,11 +191,19 @@ export default function GuardianAuthPage() {
                   value={loginUsername}
                   onChange={(e) => setLoginUsername(e.target.value)}
                   required
+                  style={{
+                    width: '100%',
+                    padding: '12px 15px',
+                    border: '2px solid #e0e0e0',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    boxSizing: 'border-box'
+                  }}
                 />
               </div>
 
-              <div className="form-group">
-                <label htmlFor="loginPassword">Password</label>
+              <div className="form-group" style={{ marginBottom: '20px', textAlign: 'left' }}>
+                <label htmlFor="loginPassword" style={{ display: 'block', marginBottom: '8px', color: '#333', fontWeight: 500, fontSize: '14px' }}>Password</label>
                 <input
                   type="password"
                   id="loginPassword"
@@ -309,34 +211,66 @@ export default function GuardianAuthPage() {
                   value={loginPassword}
                   onChange={(e) => setLoginPassword(e.target.value)}
                   required
+                  style={{
+                    width: '100%',
+                    padding: '12px 15px',
+                    border: '2px solid #e0e0e0',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    boxSizing: 'border-box'
+                  }}
                 />
               </div>
 
-              <button type="submit" className="btn-auth btn-primary-auth" disabled={loginLoading}>
+              <button 
+                type="submit" 
+                className="btn btn-primary" 
+                disabled={loginLoading}
+                style={{
+                  width: '100%',
+                  padding: '14px',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '16px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  marginBottom: '15px',
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  color: 'white'
+                }}
+              >
                 {loginLoading ? 'Logging in...' : 'Login'}
               </button>
 
-              <div className="toggle-form">
-                Don't have account? <button type="button" onClick={() => setIsLogin(false)}>Register here</button>
+              <div className="toggle-form" style={{ textAlign: 'center', color: '#666', fontSize: '14px' }}>
+                Don't have account? <a style={{ color: '#667eea', textDecoration: 'none', fontWeight: 600, cursor: 'pointer' }} onClick={() => setIsLogin(false)}>Register here</a>
               </div>
             </form>
           </div>
         ) : (
           <div>
-            <div className="auth-header">
-              <h1>Guardian Registration</h1>
-              <p>Create your account</p>
+            <div className="auth-header" style={{ textAlign: 'center', marginBottom: '30px', marginTop: '10px' }}>
+              <h1 style={{ color: '#667eea', marginBottom: '10px', fontSize: '28px', fontWeight: 700 }}>Guardian Registration</h1>
+              <p style={{ color: '#666', fontSize: '14px', margin: 0 }}>Create your account</p>
             </div>
 
             {regAlert.show && (
-              <div className={`alert-box alert-${regAlert.type}`}>
+              <div style={{
+                padding: '12px 15px',
+                borderRadius: '8px',
+                marginBottom: '20px',
+                fontSize: '14px',
+                background: regAlert.type === 'success' ? '#d4edda' : '#f8d7da',
+                color: regAlert.type === 'success' ? '#155724' : '#721c24',
+                border: regAlert.type === 'success' ? '1px solid #c3e6cb' : '1px solid #f5c6cb'
+              }}>
                 {regAlert.message}
               </div>
             )}
 
             <form onSubmit={handleRegisterSubmit}>
-              <div className="form-group">
-                <label htmlFor="regName">Full Name</label>
+              <div className="form-group" style={{ marginBottom: '20px', textAlign: 'left' }}>
+                <label htmlFor="regName" style={{ display: 'block', marginBottom: '8px', color: '#333', fontWeight: 500, fontSize: '14px' }}>Full Name</label>
                 <input
                   type="text"
                   id="regName"
@@ -344,11 +278,12 @@ export default function GuardianAuthPage() {
                   value={regName}
                   onChange={(e) => setRegName(e.target.value)}
                   required
+                  style={{ width: '100%', padding: '12px 15px', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '14px', boxSizing: 'border-box' }}
                 />
               </div>
 
-              <div className="form-group">
-                <label htmlFor="regUsername">Username</label>
+              <div className="form-group" style={{ marginBottom: '20px', textAlign: 'left' }}>
+                <label htmlFor="regUsername" style={{ display: 'block', marginBottom: '8px', color: '#333', fontWeight: 500, fontSize: '14px' }}>Username</label>
                 <input
                   type="text"
                   id="regUsername"
@@ -356,11 +291,12 @@ export default function GuardianAuthPage() {
                   value={regUsername}
                   onChange={(e) => setRegUsername(e.target.value)}
                   required
+                  style={{ width: '100%', padding: '12px 15px', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '14px', boxSizing: 'border-box' }}
                 />
               </div>
 
-              <div className="form-group">
-                <label htmlFor="regPassword">Password</label>
+              <div className="form-group" style={{ marginBottom: '20px', textAlign: 'left' }}>
+                <label htmlFor="regPassword" style={{ display: 'block', marginBottom: '8px', color: '#333', fontWeight: 500, fontSize: '14px' }}>Password</label>
                 <input
                   type="password"
                   id="regPassword"
@@ -368,11 +304,12 @@ export default function GuardianAuthPage() {
                   value={regPassword}
                   onChange={(e) => setRegPassword(e.target.value)}
                   required
+                  style={{ width: '100%', padding: '12px 15px', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '14px', boxSizing: 'border-box' }}
                 />
               </div>
 
-              <div className="form-group">
-                <label htmlFor="regPhone">Phone Number</label>
+              <div className="form-group" style={{ marginBottom: '20px', textAlign: 'left' }}>
+                <label htmlFor="regPhone" style={{ display: 'block', marginBottom: '8px', color: '#333', fontWeight: 500, fontSize: '14px' }}>Phone Number</label>
                 <input
                   type="tel"
                   id="regPhone"
@@ -380,11 +317,12 @@ export default function GuardianAuthPage() {
                   value={regPhone}
                   onChange={(e) => setRegPhone(e.target.value)}
                   required
+                  style={{ width: '100%', padding: '12px 15px', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '14px', boxSizing: 'border-box' }}
                 />
               </div>
 
-              <div className="form-group">
-                <label htmlFor="regEmail">Email Address</label>
+              <div className="form-group" style={{ marginBottom: '20px', textAlign: 'left' }}>
+                <label htmlFor="regEmail" style={{ display: 'block', marginBottom: '8px', color: '#333', fontWeight: 500, fontSize: '14px' }}>Email Address</label>
                 <input
                   type="email"
                   id="regEmail"
@@ -392,19 +330,42 @@ export default function GuardianAuthPage() {
                   value={regEmail}
                   onChange={(e) => setRegEmail(e.target.value)}
                   required
+                  style={{ width: '100%', padding: '12px 15px', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '14px', boxSizing: 'border-box' }}
                 />
               </div>
 
-              <button type="submit" className="btn-auth btn-primary-auth" disabled={regLoading}>
+              <button 
+                type="submit" 
+                className="btn btn-primary" 
+                disabled={regLoading}
+                style={{
+                  width: '100%',
+                  padding: '14px',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '16px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  marginBottom: '15px',
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  color: 'white'
+                }}
+              >
                 {regLoading ? 'Creating account...' : 'Register'}
               </button>
 
-              <div className="toggle-form">
-                Already have account? <button type="button" onClick={() => setIsLogin(true)}>Login here</button>
+              <div className="toggle-form" style={{ textAlign: 'center', color: '#666', fontSize: '14px' }}>
+                Already have account? <a style={{ color: '#667eea', textDecoration: 'none', fontWeight: 600, cursor: 'pointer' }} onClick={() => setIsLogin(true)}>Login here</a>
               </div>
             </form>
           </div>
         )}
+
+        <div style={{ textAlign: 'center', marginTop: '24px' }}>
+          <a href="#" style={{ color: '#667eea', textDecoration: 'none', fontSize: '14px', fontWeight: '600' }} onClick={(e) => { e.preventDefault(); navigate('/'); }}>
+            ← Back to Portal Selection
+          </a>
+        </div>
       </div>
     </div>
   );

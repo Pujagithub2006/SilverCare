@@ -119,8 +119,15 @@ export const elderlyLogin = async (name, phone) => {
     const response = await api.post('/elderly/login', { name, phone });
     return response.data;
   } catch (error) {
-    const legacyResponse = await axios.post(`${LEGACY_API_BASE}/elderly-login`, { name, phone });
-    return legacyResponse.data;
+    if (error.response && error.response.data) {
+      return error.response.data;
+    }
+    try {
+      const legacyResponse = await axios.post(`${LEGACY_API_BASE}/elderly-login`, { name, phone });
+      return legacyResponse.data;
+    } catch (e) {
+      return { status: 'error', message: 'Login failed. Please check your name and phone.' };
+    }
   }
 };
 
@@ -129,8 +136,15 @@ export const elderlyRegister = async (elderlyData) => {
     const response = await api.post('/elderly-register', elderlyData);
     return response.data;
   } catch (error) {
-    const legacyResponse = await axios.post(`${LEGACY_API_BASE}/elderly-register`, elderlyData);
-    return legacyResponse.data;
+    if (error.response && error.response.data) {
+      return error.response.data;
+    }
+    try {
+      const legacyResponse = await axios.post(`${LEGACY_API_BASE}/elderly-register`, elderlyData);
+      return legacyResponse.data;
+    } catch (e) {
+      return e.response?.data || { status: 'error', message: 'Registration failed. Check guardian username & password.' };
+    }
   }
 };
 
@@ -305,14 +319,25 @@ export async function fetchHardwareData(elderlyId) {
 }
 
 export async function addMedicine(medicineData) {
+  const payload = {
+    guardian_username: medicineData.guardian_username || medicineData.guardianUsername || localStorage.getItem('guardian_username') || '',
+    elderly_id: medicineData.elderly_id || medicineData.elderlyId || '',
+    medicine_name: medicineData.medicine_name || medicineData.medicineName || '',
+    dosage: medicineData.dosage || '1 Tablet',
+    times: Array.isArray(medicineData.times) ? medicineData.times : [medicineData.times || '08:00'],
+    instructions: medicineData.instructions || '',
+    start_date: medicineData.start_date || medicineData.startDate || new Date().toISOString().split('T')[0],
+    end_date: medicineData.end_date || medicineData.endDate || medicineData.start_date || medicineData.startDate || new Date().toISOString().split('T')[0]
+  };
+
   try {
-    const response = await api.post('/medicine/add', medicineData);
+    const response = await api.post('/medicine/add', payload);
     return { ok: true, data: response.data };
   } catch (error) {
     const legacyResponse = await fetch(`${LEGACY_API_BASE}/medicine/add`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(medicineData),
+      body: JSON.stringify(payload),
     });
     return { ok: legacyResponse.ok, data: await legacyResponse.json() };
   }
@@ -343,14 +368,19 @@ export async function fetchSuggestions(elderlyId) {
 }
 
 export async function saveSuggestions(elderlyId, notes) {
+  const payload = {
+    guardian_username: localStorage.getItem('guardian_username') || 'john_guardian',
+    suggestion: notes,
+    notes: notes
+  };
   try {
-    const response = await api.post(`/medicine/suggestions/${elderlyId}`, { notes });
+    const response = await api.post(`/medicine/suggestions/${elderlyId}`, payload);
     return { ok: true, data: response.data };
   } catch (error) {
     const legacyResponse = await fetch(`${LEGACY_API_BASE}/medicine/suggestions/${elderlyId}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ notes }),
+      body: JSON.stringify(payload),
     });
     return { ok: legacyResponse.ok, data: await legacyResponse.json() };
   }

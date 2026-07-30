@@ -1,49 +1,46 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
+import { LanguageProvider } from './context/LanguageContext';
 import ElderlyLogin from './components/ElderlyLogin';
 import ElderlyAuth from './components/ElderlyAuth';
 import ElderlyDashboard from './components/ElderlyDashboard';
 import ElderlyHome from './components/ElderlyHome';
 import FallAlert from './components/FallAlert';
+import HealthPage from './pages/HealthPage';
+import AssistantPage from './pages/AssistantPage';
+import ElderlyProfilePage from './pages/ElderlyProfilePage';
 import GuardianAuthPage from './pages/GuardianAuthPage';
 import GuardianDashboardPage from './pages/GuardianDashboardPage';
+import PortalSelectionPage from './pages/PortalSelectionPage';
 
 function App() {
-  const isGuardianLoggedIn = !!localStorage.getItem('guardian_username');
-  const isElderlyLoggedIn = !!localStorage.getItem('elderly_id');
-
   return (
-    <Routes>
-      {/* Elderly Routes */}
-      <Route path="/login" element={<ElderlyLogin />} />
-      <Route path="/register" element={<ElderlyAuth />} />
-      <Route path="/dashboard" element={<ElderlyDashboard />} />
-      <Route path="/home" element={<ElderlyHome />} />
-      <Route path="/fall-alert" element={<FallAlert />} />
+    <LanguageProvider>
+      <Routes>
+        {/* Portal Selection Landing Route */}
+        <Route path="/" element={<PortalSelectionPage />} />
+        <Route path="/portal" element={<PortalSelectionPage />} />
 
-      {/* Guardian Routes */}
-      <Route path="/guardian-auth" element={<GuardianAuthPage />} />
-      <Route path="/guardian-login" element={<GuardianAuthPage />} />
-      <Route path="/guardian-dashboard" element={<GuardianDashboardPage />} />
-      <Route path="/portal" element={<Navigate to="/guardian-auth" replace />} />
+        {/* Elderly Routes */}
+        <Route path="/login" element={<ElderlyLogin />} />
+        <Route path="/register" element={<ElderlyAuth />} />
+        <Route path="/dashboard" element={<ElderlyDashboard />} />
+        <Route path="/home" element={<ElderlyHome />} />
+        <Route path="/health" element={<HealthPage />} />
+        <Route path="/assistant" element={<AssistantPage />} />
+        <Route path="/profile" element={<ElderlyProfilePage />} />
+        <Route path="/elderly-profile" element={<ElderlyProfilePage />} />
+        <Route path="/fall-alert" element={<FallAlert />} />
 
-      {/* Default Landing Route */}
-      <Route
-        path="/"
-        element={
-          isGuardianLoggedIn ? (
-            <Navigate to="/guardian-dashboard" replace />
-          ) : isElderlyLoggedIn ? (
-            <Navigate to="/dashboard" replace />
-          ) : (
-            <ElderlyLogin />
-          )
-        }
-      />
+        {/* Guardian Routes */}
+        <Route path="/guardian-auth" element={<GuardianAuthPage />} />
+        <Route path="/guardian-login" element={<GuardianAuthPage />} />
+        <Route path="/guardian-dashboard" element={<GuardianDashboardPage />} />
 
-      {/* Fallback Catch-all Route */}
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+        {/* Fallback Catch-all Route */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </LanguageProvider>
   );
 }
 
