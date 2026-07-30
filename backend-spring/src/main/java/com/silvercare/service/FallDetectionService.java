@@ -265,6 +265,11 @@ public class FallDetectionService {
         handleFallAlert(deviceId, "Waist Belt", 18.5204, 73.8567, null);
     }
 
+    public void notifyGuardianNoResponse(String elderlyName, String deviceId, String location) {
+        String elderlyId = resolveElderlyIdForDevice(deviceId);
+        handleFallAlert(deviceId, "Urgent Belt", 18.5204, 73.8567, "No response from user after fall");
+    }
+
     public void switchUser(String elderlyId) {
         deviceCurrentUserMap.put("vois_belt", elderlyId);
         System.out.println("Device 'vois_belt' switched to user: " + elderlyId);

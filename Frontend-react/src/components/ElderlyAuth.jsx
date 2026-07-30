@@ -55,6 +55,11 @@ const ElderlyAuth = () => {
       if (response.status === 'success') {
         showAlert('Registration successful! Redirecting to login...', 'success');
         
+        const elderlyKey = formData.name.toLowerCase().trim();
+        const preferredLang = formData.preferredLanguage || 'en';
+        localStorage.setItem(`elderly_language_${elderlyKey}`, preferredLang);
+        localStorage.setItem('app_lang', preferredLang);
+
         if (rememberMe) {
           localStorage.setItem('elderly_name', formData.name);
           localStorage.setItem('elderly_phone', formData.phone);
@@ -64,11 +69,12 @@ const ElderlyAuth = () => {
           navigate('/login');
         }, 2000);
       } else {
-        showAlert(response.message || 'Registration failed. Please try again.', 'error');
+        showAlert(response.message || response.error || 'Registration failed. Please check guardian credentials.', 'error');
       }
     } catch (error) {
       console.error('Registration error:', error);
-      showAlert('Registration failed. Please try again.', 'error');
+      const serverMsg = error.response?.data?.message || error.response?.data?.error || 'Registration failed. Check guardian username & password.';
+      showAlert(serverMsg, 'error');
     } finally {
       setLoading(false);
     }
@@ -170,6 +176,28 @@ const ElderlyAuth = () => {
               onChange={handleInputChange}
               placeholder="Diabetes, High BP, Heart conditions, etc."
             />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="preferredLanguage">🌐 Preferred Language for Elderly *</label>
+            <select
+              id="preferredLanguage"
+              name="preferredLanguage"
+              value={formData.preferredLanguage || 'en'}
+              onChange={handleInputChange}
+              style={{
+                width: '100%',
+                padding: '12px',
+                borderRadius: '8px',
+                border: '1px solid #ccc',
+                fontSize: '15px',
+                fontWeight: '600'
+              }}
+            >
+              <option value="en">English 🇬🇧</option>
+              <option value="hi">हिन्दी (Hindi) 🇮🇳</option>
+              <option value="mr">मराठी (Marathi) 🇮🇳</option>
+            </select>
           </div>
 
           <div className="guardian-section">

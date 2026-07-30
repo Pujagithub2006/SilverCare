@@ -1,103 +1,168 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getMedicines, confirmMedicineTaken } from '../services/api';
+import {
+  confirmMedicineTaken,
+  getElderlyNotifications,
+  clearElderlyNotification,
+  fetchSensorData,
+  triggerEmergency
+} from '../services/api';
+import { useLanguage } from '../context/LanguageContext';
+import '../styles.css';
 
 const ElderlyHome = () => {
   const navigate = useNavigate();
-  const [medicineCount, setMedicineCount] = useState('Loading medicines...');
+  const { lang, t, translateDynamic } = useLanguage();
+
+  const [elderlyId, setElderlyId] = useState('');
+  const [elderlyName, setElderlyName] = useState('');
   const [sosPressed, setSosPressed] = useState(false);
-  const [showReminders, setShowReminders] = useState(false);
-  const [medicines, setMedicines] = useState([]);
+  const [notifications, setNotifications] = useState({});
+
+  // Device Status Realtime State
+  const [beltWornRealtime, setBeltWornRealtime] = useState(true);
+  const [wristBandWornRealtime, setWristBandWornRealtime] = useState(true);
+
+  // Dynamic Quote State (Translated via API)
+  const [quoteTitle, setQuoteTitle] = useState('Daily Inspiration 💖');
+  const [quoteBody, setQuoteBody] = useState('Every day is a new gift. Stay happy, take your medicines with a smile, and know you are deeply loved!');
+
   const sosTimerRef = useRef(null);
-  const sosButtonRef = useRef(null);
 
   useEffect(() => {
-    // Check if user is logged in
     const loggedIn = localStorage.getItem('elderlyLoggedIn');
-    if (!loggedIn || loggedIn !== 'true') {
+    const id = localStorage.getItem('elderly_id');
+    const rawName = localStorage.getItem('elderly_name');
+
+    if (!loggedIn || loggedIn !== 'true' || !id) {
       navigate('/login');
       return;
     }
 
-    // Set elderly ID if not already set
-    if (!localStorage.getItem('elderly_id') || localStorage.getItem('elderly_id').includes('elderly_')) {
-      localStorage.setItem('elderly_id', 'isha_amit');
-    }
+    const formattedName = rawName || (id ? id.charAt(0).toUpperCase() + id.slice(1) : '');
 
-    // Load medicines
-    loadElderlyMedicines();
+    setElderlyId(id);
+    setElderlyName(formattedName);
 
-    // Start real-time updates
-    const interval = setInterval(loadElderlyMedicines, 15000);
+    pollDeviceStatus();
+
+    // Realtime polling interval every 3 seconds
+    const interval = setInterval(() => {
+      checkNotifications(id);
+      pollDeviceStatus();
+    }, 3000);
 
     return () => clearInterval(interval);
   }, [navigate]);
 
-  const loadElderlyMedicines = async () => {
-    try {
-      let elderlyId = localStorage.getItem('elderly_id') || 'isha_amit';
-      if (elderlyId.includes('elderly_')) {
-        elderlyId = 'isha_amit';
-        localStorage.setItem('elderly_id', 'isha_amit');
-      }
+  // Translate quote dynamically when language changes using API
+  useEffect(() => {
+    let isMounted = true;
+    const baseTitle = 'Daily Inspiration 💖';
+    const baseBody = 'Every day is a new gift. Stay happy, take your medicines with a smile, and know you are deeply loved!';
 
-      const response = await getMedicines(elderlyId);
-      const medicinesData = response.medicines || [];
-      setMedicines(medicinesData);
-      updateMedicineCountDisplay(medicinesData);
-    } catch (error) {
-      console.error('Error loading medicines:', error);
-      setMedicineCount('Failed to load');
-    }
-  };
-
-  const updateMedicineCountDisplay = (medicines) => {
-    if (medicines.length === 0) {
-      setMedicineCount('No medicines scheduled');
-      return;
-    }
-
-    const today = new Date().toISOString().split('T')[0];
-    let pendingCount = 0;
-    let missedCount = 0;
-    let nextMedicineTime = null;
-
-    medicines.forEach(medicine => {
-      const times = Array.isArray(medicine.times) ? medicine.times : [medicine.times];
-      times.forEach(time => {
-        const status = getMedicineStatus(medicine.id, time);
-        if (status === 'pending') {
-          pendingCount++;
-          if (!nextMedicineTime || time < nextMedicineTime) {
-            nextMedicineTime = time;
-          }
-        } else if (status === 'missed') {
-          missedCount++;
-        }
-      });
-    });
-
-    if (medicines.length === 0) {
-      setMedicineCount('No medicines today');
-    } else if (missedCount > 0) {
-      setMedicineCount(`${missedCount} missed • Next at ${nextMedicineTime}`);
-    } else if (pendingCount > 0) {
-      setMedicineCount(`${pendingCount} pending • Next at ${nextMedicineTime}`);
+    if (lang === 'en') {
+      setQuoteTitle(baseTitle);
+      setQuoteBody(baseBody);
     } else {
-      setMedicineCount('All medicines taken');
+      translateDynamic(baseTitle, lang).then(transTitle => {
+        if (isMounted) setQuoteTitle(transTitle || t('daily_quote_title'));
+      });
+      translateDynamic(baseBody, lang).then(transBody => {
+        if (isMounted) setQuoteBody(transBody || t('daily_quote'));
+      });
+    }
+
+    return () => { isMounted = false; };
+  }, [lang]);
+
+  const pollDeviceStatus = async () => {
+    try {
+      const data = await fetchSensorData();
+      if (data && data.status === 'success' && data.data) {
+        setBeltWornRealtime(data.data.beltWorn !== false);
+        setWristBandWornRealtime(data.data.wristBandWorn !== false);
+      } else {
+        setBeltWornRealtime(true);
+        setWristBandWornRealtime(true);
+      }
+    } catch (err) {
+      setBeltWornRealtime(false);
+      setWristBandWornRealtime(false);
     }
   };
 
-  const getMedicineStatus = (medicineId, time) => {
-    const key = `medicine_${medicineId}_${time}`;
-    return localStorage.getItem(key) || 'pending';
+  const checkNotifications = async (id) => {
+    const targetId = id || elderlyId || localStorage.getItem('elderly_id');
+    if (!targetId) return;
+    try {
+      const response = await getElderlyNotifications(targetId);
+      if (response && response.status === 'success' && response.notifications) {
+        setNotifications(response.notifications);
+      } else {
+        setNotifications({});
+      }
+    } catch (err) {}
+  };
+
+  const handleNotificationResponse = async (medicineId, response) => {
+    const targetId = elderlyId || localStorage.getItem('elderly_id');
+    try {
+      await clearElderlyNotification(targetId, medicineId, response);
+      if (response === 'taken') {
+        const currentTime = new Date().toTimeString().slice(0, 5);
+        localStorage.setItem(`medicine_${medicineId}_${currentTime}`, 'taken');
+        await confirmMedicineTaken({
+          medicineId,
+          elderlyId: targetId,
+          timeTaken: currentTime,
+          taken: true
+        });
+      }
+      showToast(
+        response === 'taken'
+          ? `✅ ${t('mark_taken')}`
+          : response === 'snooze'
+          ? `⏰ ${t('snooze')}`
+          : `❌ ${t('mark_missed')}`
+      );
+      checkNotifications(targetId);
+    } catch (err) {
+      showToast('Response recorded');
+    }
+  };
+
+  const showToast = (msg) => {
+    const toast = document.createElement('div');
+    toast.style.cssText = `
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: #333;
+      color: white;
+      padding: 12px 20px;
+      border-radius: 10px;
+      z-index: 10000;
+      font-weight: 600;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    `;
+    toast.textContent = msg;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
   };
 
   const handleSosStart = (e) => {
     e.preventDefault();
     setSosPressed(true);
-    sosTimerRef.current = setTimeout(() => {
-      alert('SOS alert sent!');
+    sosTimerRef.current = setTimeout(async () => {
+      try {
+        await triggerEmergency({
+          elderly_name: elderlyName,
+          guardian_username: localStorage.getItem('guardian_username') || 'john_guardian',
+          location: 'Home'
+        });
+      } catch (err) {}
+      alert('🚨 SOS EMERGENCY ALERT SENT TO GUARDIAN & NEIGHBOUR!');
       setSosPressed(false);
     }, 3000);
   };
@@ -110,344 +175,240 @@ const ElderlyHome = () => {
     }
   };
 
-  const handleSosLeave = () => {
-    if (sosPressed) {
-      clearTimeout(sosTimerRef.current);
-      setSosPressed(false);
-    }
-  };
-
-  const logout = () => {
-    if (confirm('Are you sure you want to logout?')) {
-      localStorage.setItem('elderlyLoggedIn', 'false');
-      localStorage.clear();
-      navigate('/login');
-    }
-  };
-
   const goBack = () => {
-    if (window.history.length > 1) {
-      window.history.back();
-    } else {
-      navigate('/login');
-    }
-  };
-
-  const openReminders = () => {
-    setShowReminders(true);
-  };
-
-  const closeReminders = () => {
-    setShowReminders(false);
-  };
-
-  const openAlerts = () => {
-    alert('No new alerts');
-  };
-
-  const openAssistantChat = () => {
-    window.open('test.html', '_blank');
-  };
-
-  const openHealth = () => {
-    window.location.href = 'health.html';
-  };
-
-  const markMedicineTaken = async (medicineId, time) => {
-    try {
-      const currentTime = new Date().toTimeString().slice(0, 5);
-      localStorage.setItem(`medicine_${medicineId}_${currentTime}`, 'taken');
-
-      const data = await confirmMedicineTaken({
-        medicineId,
-        elderlyId: localStorage.getItem('elderly_id') || 'isha_amit',
-        timeTaken: currentTime,
-        taken: true,
-      });
-
-      if (data.status === 'success' || data.message?.includes('marked')) {
-        loadElderlyMedicines();
-      }
-    } catch (error) {
-      console.error('Error confirming medicine:', error);
-    }
-  };
-
-  const renderRemindersModal = () => {
-    if (!showReminders) return null;
-
-    const medicinesByTime = {};
-    medicines.forEach(medicine => {
-      const times = Array.isArray(medicine.times) ? medicine.times : [medicine.times];
-      times.forEach(time => {
-        if (!medicinesByTime[time]) {
-          medicinesByTime[time] = [];
-        }
-        medicinesByTime[time].push(medicine);
-      });
-    });
-
-    const sortedTimes = Object.keys(medicinesByTime).sort();
-
-    return (
-      <div style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: 'white',
-        zIndex: 1000,
-        overflowY: 'auto'
-      }}>
-        <div style={{
-          background: '#007AFF',
-          color: 'white',
-          padding: '16px',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          position: 'sticky',
-          top: 0,
-          zIndex: 1001
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <button
-              onClick={closeReminders}
-              style={{
-                background: 'rgba(255,255,255,0.3)',
-                border: '1px solid rgba(255,255,255,0.5)',
-                color: 'white',
-                padding: '8px 12px',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                fontSize: '16px',
-                fontWeight: 'bold'
-              }}
-            >
-              ← Back
-            </button>
-            <h2 style={{ margin: 0, fontSize: '18px' }}>💊 Medicine Reminders</h2>
-          </div>
-          <button
-            onClick={closeReminders}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: 'white',
-              fontSize: '24px',
-              cursor: 'pointer',
-              padding: 0,
-              width: '30px',
-              height: '30px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
-          >
-            ×
-          </button>
-        </div>
-
-        <div style={{ padding: '20px' }}>
-          <h3 style={{ marginBottom: '20px', color: '#333' }}>💊 Today's Medicines</h3>
-          <div style={{ fontSize: '12px', color: '#666', marginBottom: '15px' }}>
-            Last updated: {new Date().toLocaleTimeString()}
-          </div>
-
-          {medicines.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
-              <div style={{ fontSize: '48px', marginBottom: '16px' }}>💊</div>
-              <h3>No medicines scheduled</h3>
-              <p>Your guardian will add medicines here</p>
-            </div>
-          ) : (
-            sortedTimes.map(time => (
-              <div key={time} style={{ marginBottom: '25px' }}>
-                <h4 style={{ color: '#007AFF', marginBottom: '12px', fontSize: '16px' }}>
-                  🕐 {time}
-                </h4>
-                {medicinesByTime[time].map(medicine => {
-                  const status = getMedicineStatus(medicine.id, time);
-                  const statusColor = status === 'taken' ? '#28a745' : status === 'missed' ? '#dc3545' : '#ffc107';
-                  const statusText = status === 'taken' ? '✅ Taken' : status === 'missed' ? '❌ Missed' : '⏳ Pending';
-
-                  return (
-                    <div
-                      key={medicine.id}
-                      style={{
-                        background: '#f8f9fa',
-                        borderRadius: '12px',
-                        padding: '16px',
-                        marginBottom: '12px',
-                        borderLeft: `4px solid ${statusColor}`
-                      }}
-                    >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div>
-                          <h4 style={{ margin: 0, color: '#333' }}>{medicine.medicine_name || medicine.name}</h4>
-                          <p style={{ margin: '4px 0', color: '#666', fontSize: '14px' }}>
-                            {medicine.dosage || 'As prescribed'}
-                          </p>
-                          <p style={{ margin: '4px 0', color: statusColor, fontWeight: 'bold' }}>
-                            🕐 {time} • {statusText}
-                          </p>
-                        </div>
-                        <button
-                          onClick={() => markMedicineTaken(medicine.id, time)}
-                          disabled={status === 'taken'}
-                          style={{
-                            background: status === 'taken' ? '#6c757d' : '#28a745',
-                            color: 'white',
-                            border: 'none',
-                            padding: '8px 16px',
-                            borderRadius: '6px',
-                            cursor: status === 'taken' ? 'not-allowed' : 'pointer'
-                          }}
-                        >
-                          {status === 'taken' ? '✅ Already Taken' : '✅ Taken'}
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ))
-          )}
-        </div>
-      </div>
-    );
+    navigate('/portal');
   };
 
   return (
-    <div className="container">
-      {/* Header */}
-      <header className="header">
-        <div className="status-badge success">
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-            <circle cx="10" cy="10" r="10" fill="currentColor"/>
-            <path d="M6 10l3 3 5-6" stroke="white" strokeWidth="2" fill="none"/>
-          </svg>
-          <span>belt Connected</span>
-        </div>
-        
-        <button
-          className="back-btn"
-          onClick={goBack}
-          title="Go Back"
-          style={{
-            background: 'rgba(255, 255, 255, 0.1)',
-            border: '1px solid rgba(255, 255, 255, 0.2)',
-            color: 'white',
-            padding: '8px',
-            borderRadius: '8px',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            transition: 'all 0.2s ease',
-            marginRight: '10px'
-          }}
-        >
+    <div className="container" style={{ paddingBottom: '90px' }}>
+      {/* Header matching dashboard style with Profile icon */}
+      <header className="header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', gap: '12px' }}>
+        <button className="back-btn" onClick={goBack} title="Go Back">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
             <path d="M19 12H5M12 19l-7-7 7-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
         </button>
 
-        <div className="language-selector">
-          <select id="language">
-            <option value="en">English</option>
-            <option value="hi">हिन्दी</option>
-            <option value="mr">मराठी</option>
-          </select>
-        </div>
+        <h1 style={{ fontSize: '18px', fontWeight: '800', margin: 0, color: '#1f2937', textAlign: 'center', flex: 1 }}>
+          SilverCare
+        </h1>
 
-        <button className="logout-btn" onClick={logout} title="Logout">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-            <path d="M9 21H5a2 2 0 01-2 2v1a2 2 0 01-2 2h4a2 2 0 01-2 2v1a2 2 0 01-2 2h4M16 17l-4 4-4 4v1a2 2 0 01-2 2h4a2 2 0 01-2 2v-1a2 2 0 01-2 2h-4a2 2 0 01-2 2v-1a2 2 0 01-2 2h4M7 14l5 5 5 5s-5 5h-1.71l-.29-.29a1 1 0 01-1.42 0l-1.29-1.29A1 1 0 017 7l3.59 3.59A2 2 0 0112 9l-3.59-3.59A2 2 0 0111 7z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        <button
+          className="profile-header-btn"
+          onClick={() => navigate('/profile')}
+          title="View Profile"
+          style={{
+            backgroundColor: '#eff6ff',
+            color: '#2563eb',
+            border: 'none',
+            borderRadius: '50%',
+            width: '38px',
+            height: '38px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 2px 6px rgba(37,99,235,0.15)',
+            flexShrink: 0
+          }}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+            <circle cx="12" cy="7" r="4"></circle>
           </svg>
         </button>
       </header>
 
+      {/* Personalized Senior Name */}
+      <div style={{ padding: '0 20px 10px 20px', textAlign: 'left' }}>
+        <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '800', color: '#1f2937' }}>
+          👴 {t('welcome')}, {elderlyName}!
+        </h2>
+      </div>
+
+      {/* Active Medicine Notification Banner */}
+      {Object.keys(notifications).length > 0 && (
+        <div style={{ padding: '0 20px 20px 20px' }}>
+          <div style={{
+            backgroundColor: '#fff3cd',
+            border: '2px solid #ffc107',
+            borderRadius: '16px',
+            padding: '16px',
+            textAlign: 'left'
+          }}>
+            <h3 style={{ margin: '0 0 8px 0', color: '#856404', fontSize: '16px', fontWeight: '700' }}>
+              ⏰ {t('active_reminder')}
+            </h3>
+            {Object.values(notifications).map((notif, idx) => (
+              <div key={idx}>
+                <div style={{ fontWeight: '700', fontSize: '15px', color: '#000', marginBottom: '8px' }}>{notif.message}</div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    onClick={() => handleNotificationResponse(notif.medicine.id, 'taken')}
+                    style={{ backgroundColor: '#34c759', color: 'white', border: 'none', padding: '8px 14px', borderRadius: '8px', fontWeight: '700', cursor: 'pointer' }}
+                  >
+                    {t('mark_taken')}
+                  </button>
+                  <button
+                    onClick={() => handleNotificationResponse(notif.medicine.id, 'snooze')}
+                    style={{ backgroundColor: '#ff9500', color: 'white', border: 'none', padding: '8px 14px', borderRadius: '8px', fontWeight: '700', cursor: 'pointer' }}
+                  >
+                    {t('snooze')}
+                  </button>
+                  <button
+                    onClick={() => handleNotificationResponse(notif.medicine.id, 'not_taken')}
+                    style={{ backgroundColor: '#ff3b30', color: 'white', border: 'none', padding: '8px 14px', borderRadius: '8px', fontWeight: '700', cursor: 'pointer' }}
+                  >
+                    {t('mark_missed')}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* SOS Button */}
       <div className="sos-section">
         <button
-          ref={sosButtonRef}
           className="sos-button"
           onMouseDown={handleSosStart}
           onMouseUp={handleSosEnd}
-          onMouseLeave={handleSosLeave}
           onTouchStart={handleSosStart}
           onTouchEnd={handleSosEnd}
+          style={{ transform: sosPressed ? 'scale(0.95)' : 'none' }}
         >
           <div className="sos-icon">
             <svg width="60" height="60" viewBox="0 0 60 60" fill="none">
               <path d="M30 10v10M30 30v10M20 20l7 7M40 20l-7 7M20 40l7-7M40 40l-7-7" stroke="white" strokeWidth="4" strokeLinecap="round"/>
             </svg>
           </div>
-          <div className="sos-text">SOS</div>
-          <div className="sos-subtext">PRESS FOR HELP</div>
+          <div className="sos-text">{t('sos')}</div>
+          <div className="sos-subtext">{t('press_for_help')}</div>
         </button>
-        <p className="sos-instruction">Press and hold for 3 seconds</p>
+        <p className="sos-instruction">{t('press_and_hold')}</p>
       </div>
 
-      {/* Menu Items */}
-      <div className="menu-list">
-        <div className="menu-item" onClick={openReminders}>
-          <div className="menu-icon yellow-bg">
-            <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-              <rect x="8" y="10" width="16" height="16" rx="2" stroke="#D97706" strokeWidth="2" fill="none"/>
-              <path d="M16 14v4M14 18h4" stroke="#D97706" strokeWidth="2" strokeLinecap="round"/>
-            </svg>
-          </div>
-          <div className="menu-content">
-            <h3 className="menu-title">Reminders</h3>
-            <p className="menu-subtitle">{medicineCount}</p>
-          </div>
-          <svg className="menu-arrow" width="24" height="24" viewBox="0 0 24 24" fill="none">
-            <path d="M9 6l6 6-6 6" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round"/>
-          </svg>
-        </div>
+      {/* 1. Wearable Device Status Section */}
+      <div style={{ padding: '0 20px 16px 20px' }}>
+        <div style={{
+          padding: '16px',
+          borderRadius: '16px',
+          backgroundColor: '#f8fafc',
+          border: '2px solid #e2e8f0',
+          textAlign: 'left'
+        }}>
+          <h3 style={{ margin: '0 0 12px 0', fontSize: '15px', fontWeight: '800', color: '#1e293b' }}>
+            {t('device_status_title')}
+          </h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+            
+            {/* Smart Belt Status */}
+            <div style={{
+              backgroundColor: '#ffffff',
+              padding: '12px',
+              borderRadius: '12px',
+              border: `1.5px solid ${beltWornRealtime ? '#a7f3d0' : '#fecaca'}`,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between'
+            }}>
+              <div>
+                <div style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase' }}>
+                  📟 {t('smart_belt')}
+                </div>
+                <div style={{ fontSize: '14px', fontWeight: '800', color: beltWornRealtime ? '#047857' : '#b91c1c', marginTop: '2px' }}>
+                  {beltWornRealtime ? t('worn') : t('not_worn')}
+                </div>
+              </div>
+              <span style={{
+                width: '10px',
+                height: '10px',
+                borderRadius: '50%',
+                backgroundColor: beltWornRealtime ? '#10b981' : '#ef4444'
+              }}></span>
+            </div>
 
-        <div className="menu-item" onClick={openAlerts}>
-          <div className="menu-icon pink-bg">
-            <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-              <path d="M16 8c-3 0-5 2-5 5v3l-2 4h14l-2-4v-3c0-3-2-5-5-5zM14 20v1c0 1.1.9 2 2 2s2-.9 2-2v-1" stroke="#DC2626" strokeWidth="2" strokeLinecap="round"/>
-            </svg>
+            {/* Wrist Band Status */}
+            <div style={{
+              backgroundColor: '#ffffff',
+              padding: '12px',
+              borderRadius: '12px',
+              border: `1.5px solid ${wristBandWornRealtime ? '#a7f3d0' : '#fecaca'}`,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between'
+            }}>
+              <div>
+                <div style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase' }}>
+                  ⌚ {t('wrist_band')}
+                </div>
+                <div style={{ fontSize: '14px', fontWeight: '800', color: wristBandWornRealtime ? '#047857' : '#b91c1c', marginTop: '2px' }}>
+                  {wristBandWornRealtime ? t('worn') : t('not_worn')}
+                </div>
+              </div>
+              <span style={{
+                width: '10px',
+                height: '10px',
+                borderRadius: '50%',
+                backgroundColor: wristBandWornRealtime ? '#10b981' : '#ef4444'
+              }}></span>
+            </div>
+
           </div>
-          <div className="menu-content">
-            <h3 className="menu-title">Alerts</h3>
-            <p className="menu-subtitle">No new alerts</p>
-          </div>
-          <svg className="menu-arrow" width="24" height="24" viewBox="0 0 24 24" fill="none">
-            <path d="M9 6l6 6-6 6" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round"/>
-          </svg>
+        </div>
+      </div>
+
+      {/* 2. Heartwarming Daily Inspiration Quote Card (Positioned BELOW Wearable Device Status) */}
+      <div style={{ padding: '0 20px 20px 20px' }}>
+        <div style={{
+          background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
+          borderRadius: '18px',
+          padding: '16px 18px',
+          textAlign: 'left',
+          border: '1px solid #bfdbfe',
+          boxShadow: '0 4px 12px rgba(37,99,235,0.06)'
+        }}>
+          <h3 style={{ margin: '0 0 6px 0', fontSize: '14px', fontWeight: '800', color: '#1d4ed8' }}>
+            {quoteTitle}
+          </h3>
+          <p style={{ margin: 0, fontSize: '13px', color: '#1e3a8a', fontWeight: '600', lineHeight: '1.4', fontStyle: 'italic' }}>
+            "{quoteBody}"
+          </p>
         </div>
       </div>
 
       {/* Bottom Navigation */}
       <nav className="bottom-nav">
-        <a href="#" className="nav-item active" onClick={(e) => { e.preventDefault(); }}>
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+        <a href="#" className="nav-item active" onClick={(e) => { e.preventDefault(); navigate('/home'); }}>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
+            <polyline points="9 22 9 12 15 12 15 22"/>
           </svg>
-          <span>Home</span>
+          <span>{t('home')}</span>
         </a>
-        <button className="nav-item assistant-nav-btn" onClick={openAssistantChat} title="Open Assistant">
-          <svg width="24" height="24" viewBox="0 0 32 32" fill="currentColor">
-            <path d="M16 28c6.627 0 12-5.373 12-12S22.627 4 16 4 4 9.373 4 16c0 2.4.7 4.6 2 6.5L4 28l5.5-2c1.9 1.3 4.1 2 6.5 2z" fill="#3B82F6"/>
-          </svg>
-          <span>Assistant</span>
-        </button>
-        <a href="#" className="nav-item" onClick={(e) => { e.preventDefault(); openHealth(); }}>
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-            <path d="M4 12h16M12 4v16" strokeWidth="2"/>
-          </svg>
-          <span>Health</span>
-        </a>
-      </nav>
 
-      {renderRemindersModal()}
+        <a href="#" className="nav-item" onClick={(e) => { e.preventDefault(); navigate('/health'); }}>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+          </svg>
+          <span>{t('health')}</span>
+        </a>
+
+        <button className="nav-item assistant-nav-btn" onClick={() => navigate('/assistant')} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
+            <path d="M12 4.5V2" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round"/>
+            <circle cx="12" cy="1.8" r="1.8" fill="#ef4444"/>
+            <rect x="3" y="4.5" width="18" height="15" rx="7.5" fill="#eff6ff" stroke="#3b82f6" strokeWidth="2"/>
+            <circle cx="6.5" cy="13.5" r="1.2" fill="#f472b6" opacity="0.8"/>
+            <circle cx="17.5" cy="13.5" r="1.2" fill="#f472b6" opacity="0.8"/>
+            <path d="M7.5 10c.8-.8 2.2-.8 3 0" stroke="#1d4ed8" strokeWidth="2.2" strokeLinecap="round"/>
+            <path d="M13.5 10c.8-.8 2.2-.8 3 0" stroke="#1d4ed8" strokeWidth="2.2" strokeLinecap="round"/>
+            <path d="M9.5 14c1.2 1.3 3.8 1.3 5 0" stroke="#1d4ed8" strokeWidth="2.2" strokeLinecap="round"/>
+          </svg>
+          <span>{t('assistant')}</span>
+        </button>
+      </nav>
     </div>
   );
 };

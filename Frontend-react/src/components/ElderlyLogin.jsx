@@ -58,40 +58,37 @@ const ElderlyLogin = () => {
 
       if (response.status === 'success') {
         showAlert('Login successful! Redirecting to portal...', 'success');
-        
-        localStorage.setItem('elderlyLoggedIn', 'true');
-        localStorage.setItem('elderly_id', response.elderly_id);
-        localStorage.setItem('elderly_name', response.name);
-        localStorage.setItem('elderly_phone', formData.phone);
-        localStorage.setItem('elderly_remember_me', rememberMe.toString());
 
         if (rememberMe) {
-          localStorage.setItem('elderly_name', formData.name);
-          localStorage.setItem('elderly_phone', formData.phone);
+          localStorage.setItem('elderly_remember_me', 'true');
         } else {
-          localStorage.removeItem('elderly_name');
-          localStorage.removeItem('elderly_phone');
+          localStorage.removeItem('elderly_remember_me');
         }
+
+        const loggedInName = response.name || formData.name;
+        const loggedInId = response.elderly_id || response.id || formData.name.toLowerCase().trim();
+        const loggedInPhone = response.phone || formData.phone || '+91 93229 76718';
+        const guardianName = response.guardian_name || response.guardianName || 'Isha (Guardian)';
+        const guardianPhone = response.guardian_phone || response.guardianPhone || '+91 98765 43210';
+
+        localStorage.setItem('elderly_id', loggedInId);
+        localStorage.setItem('elderly_name', loggedInName);
+        localStorage.setItem('elderly_phone', loggedInPhone);
+        localStorage.setItem('guardian_name', guardianName);
+        localStorage.setItem('guardian_phone', guardianPhone);
+        localStorage.setItem('elderlyLoggedIn', 'true');
 
         setTimeout(() => {
           navigate('/home');
-        }, 1500);
+        }, 1000);
       } else {
-        showAlert(response.message || 'Login failed. Please try again.', 'error');
+        showAlert(response.message || 'Login failed', 'error');
       }
     } catch (error) {
-      console.error('Login error:', error);
-      showAlert('Login failed. Please try again.', 'error');
+      showAlert('Server error. Please try again.', 'error');
+      console.error(error);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const goBack = () => {
-    if (window.history.length > 1) {
-      window.history.back();
-    } else {
-      navigate('/login');
     }
   };
 
@@ -105,30 +102,80 @@ const ElderlyLogin = () => {
       justifyContent: 'center',
       margin: 0,
       padding: '20px',
-      WebkitFontSmoothing: 'antialiased',
-      MozOsxFontSmoothing: 'grayscale'
+      boxSizing: 'border-box'
     }}>
-      <div className="auth-container">
-        <button className="back-btn" onClick={goBack} title="Go Back">
+      <div className="auth-container" style={{
+        background: 'white',
+        borderRadius: '20px',
+        padding: '40px',
+        boxShadow: '0 20px 40px rgba(0, 0, 0, 0.1)',
+        width: '100%',
+        maxWidth: '400px',
+        position: 'relative',
+        boxSizing: 'border-box',
+        textAlign: 'center'
+      }}>
+        <button 
+          className="back-btn" 
+          onClick={() => navigate('/')} 
+          title="Go Back"
+          style={{
+            position: 'absolute',
+            top: '20px',
+            left: '20px',
+            background: 'rgba(40, 167, 69, 0.1)',
+            border: '1px solid rgba(40, 167, 69, 0.2)',
+            color: '#28a745',
+            padding: '8px',
+            borderRadius: '8px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}
+        >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
             <path d="M19 12H5M12 19l-7-7 7-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
         </button>
-        
-        <div className="auth-header">
-          <h1 className="auth-title">👴 Elderly Login</h1>
-          <p className="auth-subtitle">Welcome back! Please login to continue</p>
+
+        <div className="auth-header" style={{ marginBottom: '30px', marginTop: '10px' }}>
+          <h1 className="auth-title" style={{
+            color: '#28a745',
+            fontSize: '28px',
+            fontWeight: 700,
+            marginBottom: '8px'
+          }}>👴 Elderly Login</h1>
+          <p className="auth-subtitle" style={{
+            color: '#666',
+            fontSize: '16px',
+            marginBottom: '20px'
+          }}>Welcome back! Please login to continue</p>
         </div>
 
         {alert.show && (
-          <div className={`alert alert-${alert.type}`} style={{ display: 'block' }}>
+          <div style={{
+            padding: '12px 16px',
+            borderRadius: '8px',
+            marginBottom: '20px',
+            fontSize: '14px',
+            background: alert.type === 'success' ? '#d4edda' : '#f8d7da',
+            color: alert.type === 'success' ? '#155724' : '#721c24',
+            border: alert.type === 'success' ? '1px solid #c3e6cb' : '1px solid #f5c6cb'
+          }}>
             {alert.message}
           </div>
         )}
 
         <form onSubmit={handleLogin}>
-          <div className="form-group">
-            <label htmlFor="elderlyName">Your Name *</label>
+          <div className="form-group" style={{ marginBottom: '20px', textAlign: 'left' }}>
+            <label htmlFor="elderlyName" style={{
+              display: 'block',
+              marginBottom: '8px',
+              color: '#333',
+              fontWeight: 500,
+              fontSize: '14px'
+            }}>Your Name *</label>
             <input
               type="text"
               id="elderlyName"
@@ -137,11 +184,25 @@ const ElderlyLogin = () => {
               onChange={handleInputChange}
               placeholder="Enter your name"
               required
+              style={{
+                width: '100%',
+                padding: '12px 16px',
+                border: '2px solid #e1e1e1',
+                borderRadius: '10px',
+                fontSize: '16px',
+                boxSizing: 'border-box'
+              }}
             />
           </div>
 
-          <div className="form-group">
-            <label htmlFor="elderlyPhone">Your Phone Number *</label>
+          <div className="form-group" style={{ marginBottom: '20px', textAlign: 'left' }}>
+            <label htmlFor="elderlyPhone" style={{
+              display: 'block',
+              marginBottom: '8px',
+              color: '#333',
+              fontWeight: 500,
+              fontSize: '14px'
+            }}>Your Phone Number *</label>
             <input
               type="tel"
               id="elderlyPhone"
@@ -150,34 +211,90 @@ const ElderlyLogin = () => {
               onChange={handleInputChange}
               placeholder="Enter your phone number"
               required
+              style={{
+                width: '100%',
+                padding: '12px 16px',
+                border: '2px solid #e1e1e1',
+                borderRadius: '10px',
+                fontSize: '16px',
+                boxSizing: 'border-box'
+              }}
             />
           </div>
 
-          <div className="remember-me">
+          <div className="remember-me" style={{
+            display: 'flex',
+            alignItems: 'center',
+            marginBottom: '20px',
+            textAlign: 'left'
+          }}>
             <input
               type="checkbox"
               id="rememberMe"
               checked={rememberMe}
               onChange={(e) => setRememberMe(e.target.checked)}
+              style={{ marginRight: '8px' }}
             />
-            <label htmlFor="rememberMe">Remember me on this device</label>
+            <label htmlFor="rememberMe" style={{ color: '#666', fontSize: '14px', cursor: 'pointer' }}>Remember me on this device</label>
           </div>
 
-          <button type="submit" className="btn btn-primary" disabled={loading}>
-            <span style={{ display: loading ? 'none' : 'inline' }}>Login to Portal</span>
-            <span className="loading" style={{ display: loading ? 'inline' : 'none' }}>Logging in...</span>
+          <button 
+            type="submit" 
+            className="btn btn-primary" 
+            disabled={loading}
+            style={{
+              padding: '14px 24px',
+              border: 'none',
+              borderRadius: '10px',
+              fontSize: '16px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              display: 'inline-block',
+              width: '100%',
+              marginBottom: '12px',
+              boxSizing: 'border-box',
+              background: '#28a745',
+              color: 'white'
+            }}
+          >
+            {loading ? 'Logging in...' : 'Login to Portal'}
           </button>
 
           <button
             type="button"
             className="btn btn-secondary"
             onClick={() => navigate('/register')}
+            style={{
+              padding: '14px 24px',
+              border: 'none',
+              borderRadius: '10px',
+              fontSize: '16px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              display: 'inline-block',
+              width: '100%',
+              marginBottom: '12px',
+              boxSizing: 'border-box',
+              background: '#6c757d',
+              color: 'white'
+            }}
           >
             New User? Register Here
           </button>
         </form>
 
-        <a href="#" className="back-link" onClick={(e) => { e.preventDefault(); navigate('/login'); }}>
+        <a 
+          href="#" 
+          className="back-link" 
+          onClick={(e) => { e.preventDefault(); navigate('/'); }}
+          style={{
+            color: '#28a745',
+            textDecoration: 'none',
+            fontSize: '14px',
+            marginTop: '15px',
+            display: 'inline-block'
+          }}
+        >
           ← Back to Portal Selection
         </a>
       </div>

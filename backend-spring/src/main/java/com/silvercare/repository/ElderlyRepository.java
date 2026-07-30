@@ -11,5 +11,5 @@ import java.util.Optional;
 public interface ElderlyRepository extends JpaRepository<Elderly, String> {
     Optional<Elderly> findByElderlyId(String elderlyId);
     List<Elderly> findByGuardianUsername(String guardianUsername);
-    Optional<Elderly> findByPhoneAndNameIgnoreCase(String phone, String name);
+    List<Elderly> findByPhoneAndNameIgnoreCase(String phone, String name);
 }

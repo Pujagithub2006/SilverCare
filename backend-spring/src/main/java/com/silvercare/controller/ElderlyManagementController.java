@@ -78,7 +78,7 @@ public class ElderlyManagementController {
         return ResponseEntity.ok(response);
     }
 
-    @PostMapping("/elderly/login")
+    @PostMapping({"/elderly/login", "/elderly-login"})
     public ResponseEntity<ApiResponse<Object>> elderlyLogin(@RequestBody ElderlyLoginRequest request) {
         try {
             Elderly elderly = elderlyManagementService.loginElderly(request);
@@ -90,10 +90,11 @@ public class ElderlyManagementController {
                     .guardian_username(elderly.getGuardianUsername())
                     .build();
             return ResponseEntity.ok(response);
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error(e.getMessage()));
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.error(e.getMessage()));
+            return ResponseEntity.ok(ApiResponse.builder()
+                    .status("error")
+                    .message(e.getMessage() != null ? e.getMessage() : "Login failed")
+                    .build());
         }
     }
 
@@ -136,6 +137,16 @@ public class ElderlyManagementController {
                 elderlyNotificationService.clearElderlyNotification(request.getElderlyId(), request.getMedicineId());
             }
             return ResponseEntity.ok(ApiResponse.success("Response '" + request.getResponse() + "' recorded successfully"));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
+    @RequestMapping(value = {"/api/admin/clear-database", "/admin/clear-database"}, method = {RequestMethod.GET, RequestMethod.POST})
+    public ResponseEntity<ApiResponse<Object>> clearDatabase() {
+        try {
+            elderlyManagementService.clearAllData();
+            return ResponseEntity.ok(ApiResponse.success("All database entries deleted successfully!"));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.error(e.getMessage()));
         }
