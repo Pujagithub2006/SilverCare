@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 com\silvercare\dto\ElderlyRegisterRequest.class
 com\silvercare\entity\Medicine$MedicineBuilder.class
 com\silvercare\service\GuardianAuthService.class
@@ -63,13 +62,3 @@ com\silvercare\dto\TwilioSmsRequest.class
 com\silvercare\entity\GuardianSuggestion.class
 com\silvercare\repository\AlertRecordRepository.class
 com\silvercare\service\ElderlyNotificationService$ElderlySession.class
-=======
-com\silvercare\dto\ElderlyVoiceMessageRequest.class
-com\silvercare\repository\GuardianElderlyLinkRepository.class
-com\silvercare\controller\AlertController.class
-com\silvercare\dto\AlertAcknowledgeRequest.class
-com\silvercare\entity\GuardianElderlyLink.class
-com\silvercare\entity\AlertRecord.class
-com\silvercare\service\FirebaseEncryptionService.class
-com\silvercare\repository\AlertRecordRepository.class
->>>>>>> 996f27338c5dc697f56a63cd9e56b017e0089e9e
