@@ -1,51 +1,48 @@
 #include <Wire.h>
 #include <Adafruit_MPU6050.h>
 #include <Adafruit_Sensor.h>
-#include "MAX30105.h"
 #include <OneWire.h>
 #include <DallasTemperature.h>
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
 #include <SoftwareSerial.h>
+#include <NimBLEDevice.h>
 
 // =========================================================================
-//  SILVERCARE - SENIOR SAFETY WAIST BELT (ESP32 MAIN BOARD)
+//  SILVERCARE - SENIOR SAFETY WAIST BELT (ESP32 BLE CLIENT)
 // =========================================================================
 
-// ---------- SMS FALLBACK VARIABLES ----------
-bool twilioSMSSent = false;
-bool gsmSMSSent = false;
-unsigned long lastSMSTime = 0;
-const unsigned long SMS_RETRY_INTERVAL = 30000; // 30 seconds between SMS
+// ---------- BLE CONFIGURATION ----------
+#define BLE_SERVICE_UUID        "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
+#define BLE_CHARACTERISTIC_UUID "beb5483e-36e1-4688-b7f5-ea07361b26a8"
+#define WRIST_DEVICE_NAME       "SilverCare_Wrist"
 
 // ---------- GSM CONFIGURATION ----------
-#define GSM_TX 16  // ESP32 RX → GSM TX
-#define GSM_RX 17  // ESP32 TX → GSM RX
+#define GSM_TX 16
+#define GSM_RX 17
 #define GSM_BAUD 9600
 SoftwareSerial gsmSerial(GSM_RX, GSM_TX);
 
 // ---------- WiFi & BACKEND SERVER CONFIGURATION ----------
 const char* ssid = "WiFi_SSID_Name";
 const char* password = "WiFi_Password";
-// Public Server / Backend Endpoint URL (port 5002)
 const char* serverURL = "http://192.168.43.167:5002/api/sensor-data";
 
 // ---------- PINS ----------
 #define TEMP_PIN 4 
 #define BUZZER_PIN 18
 #define BUTTON_PIN 19
-#define MIC_BUTTON_PIN 23 // Senior citizen microphone trigger pin
+#define MIC_BUTTON_PIN 23
 
 // Hardware Identification
-String deviceId = "vois_belt";     // Waist Belt Device ID
-String beltType = "Waist Belt";   // Hardware Belt Classification
-double gpsLat = 18.5204;           // GPS Latitude
-double gpsLng = 73.8567;           // GPS Longitude
+String deviceId = "vois_belt";
+String beltType = "Waist Belt";
+double gpsLat = 18.5204;
+double gpsLng = 73.8567;
 
 // ---------- OBJECTS ----------
 Adafruit_MPU6050 mpu;
-MAX30105 maxSensor;
 OneWire oneWire(TEMP_PIN);
 DallasTemperature tempSensor(&oneWire);
 
@@ -54,7 +51,6 @@ DallasTemperature tempSensor(&oneWire);
 #define SUDDEN_THRESHOLD 1.4
 #define FALL_THRESHOLD 1.9
 
-#define IR_WORN_THRESHOLD 4500
 #define TEMP_WORN_THRESHOLD 26.0
 
 #define HR_LOW 50
@@ -70,18 +66,60 @@ enum SystemState {
 };
 
 SystemState currentState = NORMAL;
-SystemState lastState = NORMAL;
 String lastAlertType = "";
+
+// ---------- BLE VARIABLES ----------
+bool deviceConnected = false;
+bool scanning = false;
+unsigned long lastScanTime = 0;
+const unsigned long SCAN_INTERVAL = 5000;
+
+// BLE Client objects
+NimBLEClient* pClient = NULL;
+NimBLERemoteCharacteristic* pRemoteCharacteristic = NULL;
+NimBLERemoteService* pRemoteService = NULL;
+
+// ---------- RECEIVED HEART DATA ----------
+float heartRate = 0;
+float spo2 = 0;
+long irValue = 0;
+float bodyTemp = 0;
+bool heartDataReceived = false;
+unsigned long lastHeartDataTime = 0;
+const unsigned long HEART_DATA_TIMEOUT = 3000;
 
 // ---------- VARIABLES ----------
 bool beltWorn = false;
-float heartRate = 0;
-float spo2 = 0;
 unsigned long fallTime = 0;
 unsigned long lastSendTime = 0;
-const unsigned long SEND_INTERVAL = 1000; // Send every 1 second
+const unsigned long SEND_INTERVAL = 1000;
 String micMessage = "";
+unsigned long lastReconnectAttempt = 0;
+const unsigned long RECONNECT_INTERVAL = 5000;
 
+// =========================================================================
+//  BLE CLIENT CALLBACKS
+// =========================================================================
+class MyClientCallback : public NimBLEClientCallbacks {
+  void onConnect(NimBLEClient* pClient) {
+    deviceConnected = true;
+    heartDataReceived = false;
+    Serial.println("✅ [BLE] Waist band connected to Wrist band");
+  }
+
+  void onDisconnect(NimBLEClient* pClient) {
+    deviceConnected = false;
+    pClient = NULL;
+    pRemoteCharacteristic = NULL;
+    pRemoteService = NULL;
+    Serial.println("❌ [BLE] Waist band disconnected from Wrist band");
+    Serial.println("🔄 [BLE] Will attempt to reconnect...");
+  }
+};
+
+// =========================================================================
+//  SETUP
+// =========================================================================
 void setup() {
   Serial.begin(115200);
   delay(1000);
@@ -92,7 +130,7 @@ void setup() {
 
   Wire.begin(21, 22);
 
-  Serial.println("=== SILVERCARE SENIOR SAFETY WAIST BELT START ===");
+  Serial.println("=== SILVERCARE SENIOR SAFETY WAIST BELT (BLE CLIENT) ===");
 
   // ========== GSM Module Initialization ==========
   gsmSerial.begin(GSM_BAUD);
@@ -136,18 +174,145 @@ void setup() {
     while (1);
   }
 
-  if (!maxSensor.begin(Wire, I2C_SPEED_FAST)) {
-    Serial.println("❌ MAX30102 NOT FOUND");
-    while (1);
-  }
-
-  maxSensor.setup();
   tempSensor.begin();
 
-  Serial.println("✅ ALL WAIST BELT SENSORS INITIALIZED SUCCESSFULLY");
+  // ========== BLE Initialization ==========
+  NimBLEDevice::init("");
+  NimBLEDevice::setOwnAddrType(BLE_OWN_ADDR_PUBLIC);
+  
+  Serial.println("✅ BLE Client initialized - Searching for Wrist band");
   Serial.println("=================================================");
+  
+  // Start BLE scan
+  startBLEScan();
 }
 
+// =========================================================================
+//  BLE FUNCTIONS
+// =========================================================================
+void startBLEScan() {
+  if (scanning) return;
+  
+  scanning = true;
+  Serial.println("🔍 [BLE] Scanning for Wrist band...");
+  
+  NimBLEScan* pScan = NimBLEDevice::getScan();
+  pScan->setActiveScan(true);
+  pScan->setInterval(100);
+  pScan->setWindow(50);
+  
+  NimBLEScanResults results = pScan->start(3, false);
+  
+  int foundCount = results.getCount();
+  Serial.print("🔍 [BLE] Found ");
+  Serial.print(foundCount);
+  Serial.println(" devices");
+  
+  for (int i = 0; i < foundCount; i++) {
+    NimBLEAdvertisedDevice device = results.getDevice(i);
+    String deviceName = device.getName().c_str();
+    
+    if (deviceName == WRIST_DEVICE_NAME) {
+      Serial.print("✅ [BLE] Found Wrist band: ");
+      Serial.println(deviceName);
+      
+      // Stop scanning and connect
+      scanning = false;
+      connectToWristBand(&device);
+      return;
+    }
+  }
+  
+  scanning = false;
+  Serial.println("⚠️ [BLE] Wrist band not found, will scan again...");
+}
+
+void connectToWristBand(NimBLEAdvertisedDevice* pDevice) {
+  if (pClient != NULL) {
+    // Clean up old client
+    if (pClient->isConnected()) {
+      pClient->disconnect();
+    }
+    NimBLEDevice::deleteClient(pClient);
+    pClient = NULL;
+  }
+  
+  Serial.print("🔗 [BLE] Connecting to Wrist band: ");
+  Serial.println(pDevice->getName().c_str());
+  
+  pClient = NimBLEDevice::createClient();
+  pClient->setClientCallbacks(new MyClientCallback(), false);
+  pClient->setConnectionParams(12, 12, 0, 48);
+  pClient->setConnectTimeout(5);
+  
+  if (!pClient->connect(pDevice)) {
+    Serial.println("❌ [BLE] Failed to connect");
+    NimBLEDevice::deleteClient(pClient);
+    pClient = NULL;
+    return;
+  }
+  
+  Serial.println("✅ [BLE] Connected to Wrist band!");
+  
+  // Get service and characteristic
+  pRemoteService = pClient->getService(BLE_SERVICE_UUID);
+  if (pRemoteService == nullptr) {
+    Serial.println("❌ [BLE] Failed to find service");
+    pClient->disconnect();
+    NimBLEDevice::deleteClient(pClient);
+    pClient = NULL;
+    return;
+  }
+  
+  pRemoteCharacteristic = pRemoteService->getCharacteristic(BLE_CHARACTERISTIC_UUID);
+  if (pRemoteCharacteristic == nullptr) {
+    Serial.println("❌ [BLE] Failed to find characteristic");
+    pClient->disconnect();
+    NimBLEDevice::deleteClient(pClient);
+    pClient = NULL;
+    return;
+  }
+  
+  // Subscribe to notifications
+  if (pRemoteCharacteristic->canNotify()) {
+    pRemoteCharacteristic->subscribe(true, notifyCallback);
+    Serial.println("✅ [BLE] Subscribed to heart data notifications");
+  }
+}
+
+void notifyCallback(NimBLERemoteCharacteristic* pRemoteCharacteristic, uint8_t* pData, size_t length, bool isNotify) {
+  String data = String((char*)pData).substring(0, length);
+  Serial.print("📥 [BLE] Received data: ");
+  Serial.println(data);
+  
+  // Parse data: "HR:SPO2:IR:TEMP"
+  int firstColon = data.indexOf(':');
+  int secondColon = data.indexOf(':', firstColon + 1);
+  int thirdColon = data.indexOf(':', secondColon + 1);
+  
+  if (firstColon > 0 && secondColon > 0 && thirdColon > 0) {
+    heartRate = data.substring(0, firstColon).toFloat();
+    spo2 = data.substring(firstColon + 1, secondColon).toFloat();
+    irValue = data.substring(secondColon + 1, thirdColon).toFloat();
+    bodyTemp = data.substring(thirdColon + 1).toFloat();
+    
+    heartDataReceived = true;
+    lastHeartDataTime = millis();
+    
+    Serial.print("❤️ HR: ");
+    Serial.print(heartRate);
+    Serial.print(" | SpO2: ");
+    Serial.print(spo2);
+    Serial.print(" | IR: ");
+    Serial.print(irValue);
+    Serial.print(" | Temp: ");
+    Serial.println(bodyTemp);
+  }
+}
+
+// =========================================================================
+//  FUNCTIONS
+// =========================================================================
 void sendDataToServer(SystemState state, float hr, float oxygen, float temp, bool worn, float acc, String micAudio) {
   if (WiFi.status() != WL_CONNECTED) {
     Serial.println("⚠️ WiFi not connected - skipping send");
@@ -158,7 +323,6 @@ void sendDataToServer(SystemState state, float hr, float oxygen, float temp, boo
   http.begin(serverURL);
   http.addHeader("Content-Type", "application/json");
 
-  // Create JSON payload matching Spring Boot SensorDataRequest DTO
   StaticJsonDocument<384> doc;
   doc["deviceId"] = deviceId;
   doc["beltType"] = beltType;
@@ -187,7 +351,6 @@ void sendDataToServer(SystemState state, float hr, float oxygen, float temp, boo
     Serial.print("✅ Server Response Code: ");
     Serial.println(httpResponseCode);
 
-    // If Guardian acknowledged "I am Fine" on frontend, clear local buzzer
     if (response.indexOf("ACKNOWLEDGED") != -1 || response.indexOf("I am Fine") != -1) {
       Serial.println("💚 [GUARDIAN ACKNOWLEDGED]: Clearing local buzzer and state!");
       digitalWrite(BUZZER_PIN, LOW);
@@ -211,8 +374,12 @@ String getStateName(SystemState state) {
   }
 }
 
-// ========== SMART SMS FALLBACK FUNCTION ==========
 void sendSmartSMSAlert(String alertType, String message) {
+  static unsigned long lastSMSTime = 0;
+  static bool twilioSMSSent = false;
+  static bool gsmSMSSent = false;
+  const unsigned long SMS_RETRY_INTERVAL = 30000;
+  
   unsigned long currentTime = millis();
   
   if (currentTime - lastSMSTime < SMS_RETRY_INTERVAL) {
@@ -287,7 +454,40 @@ bool sendGSMAlert(String alertType, String message) {
   return false;
 }
 
+// =========================================================================
+//  MAIN LOOP
+// =========================================================================
 void loop() {
+  // ---------- BLE CONNECTION MANAGEMENT ----------
+  if (!deviceConnected) {
+    if (millis() - lastReconnectAttempt > RECONNECT_INTERVAL) {
+      lastReconnectAttempt = millis();
+      
+      if (pClient != NULL) {
+        // Try to reconnect to existing client
+        if (!pClient->isConnected()) {
+          NimBLEDevice::deleteClient(pClient);
+          pClient = NULL;
+          pRemoteCharacteristic = NULL;
+          pRemoteService = NULL;
+        }
+      }
+      
+      if (pClient == NULL) {
+        startBLEScan();
+      }
+    }
+  }
+
+  // ---------- CHECK HEART DATA TIMEOUT ----------
+  if (heartDataReceived && (millis() - lastHeartDataTime > HEART_DATA_TIMEOUT)) {
+    heartDataReceived = false;
+    heartRate = 0;
+    spo2 = 0;
+    irValue = 0;
+    Serial.println("⚠️ [BLE] Heart data timeout - no data received");
+  }
+
   // ---------- MPU6050 READING ----------
   sensors_event_t acc, gyro, temp;
   mpu.getEvent(&acc, &gyro, &temp);
@@ -298,24 +498,18 @@ void loop() {
   float accMag = sqrt(ax * ax + ay * ay + az * az);
   float accMagG = accMag / 9.8;
 
-  // ---------- MAX30102 READING ----------
-  long irValue = maxSensor.getIR();
-  long redValue = maxSensor.getRed();
-
-  heartRate = map(irValue, 5000, 50000, 60, 110);
-  spo2 = map(redValue, 5000, 50000, 88, 98);
-
-  // ---------- TEMPERATURE READING ----------
+  // ---------- TEMPERATURE READING (Local DS18B20) ----------
   tempSensor.requestTemperatures();
   float bodyTemp = tempSensor.getTempCByIndex(0);
 
-  // ---------- BELT WORN CHECK ----------
+  // ---------- BELT WORN CHECK (Using BLE-received IR value) ----------
+  #define IR_WORN_THRESHOLD 4500
   beltWorn = (irValue > IR_WORN_THRESHOLD && bodyTemp > TEMP_WORN_THRESHOLD);
   bool vitalsAbnormal = (heartRate < HR_LOW || heartRate > HR_HIGH || spo2 < SPO2_LOW);
 
   // ---------- MICROPHONE TRIGGER CHECK ----------
   if (digitalRead(MIC_BUTTON_PIN) == LOW) {
-    micMessage = "Senior citizen pressed Belt Mic button: 'Help needed!'";
+    micMessage = "Senior citizen pressed Waist Mic button: 'Help needed!'";
     Serial.println("🎙️ [MIC TRIGGERED]: " + micMessage);
   } else if (micMessage.length() > 0 && currentState == NORMAL) {
     micMessage = "";
@@ -371,9 +565,10 @@ void loop() {
   // ---------- SEND TELEMETRY TO SPRING BOOT SERVER ----------
   unsigned long currentTime = millis();
   if (currentTime - lastSendTime >= SEND_INTERVAL) {
+    // Use BLE-received heart data, not local sensor
     sendDataToServer(currentState, heartRate, spo2, bodyTemp, beltWorn, accMagG, micMessage);
     lastSendTime = currentTime;
   }
 
-  delay(500);
+  delay(100);
 }
