@@ -13,8 +13,9 @@ public class GuardianElderlyLink {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "guardian_id", nullable = false)
-    private String guardianUsername;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "guardian_id", nullable = false)
+    private Guardian guardian;
 
     @Column(name = "elderly_id", nullable = false)
     private String elderlyId;
@@ -23,29 +24,30 @@ public class GuardianElderlyLink {
     private String relationship;
 
     @Column(name = "created_at")
-    private String createdAt;
+    private LocalDateTime createdAt;
 
     public GuardianElderlyLink() {}
 
-    public GuardianElderlyLink(String guardianUsername, String elderlyId, String relationship) {
-        this.guardianUsername = guardianUsername;
+    public GuardianElderlyLink(Long guardianId, String elderlyId, String relationship) {
+        this.guardian = new Guardian();
+        this.guardian.setId(guardianId);
         this.elderlyId = elderlyId;
         this.relationship = relationship;
-        this.createdAt = LocalDateTime.now().toString();
+        this.createdAt = LocalDateTime.now();
     }
 
     @PrePersist
     public void prePersist() {
         if (createdAt == null) {
-            createdAt = LocalDateTime.now().toString();
+            createdAt = LocalDateTime.now();
         }
     }
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
-    public String getGuardianUsername() { return guardianUsername; }
-    public void setGuardianUsername(String guardianUsername) { this.guardianUsername = guardianUsername; }
+    public Guardian getGuardian() { return guardian; }
+    public void setGuardian(Guardian guardian) { this.guardian = guardian; }
 
     public String getElderlyId() { return elderlyId; }
     public void setElderlyId(String elderlyId) { this.elderlyId = elderlyId; }
@@ -53,6 +55,6 @@ public class GuardianElderlyLink {
     public String getRelationship() { return relationship; }
     public void setRelationship(String relationship) { this.relationship = relationship; }
 
-    public String getCreatedAt() { return createdAt; }
-    public void setCreatedAt(String createdAt) { this.createdAt = createdAt; }
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 }
