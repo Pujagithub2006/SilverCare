@@ -68,12 +68,28 @@ Using a wearable waistband with multi-sensors, smart detection logic, medicine r
 - Twilio API  
 - GSM Module for alert delivery  
 
-**Software Tools:**  
-- Python  
-- JavaScript  
-- Arduino IDE  
-- Serial Monitor  
-- Firebase  
+**Backend:**  
+- Spring Boot (Java)  
+- Maven (build)  
+- Docker (containerization)  
+
+**Frontend:**  
+- React.js (UI)  
+- Node.js (build tooling)  
+
+**Database & Storage:**  
+- PostgreSQL (relational)  
+- Firebase (real‑time DB & auth)  
+
+**Embedded & IoT:**  
+- Arduino IDE (ESP32 firmware)  
+- ESP32 microcontroller  
+
+**Other Tools:**  
+- Python (scripts & data processing)  
+- JavaScript (frontend logic)  
+- Serial Monitor (debugging)  
+- Docker Compose (multi‑container orchestration)  
 
 ---
 
@@ -106,6 +122,9 @@ Using a wearable waistband with multi-sensors, smart detection logic, medicine r
 ---
 
 ## ♦ How to Run the Project
+
+For detailed instructions, see [Run Instructions](RUNNING.md).
+
 
 1. Clone the repository  
 2. Install required dependencies by pip install -r requirements.txt
