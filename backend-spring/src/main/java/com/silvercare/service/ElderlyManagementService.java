@@ -105,7 +105,7 @@ public class ElderlyManagementService {
 
         boolean linkExists = guardianElderlyLinkRepository.findByGuardianUsernameAndElderlyId(guardianUsername, elderlyId).isPresent();
         if (!linkExists) {
-            GuardianElderlyLink link = new GuardianElderlyLink(guardianUsername, elderlyId, "Primary");
+            GuardianElderlyLink link = new GuardianElderlyLink(guardian, elderlyId, "Primary");
             guardianElderlyLinkRepository.save(link);
         }
 
