@@ -8,8 +8,8 @@ const resolveBaseUrl = (fallback) => {
 };
 
 // Backend Base URLs (Defaulting to 5002 matching ESP32 firmware)
-const API_BASE = resolveBaseUrl('http://localhost:5002');
-const LEGACY_API_BASE = resolveBaseUrl('http://127.0.0.1:5002');
+const API_BASE = resolveBaseUrl('http://localhost:8081');
+const LEGACY_API_BASE = resolveBaseUrl('http://127.0.0.1:8081');
 
 const api = axios.create({
   baseURL: API_BASE,
