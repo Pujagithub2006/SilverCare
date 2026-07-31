@@ -1,6 +1,13 @@
 ## ♦ Project Title
 **SilverCare: Proactive AI Platform for Elderly Assistance, Health Monitoring & Caregiver Support**
 
+### 📦 Deployed System
+
+- **Frontend & Complete Website (Vercel):** https://silver-care-eta.vercel.app/
+- **Backend (Railway):** https://silvercare-production-3455.up.railway.app
+
+> Use the **frontend link** to share the full SilverCare system (frontend UI powered by the backend API) with users; the **backend link** is provided for developers needing direct API access.
+
 ---
 
 ## ♦ The Challenge
