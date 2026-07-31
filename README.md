@@ -129,6 +129,14 @@ graph TD
 *   **System Flowchart:**  
     ![System Workflow](./images/Workflow.png)
 
+### 🎥 Video Demonstration
+
+Check out our full system walk-through and features demo in action:
+
+[![SilverCare Demo Video](https://img.shields.io/badge/Demo_Video-Play_on_YouTube-red?style=for-the-badge&logo=youtube)](YOUR_YOUTUBE_VIDEO_LINK_HERE)
+
+*(Alternatively, if running locally or hosting the mp4 in the repository, you can view the video file directly: [SilverCare Demo](./images/demo_video.mp4))*
+
 ---
 
 ## ♦ Repository Structure & Documents
