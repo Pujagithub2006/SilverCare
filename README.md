@@ -144,15 +144,4 @@ Using a wearable waistband with multi-sensors, smart detection logic, medicine r
 For detailed instructions, see [Run Instructions](RUNNING.md).
 
 
-1. Clone the repository  
-2. Install required dependencies by pip install -r requirements.txt
-3. Configure Twilio API / GSM module  
-4. Run the backend file
-   1) python backend/main.py
-   2) python backend/portal_server.py
-6. Upload code to Arduino using Arduino IDE  
-7. Launch the web interface by opening web server for frontend/portal.html
-
----
-
 Thank You
