@@ -137,13 +137,19 @@ Here is a walkthrough of our hardware prototype and the live system dashboard in
 
 ### 🎥 Video Demonstration
 
-Check out our full system walk-through and features demo in action:
+Check out our full system walk-through and features demo in action.
 
-<div align="center">
-  <video src="https://raw.githubusercontent.com/Pujagithub2006/SilverCare/main/images/demo_video.mp4" controls="controls" width="600" poster="./images/thumbnail.jpeg" style="max-width: 100%; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
-    Your browser does not support the video tag.
-  </video>
-</div>
+<p align="center">
+  <a href="https://youtu.be/zQc1IPQUMME" target="_blank">
+    <img src="./images/thumbnail.jpeg"
+         alt="Watch SilverCare Demo"
+         width="700">
+  </a>
+</p>
+
+<p align="center">
+  <b>▶ Click the thumbnail to watch the demo on YouTube</b>
+</p>
 
 ---
 
