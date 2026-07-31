@@ -87,9 +87,28 @@ While many tracking systems exist, they fall short because:
 
 ---
 
+### 🖼️ Hardware & System Interface Gallery
+
+Here is a walkthrough of our hardware prototype and the live system dashboard interfaces:
+
+1. **Wearable Waistband & Accessory Wristband Peripheral:**  
+   ![Waistband and Wristband](./images/wearable_device.png)
+2. **Guardian Vitals & Health Dashboard:**  
+   ![Guardian Vitals](./images/guardian_dashboard.png)
+3. **Elderly Main Home Page (SOS & Status):**  
+   ![Elderly Main Home](./images/elderly_home.png)
+4. **Real-time Alerting & Emergency Notifications:**  
+   ![Real-time Alerting](./images/alert_notification.png)
+5. **Interactive AI Companion Module ("Mitra"):**  
+   ![AI Companion Mitra](./images/mitra_companion.png)
+6. **Profile Details & Elderly Management:**  
+   ![Elderly Profile](./images/elderly_profile.png)
+
+---
+
 ## ♦ Technical Flow & Architecture
 
-Below is the workflow of data from the device to the dashboard and caregivers:
+Below is the conceptual flow of data from the device to the dashboard and caregivers:
 
 ```mermaid
 graph TD
@@ -103,19 +122,12 @@ graph TD
     F -->|Emergency Alert| I[Caregiver Phone]
 ```
 
-### 📊 System Diagrams
-*   **System Architecture & Flow:**  
-    ![Technical Architecture](./images/Technical.png)
-*   **Core System Workflow:**  
-    ![Core Workflow](./images/Workflow.png)
+### 📊 System Diagrams & Logic
 
-### 🖼️ Hardware & System Interface Gallery
-*(Placeholders for system screenshots and physical build)*
-1. **Wearable Waistband Prototype (Biomechanical Fall Detection):** ![Wearable Prototype](./images/wearable_device.png)
-2. **Accessory Wristband Peripheral:** ![Wristband Accessory](./images/wristband.png)
-3. **Guardian Portal Vitals Dashboard:** ![Dashboard Screenshot](./images/dashboard.png)
-4. **Interactive AI Companion Chat UI ("Mitra"):** ![Mitra AI Chat](./images/mitra_companion.png)
-5. **Real-time Alerting and Notification Hub:** ![Alert System Log](./images/alert_system.png)
+*   **System Architecture:**  
+    ![Technical Architecture](./images/Technical.png)
+*   **System Flowchart:**  
+    ![System Workflow](./images/Workflow.png)
 
 ---
 
