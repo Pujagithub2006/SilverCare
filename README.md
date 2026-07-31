@@ -143,12 +143,9 @@ graph TD
     H[AI Companion: Gemini] <-->|Voice Chat| E
     F -->|Emergency Alert| I[Caregiver Phone]
 ```
-
-### 📊 System Diagrams & Logic
-
-*   **System Architecture:**  
+*   **Technical Architecture:**  
     ![Technical Architecture](./images/Technical.jpeg)
-*   **System Flowchart:**  
+*   **System Workflow:**  
     ![System Workflow](./images/Workflow.jpeg)
 
 ### 🎥 Video Demonstration
