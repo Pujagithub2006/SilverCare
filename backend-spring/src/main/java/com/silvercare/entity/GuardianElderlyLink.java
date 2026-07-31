@@ -5,7 +5,7 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "guardian_elderly_links", uniqueConstraints = {
-    @UniqueConstraint(columnNames = {"guardian_username", "elderly_id"})
+    @UniqueConstraint(columnNames = {"guardian_id", "elderly_id"})
 })
 public class GuardianElderlyLink {
 
@@ -13,7 +13,7 @@ public class GuardianElderlyLink {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "guardian_username", nullable = false)
+    @Column(name = "guardian_id", nullable = false)
     private String guardianUsername;
 
     @Column(name = "elderly_id", nullable = false)
