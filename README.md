@@ -147,9 +147,9 @@ graph TD
 ### 📊 System Diagrams & Logic
 
 *   **System Architecture:**  
-    ![Technical Architecture](./images/Technical.png)
+    ![Technical Architecture](./images/Technical.jpeg)
 *   **System Flowchart:**  
-    ![System Workflow](./images/Workflow.png)
+    ![System Workflow](./images/Workflow.jpeg)
 
 ### 🎥 Video Demonstration
 
