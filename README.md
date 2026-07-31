@@ -94,9 +94,9 @@ Here is a walkthrough of our hardware prototype and the live system dashboard in
 1. **Wearable Waistband & Accessory Wristband Peripheral:**  
    ![Waistband and Wristband](./images/wearable_device.png)
 2. **Guardian Vitals & Health Dashboard:**  
-   ![Guardian Vitals](./images/guardian_dashboard.png)
+   ![Guardian Vitals](./images/guardian_dashboard.jpeg)
 3. **Elderly Main Home Page (SOS & Status):**  
-   ![Elderly Main Home](./images/elderly_home.png)
+   ![Elderly Main Home](./images/elderly_home.jpeg)
 4. **Real-time Alerting & Emergency Notifications:**  
    ![Real-time Alerting](./images/alert_notification.png)
 5. **Interactive AI Companion Module ("Mitra"):**  
