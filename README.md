@@ -103,10 +103,19 @@ graph TD
     F -->|Emergency Alert| I[Caregiver Phone]
 ```
 
+### 📊 System Diagrams
+*   **System Architecture & Flow:**  
+    ![Technical Architecture](./images/Technical.png)
+*   **Core System Workflow:**  
+    ![Core Workflow](./images/Workflow.png)
+
 ### 🖼️ Hardware & System Interface Gallery
-*(Add physical device and dashboard images below)*
-*   **Wearable Prototype:** `![Wearable Prototype](./images/wearable_device.png)`
-*   **Guardian Dashboard Interface:** `![Dashboard Screenshot](./images/dashboard.png)`
+*(Placeholders for system screenshots and physical build)*
+1. **Wearable Waistband Prototype (Biomechanical Fall Detection):** ![Wearable Prototype](./images/wearable_device.png)
+2. **Accessory Wristband Peripheral:** ![Wristband Accessory](./images/wristband.png)
+3. **Guardian Portal Vitals Dashboard:** ![Dashboard Screenshot](./images/dashboard.png)
+4. **Interactive AI Companion Chat UI ("Mitra"):** ![Mitra AI Chat](./images/mitra_companion.png)
+5. **Real-time Alerting and Notification Hub:** ![Alert System Log](./images/alert_system.png)
 
 ---
 
