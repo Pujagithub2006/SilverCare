@@ -3,19 +3,16 @@ import axios from 'axios';
 const normalizeBaseUrl = (value) => (value || '').replace(/\/$/, '');
 
 const resolveBaseUrl = (fallback) => {
-  const configuredValue = import.meta.env?.VITE_API_BASE_URL || import.meta.env?.VITE_BACKEND_URL;
+  const configuredValue =
+    import.meta.env?.VITE_API_BASE_URL ||
+    import.meta.env?.VITE_BACKEND_URL;
+
   return normalizeBaseUrl(configuredValue) || fallback;
 };
 
-<<<<<<< HEAD
-// Backend Base URLs (Defaulting to 5002 matching ESP32 firmware)
+// Backend Base URLs
 const API_BASE = resolveBaseUrl('http://localhost:8081');
 const LEGACY_API_BASE = resolveBaseUrl('http://127.0.0.1:8081');
-=======
-// Backend Base URLs (Defaulting to Spring Boot 8081, Legacy fallback 5002)
-const API_BASE = resolveBaseUrl('http://localhost:8081');
-const LEGACY_API_BASE = resolveBaseUrl('http://localhost:5002');
->>>>>>> e2913686d02c1cbe8cd6b49f80277aadf8531a24
 
 const api = axios.create({
   baseURL: API_BASE,
