@@ -658,6 +658,5 @@ void loop() {
     Serial.println(irValue);
     lastStatusTime = millis();
   }
-
   delay(10);
 }
