@@ -130,19 +130,6 @@ Here is a walkthrough of our hardware prototype and the live system dashboard in
 
 ## ♦ Technical Flow & Architecture
 
-Below is the conceptual flow of data from the device to the dashboard and caregivers:
-
-```mermaid
-graph TD
-    A[Wearable Band: ESP32 + Sensors] -->|Post HTTP Vitals/Location| B(Spring Boot Backend API)
-    A -->|Emergency Audio| E[Two-Way Voice Speaker/Mic]
-    B -->|Sync Realtime| C[(Firebase DB)]
-    B -->|Save History| D[(PostgreSQL)]
-    B -->|Trigger Call/SMS| F[Twilio API / GSM]
-    C -->|Stream Vitals| G[React Guardian Portal]
-    H[AI Companion: Gemini] <-->|Voice Chat| E
-    F -->|Emergency Alert| I[Caregiver Phone]
-```
 *   **Technical Architecture:**  
     ![Technical Architecture](./images/Technical.jpeg)
 *   **System Workflow:**  
