@@ -16,4 +16,4 @@ dist/
 build/
 
 # Java backend
-target/
+backend-spring/target/
