@@ -96,31 +96,31 @@ Here is a walkthrough of our hardware prototype and the live system dashboard in
     <tr>
       <td valign="top" width="50%">
         <strong>1. Wearable Waistband & Accessory Wristband Peripheral</strong><br/><br/>
-        <img src="./images/wearable_device.jpeg" width="350" alt="Waistband and Wristband"/>
+        <img src="./images/wearable_device.jpeg" width="175" alt="Waistband and Wristband"/>
       </td>
       <td valign="top" width="50%">
         <strong>2. Guardian Vitals & Health Dashboard</strong><br/><br/>
-        <img src="./images/guardian_dashboard.jpeg" width="350" alt="Guardian Vitals"/>
+        <img src="./images/guardian_dashboard.jpeg" width="175" alt="Guardian Vitals"/>
       </td>
     </tr>
     <tr>
       <td valign="top" width="50%">
         <strong>3. Elderly Main Home Page (SOS & Status)</strong><br/><br/>
-        <img src="./images/elderly_home.jpeg" width="350" alt="Elderly Main Home"/>
+        <img src="./images/elderly_home.jpeg" width="175" alt="Elderly Main Home"/>
       </td>
       <td valign="top" width="50%">
         <strong>4. Real-time Alerting & Emergency Notifications</strong><br/><br/>
-        <img src="./images/alert_notification.jpeg" width="350" alt="Real-time Alerting"/>
+        <img src="./images/alert_notification.jpeg" width="175" alt="Real-time Alerting"/>
       </td>
     </tr>
     <tr>
       <td valign="top" width="50%">
         <strong>5. Interactive AI Companion Module ("Mitra")</strong><br/><br/>
-        <img src="./images/mitra_companion.jpeg" width="350" alt="AI Companion Mitra"/>
+        <img src="./images/mitra_companion.jpeg" width="175" alt="AI Companion Mitra"/>
       </td>
       <td valign="top" width="50%">
         <strong>6. Profile Details & Elderly Management</strong><br/><br/>
-        <img src="./images/elderly_profile.jpeg" width="350" alt="Elderly Profile"/>
+        <img src="./images/elderly_profile.jpeg" width="175" alt="Elderly Profile"/>
       </td>
     </tr>
   </table>
