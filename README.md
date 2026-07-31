@@ -1,5 +1,4 @@
-## ♦ Project Title
-**SilverCare: Proactive AI Platform for Elderly Assistance, Health Monitoring & Caregiver Support**
+## ♦ SilverCare: Proactive AI Platform for Elderly Assistance, Health Monitoring & Caregiver Support
 
 ### 📦 Deployed System
 
