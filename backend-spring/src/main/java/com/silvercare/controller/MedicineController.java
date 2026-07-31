@@ -46,7 +46,7 @@ public class MedicineController {
         return addMedicine(request);
     }
 
-    @DeleteMapping("/medicine/delete/{medicineId}")
+    @RequestMapping(value = "/medicine/delete/{medicineId}", method = {RequestMethod.POST, RequestMethod.DELETE})
     public ResponseEntity<ApiResponse<Object>> deleteMedicine(@PathVariable Long medicineId,
                                                                @RequestBody Map<String, String> payload) {
         try {

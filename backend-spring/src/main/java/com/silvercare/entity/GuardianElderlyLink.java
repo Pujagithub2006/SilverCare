@@ -36,6 +36,13 @@ public class GuardianElderlyLink {
         this.createdAt = LocalDateTime.now();
     }
 
+    public GuardianElderlyLink(Guardian guardian, String elderlyId, String relationship) {
+        this.guardian = guardian;
+        this.elderlyId = elderlyId;
+        this.relationship = relationship;
+        this.createdAt = LocalDateTime.now();
+    }
+
     @PrePersist
     public void prePersist() {
         if (createdAt == null) {
@@ -48,6 +55,8 @@ public class GuardianElderlyLink {
 
     public Guardian getGuardian() { return guardian; }
     public void setGuardian(Guardian guardian) { this.guardian = guardian; }
+
+    public String getGuardianUsername() { return guardian != null ? guardian.getUsername() : null; }
 
     public String getElderlyId() { return elderlyId; }
     public void setElderlyId(String elderlyId) { this.elderlyId = elderlyId; }
