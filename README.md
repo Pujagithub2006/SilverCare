@@ -96,7 +96,7 @@ Here is a walkthrough of our hardware prototype and the live system dashboard in
     <tr>
       <td valign="top" width="50%">
         <strong>1. Wearable Waistband & Accessory Wristband Peripheral</strong><br/><br/>
-        <img src="./images/wearable_device.png" width="350" alt="Waistband and Wristband"/>
+        <img src="./images/wearable_device.jpeg" width="350" alt="Waistband and Wristband"/>
       </td>
       <td valign="top" width="50%">
         <strong>2. Guardian Vitals & Health Dashboard</strong><br/><br/>
@@ -116,11 +116,11 @@ Here is a walkthrough of our hardware prototype and the live system dashboard in
     <tr>
       <td valign="top" width="50%">
         <strong>5. Interactive AI Companion Module ("Mitra")</strong><br/><br/>
-        <img src="./images/mitra_companion.png" width="350" alt="AI Companion Mitra"/>
+        <img src="./images/mitra_companion.jpeg" width="350" alt="AI Companion Mitra"/>
       </td>
       <td valign="top" width="50%">
         <strong>6. Profile Details & Elderly Management</strong><br/><br/>
-        <img src="./images/elderly_profile.png" width="350" alt="Elderly Profile"/>
+        <img src="./images/elderly_profile.jpeg" width="350" alt="Elderly Profile"/>
       </td>
     </tr>
   </table>
