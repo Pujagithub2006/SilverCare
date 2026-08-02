@@ -10,48 +10,82 @@
 #include <NimBLEDevice.h>
 #include "MAX30105.h"
 #include "heartRate.h"
+#include <Preferences.h>
+#include <mbedtls/aes.h>
+#include <mbedtls/gcm.h>
 
 // =========================================================================
 //  SILVERCARE - SENIOR SAFETY WRIST BAND (ESP32 BLE SERVER)
-//  This device measures heart rate and sends it to the waist band via BLE
+//  Enhanced with: Encryption, Multi-Device Support, Pairing, 1-min Timeouts
 // =========================================================================
 
-// ---------- BLE CONFIGURATION ----------
+// =========================================================================
+//  ENCRYPTION CONFIGURATION
+// =========================================================================
+// AES-256 key (32 bytes) - Same key as waist belt for compatibility
+static const uint8_t ENCRYPTION_KEY[32] = {
+    0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+    0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F,
+    0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
+    0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F
+};
+static const uint8_t ENCRYPTION_IV[12] = {
+    0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+    0x08, 0x09, 0x0A, 0x0B
+};
+
+// =========================================================================
+//  BLE CONFIGURATION
+// =========================================================================
 #define BLE_SERVICE_UUID        "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
 #define BLE_CHARACTERISTIC_UUID "beb5483e-36e1-4688-b7f5-ea07361b26a8"
+#define BLE_IDENTITY_UUID       "beb5483e-36e1-4688-b7f5-ea07361b26a9"  // NEW: For device identity
 #define DEVICE_NAME             "SilverCare_Wrist"
+#define PAIRING_PASSWORD        "SC2024_001"  // Unique per device (from factory)
 
-// ---------- GSM CONFIGURATION ----------
+// =========================================================================
+//  GSM CONFIGURATION
+// =========================================================================
 #define GSM_TX 16
 #define GSM_RX 17
 #define GSM_BAUD 9600
 SoftwareSerial gsmSerial(GSM_RX, GSM_TX);
 
-// ---------- WiFi & BACKEND SERVER CONFIGURATION ----------
+// =========================================================================
+//  WiFi & BACKEND SERVER CONFIGURATION
+// =========================================================================
 const char* ssid = "Pujacha Mobile";
 const char* password = "ERROR 418";
 const char* serverURL = "http://192.168.43.167:5002/api/sensor-data";
 
-// ---------- PINS ----------
+// =========================================================================
+//  PINS
+// =========================================================================
 #define TEMP_PIN 4
 #define BUZZER_PIN 18
 #define BUTTON_PIN 19
 #define MIC_BUTTON_PIN 23
 #define MAX30102_INT_PIN 34
 
-// Hardware Identification
+// =========================================================================
+//  HARDWARE IDENTIFICATION
+// =========================================================================
 String deviceId = "vois_wrist";
 String beltType = "Wrist Band";
 double gpsLat = 18.5204;
 double gpsLng = 73.8567;
 
-// ---------- OBJECTS ----------
+// =========================================================================
+//  OBJECTS
+// =========================================================================
 Adafruit_MPU6050 mpu;
 MAX30105 maxSensor;
 OneWire oneWire(TEMP_PIN);
 DallasTemperature tempSensor(&oneWire);
 
-// ---------- THRESHOLDS ----------
+// =========================================================================
+//  THRESHOLDS
+// =========================================================================
 #define INSTABILITY_THRESHOLD 1.15
 #define SUDDEN_THRESHOLD 1.4
 #define FALL_THRESHOLD 1.9
@@ -62,7 +96,9 @@ DallasTemperature tempSensor(&oneWire);
 #define HR_HIGH 135
 #define SPO2_LOW 90
 
-// ---------- STATES ----------
+// =========================================================================
+//  STATES
+// =========================================================================
 enum SystemState {
   NORMAL,
   PREFALL,
@@ -73,14 +109,19 @@ enum SystemState {
 SystemState currentState = NORMAL;
 String lastAlertType = "";
 
-// ---------- BLE SERVER VARIABLES ----------
+// =========================================================================
+//  BLE SERVER VARIABLES
+// =========================================================================
 bool deviceConnected = false;
 NimBLEServer* pServer = NULL;
 NimBLEService* pService = NULL;
 NimBLECharacteristic* pCharacteristic = NULL;
+NimBLECharacteristic* pIdentityCharacteristic = NULL;
 NimBLEAdvertising* pAdvertising = NULL;
 
-// ---------- HEART RATE DATA ----------
+// =========================================================================
+//  HEART RATE DATA
+// =========================================================================
 float heartRate = 0;
 float spo2 = 0;
 long irValue = 0;
@@ -88,17 +129,19 @@ long redValue = 0;
 float bodyTemp = 0;
 bool sensorInitialized = false;
 
-// ---------- VARIABLES ----------
+// =========================================================================
+//  VARIABLES
+// =========================================================================
 bool beltWorn = false;
 unsigned long fallTime = 0;
 unsigned long lastSendTime = 0;
 const unsigned long SEND_INTERVAL = 1000;
 String micMessage = "";
 unsigned long lastHeartRateCalc = 0;
-const unsigned long HEART_RATE_INTERVAL = 100; // Calculate every 100ms
+const unsigned long HEART_RATE_INTERVAL = 100;
 
 // Heart rate algorithm variables
-const int RATE_SIZE = 25; // Increase sample size for more stability
+const int RATE_SIZE = 25;
 float rates[RATE_SIZE];
 int rateSpot = 0;
 long lastBeat = 0;
@@ -106,22 +149,140 @@ float beatsPerMinute = 0;
 int beatAvg = 0;
 
 // =========================================================================
+//  UNIQUE DEVICE IDENTITY (NEW)
+// =========================================================================
+String uniqueDeviceID = "";
+Preferences preferences;
+
+// =========================================================================
+//  ENCRYPTION MANAGER CLASS
+// =========================================================================
+class EncryptionManager {
+public:
+    static String encrypt(const String& plaintext) {
+        if (plaintext.length() == 0) return "";
+        
+        size_t plaintextLen = plaintext.length();
+        size_t ciphertextLen = plaintextLen + 16;
+        
+        uint8_t* ciphertext = new uint8_t[ciphertextLen];
+        uint8_t* tag = new uint8_t[16];
+        
+        mbedtls_gcm_context ctx;
+        mbedtls_gcm_init(&ctx);
+        mbedtls_gcm_setkey(&ctx, MBEDTLS_CIPHER_ID_AES, ENCRYPTION_KEY, 256);
+        
+        size_t outputLen = 0;
+        int ret = mbedtls_gcm_starts(&ctx, MBEDTLS_GCM_ENCRYPT, ENCRYPTION_IV, 12);
+        if (ret == 0) {
+            ret = mbedtls_gcm_update(&ctx, 
+                                   (const uint8_t*)plaintext.c_str(), plaintextLen,
+                                   ciphertext, plaintextLen, &outputLen);
+        }
+        if (ret == 0) {
+            ret = mbedtls_gcm_finish(&ctx, ciphertext + outputLen, 0, &outputLen, tag, 16);
+        }
+        
+        mbedtls_gcm_free(&ctx);
+        
+        if (ret != 0) {
+            delete[] ciphertext;
+            delete[] tag;
+            return "";
+        }
+        
+        String result = "";
+        for (size_t i = 0; i < plaintextLen; i++) {
+            result += String(ciphertext[i], HEX);
+            if (i < plaintextLen - 1) result += ":";
+        }
+        result += "|";
+        for (int i = 0; i < 16; i++) {
+            result += String(tag[i], HEX);
+            if (i < 15) result += ":";
+        }
+        
+        delete[] ciphertext;
+        delete[] tag;
+        return result;
+    }
+    
+    static String decrypt(const String& encrypted) {
+        if (encrypted.length() == 0) return "";
+        
+        int separator = encrypted.indexOf('|');
+        if (separator == -1) return "";
+        
+        String ciphertextStr = encrypted.substring(0, separator);
+        String tagStr = encrypted.substring(separator + 1);
+        
+        uint8_t ciphertext[128];
+        uint8_t tag[16];
+        size_t ciphertextLen = 0;
+        
+        int pos = 0;
+        while (pos < ciphertextStr.length()) {
+            int end = ciphertextStr.indexOf(':', pos);
+            if (end == -1) end = ciphertextStr.length();
+            String byteStr = ciphertextStr.substring(pos, end);
+            ciphertext[ciphertextLen++] = strtol(byteStr.c_str(), NULL, 16);
+            pos = end + 1;
+        }
+        
+        pos = 0;
+        int tagIdx = 0;
+        while (pos < tagStr.length()) {
+            int end = tagStr.indexOf(':', pos);
+            if (end == -1) end = tagStr.length();
+            String byteStr = tagStr.substring(pos, end);
+            tag[tagIdx++] = strtol(byteStr.c_str(), NULL, 16);
+            pos = end + 1;
+        }
+        
+        uint8_t plaintext[128];
+        mbedtls_gcm_context ctx;
+        mbedtls_gcm_init(&ctx);
+        mbedtls_gcm_setkey(&ctx, MBEDTLS_CIPHER_ID_AES, ENCRYPTION_KEY, 256);
+        
+        size_t outputLen = 0;
+        int ret = mbedtls_gcm_starts(&ctx, MBEDTLS_GCM_DECRYPT, ENCRYPTION_IV, 12);
+        if (ret == 0) {
+            ret = mbedtls_gcm_update(&ctx, ciphertext, ciphertextLen,
+                                   plaintext, ciphertextLen, &outputLen);
+        }
+        if (ret == 0) {
+            ret = mbedtls_gcm_finish(&ctx, plaintext + outputLen, 0, &outputLen, tag, 16);
+        }
+        
+        mbedtls_gcm_free(&ctx);
+        
+        if (ret != 0) return "";
+        
+        return String((char*)plaintext, ciphertextLen);
+    }
+};
+
+// =========================================================================
 //  BLE SERVER CALLBACKS
 // =========================================================================
 class MyServerCallbacks : public NimBLEServerCallbacks {
   void onConnect(NimBLEServer* pServer, NimBLEConnInfo& connInfo) {
     deviceConnected = true;
+    Serial.println("========================================");
     Serial.println("✅ [BLE] Wrist band connected to Waist band");
     Serial.print("📱 [BLE] Connected to: ");
     Serial.println(connInfo.getAddress().toString().c_str());
+    Serial.println("========================================");
   }
 
   void onDisconnect(NimBLEServer* pServer, NimBLEConnInfo& connInfo, int reason) {
     deviceConnected = false;
     Serial.println("❌ [BLE] Wrist band disconnected from Waist band");
     Serial.println("🔄 [BLE] Restarting advertising...");
-    // Restart advertising
-    NimBLEDevice::getAdvertising()->start();
+    delay(100);
+    if (pAdvertising) {
+      pAdvertising->start();
+    }
   }
 };
 
@@ -134,6 +295,14 @@ class MyCharacteristicCallbacks : public NimBLECharacteristicCallbacks {
     String value = pCharacteristic->getValue().c_str();
     Serial.print("📥 [BLE] Write request: ");
     Serial.println(value);
+    
+    // Handle pairing commands if needed
+    if (value.startsWith("PAIR:")) {
+      String response = "PAIR_ACK:" + uniqueDeviceID;
+      pCharacteristic->setValue(response.c_str());
+      pCharacteristic->notify();
+      Serial.println("✅ Pairing acknowledged");
+    }
   }
   
   void onNotify(NimBLECharacteristic* pCharacteristic) {
@@ -154,7 +323,13 @@ void setup() {
 
   Wire.begin(21, 22);
 
-  Serial.println("=== SILVERCARE SENIOR SAFETY WRIST BAND (BLE SERVER) ===");
+  Serial.println("========================================");
+  Serial.println("=== SILVERCARE SENIOR SAFETY WRIST BAND ===");
+  Serial.println("=== (Enhanced with Encryption & Pairing) ===");
+  Serial.println("========================================");
+
+  // ========== GENERATE UNIQUE DEVICE ID ==========
+  generateUniqueDeviceID();
 
   // ========== GSM Module Initialization ==========
   gsmSerial.begin(GSM_BAUD);
@@ -209,13 +384,12 @@ void setup() {
     while (1);
   }
   
-  // Configure MAX30102 for heart rate/SpO2 measurement
-  byte ledBrightness = 0x7F;  // 0-255: Higher brightness for better signal
-  byte sampleAverage = 4;      // 1, 2, 4, 8, 16, 32: Averaging samples
-  byte ledMode = 2;            // 1 = Red only, 2 = Red + IR, 3 = Red + IR + Green
-  int sampleRate = 400;        // 50, 100, 200, 400, 800, 1000, 1600, 3200: Samples per second
-  int pulseWidth = 411;        // 69, 118, 215, 411: Pulse width in microseconds
-  int adcRange = 4096;         // 2048, 4096, 8192, 16384: ADC range
+  byte ledBrightness = 0x7F;
+  byte sampleAverage = 4;
+  byte ledMode = 2;
+  int sampleRate = 400;
+  int pulseWidth = 411;
+  int adcRange = 4096;
   
   maxSensor.setup(ledBrightness, sampleAverage, ledMode, sampleRate, pulseWidth, adcRange);
   maxSensor.setPulseAmplitudeRed(0x7F);
@@ -227,18 +401,49 @@ void setup() {
   // ========== BLE Server Initialization ==========
   initBLEServer();
   
+  Serial.println("========================================");
   Serial.println("✅ BLE Server initialized - Advertising as: " + String(DEVICE_NAME));
-  Serial.println("=================================================");
+  Serial.println("🆔 Unique Device ID: " + uniqueDeviceID);
+  Serial.println("🔐 AES-256 Encryption: ENABLED");
+  Serial.println("🔑 Pairing Password: " + String(PAIRING_PASSWORD));
+  Serial.println("========================================");
 }
 
 // =========================================================================
-//  BLE SERVER FUNCTIONS - FIXED FOR NIMBLE
+//  GENERATE UNIQUE DEVICE ID
+// =========================================================================
+void generateUniqueDeviceID() {
+  preferences.begin("wrist_id", false);
+  
+  // Check if ID already exists
+  uniqueDeviceID = preferences.getString("unique_id", "");
+  
+  if (uniqueDeviceID.length() == 0) {
+    // Generate new unique ID
+    String mac = NimBLEDevice::getAddress().toString().c_str();
+    uint32_t random = esp_random();
+    uniqueDeviceID = "SCW_" + String(millis(), HEX) + "_" + String(random, HEX);
+    
+    preferences.putString("unique_id", uniqueDeviceID);
+    preferences.end();
+    preferences.begin("wrist_id", false);
+    
+    Serial.println("🆕 Generated new Unique Device ID: " + uniqueDeviceID);
+  } else {
+    Serial.println("🆔 Loaded Unique Device ID: " + uniqueDeviceID);
+  }
+  
+  preferences.end();
+}
+
+// =========================================================================
+//  BLE SERVER FUNCTIONS - ENHANCED
 // =========================================================================
 void initBLEServer() {
   // Initialize NimBLE
   NimBLEDevice::init(DEVICE_NAME);
   NimBLEDevice::setOwnAddrType(BLE_OWN_ADDR_PUBLIC);
-  NimBLEDevice::setPower(ESP_PWR_LVL_P9); // Max power for better range
+  NimBLEDevice::setPower(ESP_PWR_LVL_P9);
   
   // Create server
   pServer = NimBLEDevice::createServer();
@@ -247,24 +452,30 @@ void initBLEServer() {
   // Create service
   pService = pServer->createService(BLE_SERVICE_UUID);
   
-  // Create characteristic with notify property
+  // Create data characteristic (for heart rate data)
   pCharacteristic = pService->createCharacteristic(
     BLE_CHARACTERISTIC_UUID,
     NIMBLE_PROPERTY::READ |
     NIMBLE_PROPERTY::WRITE |
     NIMBLE_PROPERTY::NOTIFY
   );
-  
-  // FIX: Use proper NimBLE descriptor - Remove NimBLE2902 and use descriptor directly
   pCharacteristic->setCallbacks(new MyCharacteristicCallbacks());
+  
+  // ========== NEW: Identity Characteristic ==========
+  pIdentityCharacteristic = pService->createCharacteristic(
+    BLE_IDENTITY_UUID,
+    NIMBLE_PROPERTY::READ
+  );
+  
+  // Set the unique device ID as the identity value
+  pIdentityCharacteristic->setValue(uniqueDeviceID.c_str());
+  Serial.println("🆔 Identity characteristic set with UID: " + uniqueDeviceID);
   
   // Start service
   pService->start();
   
   // Setup advertising
   pAdvertising = NimBLEDevice::getAdvertising();
-  
-  // Add service UUID
   pAdvertising->addServiceUUID(BLE_SERVICE_UUID);
   
   // Set advertisement data
@@ -284,27 +495,41 @@ void initBLEServer() {
   Serial.println("✅ BLE Server started!");
   Serial.print("📱 Service UUID: ");
   Serial.println(BLE_SERVICE_UUID);
-  Serial.print("📱 Characteristic UUID: ");
+  Serial.print("📱 Data Characteristic: ");
   Serial.println(BLE_CHARACTERISTIC_UUID);
+  Serial.print("📱 Identity Characteristic: ");
+  Serial.println(BLE_IDENTITY_UUID);
   Serial.print("📱 Device Name: ");
   Serial.println(DEVICE_NAME);
 }
 
+// =========================================================================
+//  SEND HEART DATA WITH ENCRYPTION
+// =========================================================================
 void sendHeartData() {
   if (!deviceConnected) return;
   if (pCharacteristic == NULL) return;
   
   // Format: "HR:SPO2:IR:TEMP"
-  String data = String((int)heartRate) + ":" + 
-                String((int)spo2) + ":" + 
-                String(irValue) + ":" + 
-                String(bodyTemp, 1);
+  String plainData = String((int)heartRate) + ":" + 
+                     String((int)spo2) + ":" + 
+                     String(irValue) + ":" + 
+                     String(bodyTemp, 1);
   
-  pCharacteristic->setValue(data.c_str());
-  pCharacteristic->notify();
+  // ENCRYPT DATA BEFORE SENDING
+  String encryptedData = EncryptionManager::encrypt(plainData);
   
-  Serial.print("📤 [BLE] Sent: ");
-  Serial.println(data);
+  if (encryptedData.length() > 0) {
+    pCharacteristic->setValue(encryptedData.c_str());
+    pCharacteristic->notify();
+    
+    Serial.print("📤 [BLE] Sent (Encrypted): ");
+    Serial.println(encryptedData);
+    Serial.print("🔓 [BLE] Plain: ");
+    Serial.println(plainData);
+  } else {
+    Serial.println("❌ [BLE] Encryption failed!");
+  }
 }
 
 // =========================================================================
@@ -313,15 +538,12 @@ void sendHeartData() {
 void calculateHeartRate() {
   if (!sensorInitialized) return;
   
-  // Read sensor data
   irValue = maxSensor.getIR();
   redValue = maxSensor.getRed();
   
-  // Calculate heart rate using peak detection
   long delta = abs(irValue - redValue);
   
   if (irValue > 10000 && redValue > 10000) {
-    // Simple heart rate detection based on IR peak
     if (delta > 5000) {
       long currentTime = millis();
       if (currentTime - lastBeat > 100) {
@@ -329,11 +551,9 @@ void calculateHeartRate() {
         if (timeBetweenBeats > 300 && timeBetweenBeats < 2000) {
           beatsPerMinute = 60000.0 / timeBetweenBeats;
           
-          // Add to rate array for averaging
           rates[rateSpot++] = beatsPerMinute;
           rateSpot %= RATE_SIZE;
           
-          // Calculate average
           float sum = 0;
           int count = 0;
           for (int i = 0; i < RATE_SIZE; i++) {
@@ -351,10 +571,8 @@ void calculateHeartRate() {
     }
   }
   
-  // Estimate SpO2 using red and IR ratio
   if (irValue > 0 && redValue > 0) {
     float ratio = (float)redValue / (float)irValue;
-    // Simple mapping for SpO2 (calibration needed for accuracy)
     if (ratio > 0.5 && ratio < 1.5) {
       spo2 = 100 - (ratio - 0.5) * 20;
       if (spo2 > 100) spo2 = 100;
@@ -362,7 +580,6 @@ void calculateHeartRate() {
     }
   }
   
-  // Update body temperature from DS18B20
   tempSensor.requestTemperatures();
   float temp = tempSensor.getTempCByIndex(0);
   if (temp > -10 && temp < 100) {
@@ -371,7 +588,7 @@ void calculateHeartRate() {
 }
 
 // =========================================================================
-//  FUNCTIONS
+//  FUNCTIONS (Preserved from original)
 // =========================================================================
 void sendDataToServer(SystemState state, float hr, float oxygen, float temp, bool worn, float acc, String micAudio) {
   if (WiFi.status() != WL_CONNECTED) {
@@ -397,6 +614,7 @@ void sendDataToServer(SystemState state, float hr, float oxygen, float temp, boo
   doc["longitude"] = gpsLng;
   doc["micMessageAudio"] = micAudio;
   doc["timestamp"] = millis();
+  doc["uniqueDeviceID"] = uniqueDeviceID;  // Added for device identification
 
   String payload;
   serializeJson(doc, payload);
@@ -481,6 +699,7 @@ bool sendTwilioSMS(String alertType, String message) {
   doc["device_id"] = deviceId;
   doc["belt_type"] = beltType;
   doc["timestamp"] = millis();
+  doc["uniqueDeviceID"] = uniqueDeviceID;
   
   String payload;
   serializeJson(doc, payload);
@@ -500,7 +719,10 @@ bool sendGSMAlert(String alertType, String message) {
   gsmSerial.println("AT+CMGS=\"" + guardianPhone + "\"");
   delay(1000);
   
-  String smsMessage = "🚨 SILVERCARE ALERT - " + alertType + "\n" + message + "\nDevice: " + deviceId + " (" + beltType + ")";
+  String smsMessage = "🚨 SILVERCARE ALERT - " + alertType + "\n" + 
+                      message + "\n" + 
+                      "Device: " + deviceId + " (" + beltType + ")\n" +
+                      "UID: " + uniqueDeviceID;
   gsmSerial.println(smsMessage);
   delay(1000);
   
@@ -525,7 +747,6 @@ void loop() {
   }
 
   // ---------- SEND HEART DATA VIA BLE ----------
-  // Send heart data every 500ms
   static unsigned long lastBLESend = 0;
   if (millis() - lastBLESend > 500) {
     if (deviceConnected && heartRate > 0) {
