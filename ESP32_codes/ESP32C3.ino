@@ -95,10 +95,10 @@ unsigned long lastSendTime = 0;
 const unsigned long SEND_INTERVAL = 1000;
 String micMessage = "";
 unsigned long lastHeartRateCalc = 0;
-const unsigned long HEART_RATE_INTERVAL = 100;
+const unsigned long HEART_RATE_INTERVAL = 100; // Calculate every 100ms
 
 // Heart rate algorithm variables
-const int RATE_SIZE = 25;
+const int RATE_SIZE = 25; // Increase sample size for more stability
 float rates[RATE_SIZE];
 int rateSpot = 0;
 long lastBeat = 0;
@@ -120,6 +120,7 @@ class MyServerCallbacks : public NimBLEServerCallbacks {
     deviceConnected = false;
     Serial.println("❌ [BLE] Wrist band disconnected from Waist band");
     Serial.println("🔄 [BLE] Restarting advertising...");
+    // Restart advertising
     NimBLEDevice::getAdvertising()->start();
   }
 };
@@ -134,6 +135,10 @@ class MyCharacteristicCallbacks : public NimBLECharacteristicCallbacks {
     Serial.print("📥 [BLE] Write request: ");
     Serial.println(value);
   }
+  
+  void onNotify(NimBLECharacteristic* pCharacteristic) {
+    Serial.println("📤 [BLE] Notification sent");
+  }
 };
 
 // =========================================================================
@@ -141,21 +146,15 @@ class MyCharacteristicCallbacks : public NimBLECharacteristicCallbacks {
 // =========================================================================
 void setup() {
   Serial.begin(115200);
-  delay(2000);
-  Serial.println();
-  Serial.println("=== SILVERCARE SENIOR SAFETY WRIST BAND (BLE SERVER) ===");
+  delay(1000);
 
   pinMode(BUZZER_PIN, OUTPUT);
   pinMode(BUTTON_PIN, INPUT_PULLUP);
   pinMode(MIC_BUTTON_PIN, INPUT_PULLUP);
 
-  // Initialize I2C with proper pins
   Wire.begin(21, 22);
-  Wire.setClock(100000); // Use 100kHz for better compatibility
-  
-  // Test I2C connection first
-  Serial.println("🔍 Scanning I2C bus...");
-  scanI2C();
+
+  Serial.println("=== SILVERCARE SENIOR SAFETY WRIST BAND (BLE SERVER) ===");
 
   // ========== GSM Module Initialization ==========
   gsmSerial.begin(GSM_BAUD);
@@ -167,7 +166,7 @@ void setup() {
   if (gsmSerial.available()) {
     Serial.println("✅ GSM Module Responding");
   } else {
-    Serial.println("❌ GSM Module Not Responding - Continuing without GSM");
+    Serial.println("❌ GSM Module Not Responding");
   }
   
   gsmSerial.println("AT+CMGF=1");
@@ -194,121 +193,52 @@ void setup() {
   }
 
   // ========== Sensors Initialization ==========
-  Serial.println("🔧 Initializing Sensors...");
-  
-  // Initialize MPU6050
-  Serial.println("🔍 Initializing MPU6050...");
   if (!mpu.begin()) {
-    Serial.println("❌ MPU6050 NOT FOUND - Continuing without MPU6050");
-  } else {
-    mpu.setAccelerometerRange(MPU6050_RANGE_8_G);
-    mpu.setGyroRange(MPU6050_RANGE_500_DEG);
-    mpu.setFilterBandwidth(MPU6050_BAND_21_HZ);
-    Serial.println("✅ MPU6050 Initialized");
+    Serial.println("❌ MPU6050 NOT FOUND");
+    while (1);
   }
+  Serial.println("✅ MPU6050 Initialized");
 
-  // Initialize DS18B20
-  Serial.println("🔍 Initializing DS18B20...");
   tempSensor.begin();
-  if (tempSensor.getDeviceCount() > 0) {
-    Serial.println("✅ DS18B20 Initialized");
-  } else {
-    Serial.println("❌ DS18B20 NOT FOUND - Continuing without temperature sensor");
-  }
+  Serial.println("✅ DS18B20 Initialized");
 
-  // Initialize MAX30102 - Try both I2C speeds if needed
-  Serial.println("🔍 Initializing MAX30102...");
+  // Initialize MAX30102
+  Serial.println("🔴 Initializing MAX30102...");
   if (!maxSensor.begin(Wire, I2C_SPEED_FAST)) {
-    Serial.println("❌ MAX30102 NOT FOUND at fast speed, trying standard speed...");
-    if (!maxSensor.begin(Wire, I2C_SPEED_STANDARD)) {
-      Serial.println("❌ MAX30102 NOT FOUND - Continuing without heart rate sensor");
-      sensorInitialized = false;
-    } else {
-      sensorInitialized = true;
-      configureMAX30102();
-    }
-  } else {
-    sensorInitialized = true;
-    configureMAX30102();
-  }
-
-  // ========== BLE Server Initialization ==========
-  Serial.println("🔷 Initializing BLE Server...");
-  initBLEServer();
-  
-  Serial.println("✅ System Ready!");
-  Serial.println("=================================================");
-  Serial.print("📱 Device Name: ");
-  Serial.println(DEVICE_NAME);
-  Serial.print("📱 Service UUID: ");
-  Serial.println(BLE_SERVICE_UUID);
-  Serial.print("📱 Characteristic UUID: ");
-  Serial.println(BLE_CHARACTERISTIC_UUID);
-  Serial.println("=================================================");
-}
-
-// =========================================================================
-//  I2C SCANNER FUNCTION
-// =========================================================================
-void scanI2C() {
-  byte error, address;
-  int nDevices = 0;
-  
-  for(address = 1; address < 127; address++) {
-    Wire.beginTransmission(address);
-    error = Wire.endTransmission();
-    
-    if (error == 0) {
-      Serial.print("✅ I2C device found at address 0x");
-      if (address < 16) Serial.print("0");
-      Serial.print(address, HEX);
-      
-      // Identify known devices
-      if (address == 0x68 || address == 0x69) {
-        Serial.println(" (MPU6050)");
-      } else if (address == 0x57) {
-        Serial.println(" (MAX30102)");
-      } else {
-        Serial.println();
-      }
-      nDevices++;
-    }
+    Serial.println("❌ MAX30102 NOT FOUND");
+    while (1);
   }
   
-  if (nDevices == 0) {
-    Serial.println("❌ No I2C devices found - Check wiring!");
-  } else {
-    Serial.print("✅ Total I2C devices found: ");
-    Serial.println(nDevices);
-  }
-}
-
-// =========================================================================
-//  CONFIGURE MAX30102
-// =========================================================================
-void configureMAX30102() {
-  byte ledBrightness = 0x7F;
-  byte sampleAverage = 4;
-  byte ledMode = 2;
-  int sampleRate = 400;
-  int pulseWidth = 411;
-  int adcRange = 4096;
+  // Configure MAX30102 for heart rate/SpO2 measurement
+  byte ledBrightness = 0x7F;  // 0-255: Higher brightness for better signal
+  byte sampleAverage = 4;      // 1, 2, 4, 8, 16, 32: Averaging samples
+  byte ledMode = 2;            // 1 = Red only, 2 = Red + IR, 3 = Red + IR + Green
+  int sampleRate = 400;        // 50, 100, 200, 400, 800, 1000, 1600, 3200: Samples per second
+  int pulseWidth = 411;        // 69, 118, 215, 411: Pulse width in microseconds
+  int adcRange = 4096;         // 2048, 4096, 8192, 16384: ADC range
   
   maxSensor.setup(ledBrightness, sampleAverage, ledMode, sampleRate, pulseWidth, adcRange);
   maxSensor.setPulseAmplitudeRed(0x7F);
   maxSensor.setPulseAmplitudeIR(0x7F);
   
-  Serial.println("✅ MAX30102 Configured Successfully");
+  Serial.println("✅ MAX30102 Initialized");
+  sensorInitialized = true;
+
+  // ========== BLE Server Initialization ==========
+  initBLEServer();
+  
+  Serial.println("✅ BLE Server initialized - Advertising as: " + String(DEVICE_NAME));
+  Serial.println("=================================================");
 }
 
 // =========================================================================
-//  BLE SERVER FUNCTIONS
+//  BLE SERVER FUNCTIONS - FIXED FOR NIMBLE
 // =========================================================================
 void initBLEServer() {
   // Initialize NimBLE
   NimBLEDevice::init(DEVICE_NAME);
   NimBLEDevice::setOwnAddrType(BLE_OWN_ADDR_PUBLIC);
-  NimBLEDevice::setPower(ESP_PWR_LVL_P9);
+  NimBLEDevice::setPower(ESP_PWR_LVL_P9); // Max power for better range
   
   // Create server
   pServer = NimBLEDevice::createServer();
@@ -317,7 +247,7 @@ void initBLEServer() {
   // Create service
   pService = pServer->createService(BLE_SERVICE_UUID);
   
-  // Create characteristic
+  // Create characteristic with notify property
   pCharacteristic = pService->createCharacteristic(
     BLE_CHARACTERISTIC_UUID,
     NIMBLE_PROPERTY::READ |
@@ -325,6 +255,7 @@ void initBLEServer() {
     NIMBLE_PROPERTY::NOTIFY
   );
   
+  // FIX: Use proper NimBLE descriptor - Remove NimBLE2902 and use descriptor directly
   pCharacteristic->setCallbacks(new MyCharacteristicCallbacks());
   
   // Start service
@@ -332,6 +263,8 @@ void initBLEServer() {
   
   // Setup advertising
   pAdvertising = NimBLEDevice::getAdvertising();
+  
+  // Add service UUID
   pAdvertising->addServiceUUID(BLE_SERVICE_UUID);
   
   // Set advertisement data
@@ -348,7 +281,13 @@ void initBLEServer() {
   // Start advertising
   pAdvertising->start();
   
-  Serial.println("✅ BLE Server started and advertising!");
+  Serial.println("✅ BLE Server started!");
+  Serial.print("📱 Service UUID: ");
+  Serial.println(BLE_SERVICE_UUID);
+  Serial.print("📱 Characteristic UUID: ");
+  Serial.println(BLE_CHARACTERISTIC_UUID);
+  Serial.print("📱 Device Name: ");
+  Serial.println(DEVICE_NAME);
 }
 
 void sendHeartData() {
@@ -382,6 +321,7 @@ void calculateHeartRate() {
   long delta = abs(irValue - redValue);
   
   if (irValue > 10000 && redValue > 10000) {
+    // Simple heart rate detection based on IR peak
     if (delta > 5000) {
       long currentTime = millis();
       if (currentTime - lastBeat > 100) {
@@ -389,9 +329,11 @@ void calculateHeartRate() {
         if (timeBetweenBeats > 300 && timeBetweenBeats < 2000) {
           beatsPerMinute = 60000.0 / timeBetweenBeats;
           
+          // Add to rate array for averaging
           rates[rateSpot++] = beatsPerMinute;
           rateSpot %= RATE_SIZE;
           
+          // Calculate average
           float sum = 0;
           int count = 0;
           for (int i = 0; i < RATE_SIZE; i++) {
@@ -409,9 +351,10 @@ void calculateHeartRate() {
     }
   }
   
-  // Estimate SpO2
+  // Estimate SpO2 using red and IR ratio
   if (irValue > 0 && redValue > 0) {
     float ratio = (float)redValue / (float)irValue;
+    // Simple mapping for SpO2 (calibration needed for accuracy)
     if (ratio > 0.5 && ratio < 1.5) {
       spo2 = 100 - (ratio - 0.5) * 20;
       if (spo2 > 100) spo2 = 100;
@@ -419,7 +362,7 @@ void calculateHeartRate() {
     }
   }
   
-  // Update body temperature
+  // Update body temperature from DS18B20
   tempSensor.requestTemperatures();
   float temp = tempSensor.getTempCByIndex(0);
   if (temp > -10 && temp < 100) {
@@ -432,6 +375,7 @@ void calculateHeartRate() {
 // =========================================================================
 void sendDataToServer(SystemState state, float hr, float oxygen, float temp, bool worn, float acc, String micAudio) {
   if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("⚠️ WiFi not connected - skipping send");
     return;
   }
 
@@ -457,14 +401,26 @@ void sendDataToServer(SystemState state, float hr, float oxygen, float temp, boo
   String payload;
   serializeJson(doc, payload);
 
+  Serial.print("📤 [WRIST BELT TELEMETRY SENT]: ");
+  Serial.println(payload);
+
   int httpResponseCode = http.POST(payload);
+
   if (httpResponseCode > 0) {
     String response = http.getString();
+    Serial.print("✅ Server Response Code: ");
+    Serial.println(httpResponseCode);
+
     if (response.indexOf("ACKNOWLEDGED") != -1 || response.indexOf("I am Fine") != -1) {
+      Serial.println("💚 [GUARDIAN ACKNOWLEDGED]: Clearing local buzzer and state!");
       digitalWrite(BUZZER_PIN, LOW);
       currentState = NORMAL;
     }
+  } else {
+    Serial.print("❌ HTTP POST Error: ");
+    Serial.println(httpResponseCode);
   }
+
   http.end();
 }
 
@@ -496,7 +452,10 @@ void sendSmartSMSAlert(String alertType, String message) {
     lastAlertType = alertType;
   }
   
+  Serial.println("📱 [SMS] Smart SMS System Activated");
+  
   if (WiFi.status() == WL_CONNECTED && !twilioSMSSent) {
+    Serial.println("📡 [TWILIO] Attempting SMS via WiFi...");
     bool twilioSuccess = sendTwilioSMS(alertType, message);
     if (twilioSuccess) {
       twilioSMSSent = true;
@@ -506,6 +465,7 @@ void sendSmartSMSAlert(String alertType, String message) {
   }
   
   if (!gsmSMSSent) {
+    Serial.println("📱 [GSM] Sending backup SMS...");
     bool gsmSuccess = sendGSMAlert(alertType, message);
     if (gsmSuccess) {
       gsmSMSSent = true;
@@ -565,6 +525,7 @@ void loop() {
   }
 
   // ---------- SEND HEART DATA VIA BLE ----------
+  // Send heart data every 500ms
   static unsigned long lastBLESend = 0;
   if (millis() - lastBLESend > 500) {
     if (deviceConnected && heartRate > 0) {
@@ -575,88 +536,84 @@ void loop() {
 
   // ---------- MPU6050 READING ----------
   sensors_event_t acc, gyro, temp;
-  if (mpu.begin()) {
-    mpu.getEvent(&acc, &gyro, &temp);
+  mpu.getEvent(&acc, &gyro, &temp);
 
-    float ax = acc.acceleration.x;
-    float ay = acc.acceleration.y;
-    float az = acc.acceleration.z;
-    float accMag = sqrt(ax * ax + ay * ay + az * az);
-    float accMagG = accMag / 9.8;
+  float ax = acc.acceleration.x;
+  float ay = acc.acceleration.y;
+  float az = acc.acceleration.z;
+  float accMag = sqrt(ax * ax + ay * ay + az * az);
+  float accMagG = accMag / 9.8;
 
-    // ---------- TEMPERATURE READING ----------
-    float bodyTempLocal = bodyTemp;
+  // ---------- TEMPERATURE READING (Local DS18B20) ----------
+  tempSensor.requestTemperatures();
+  float bodyTempLocal = tempSensor.getTempCByIndex(0);
 
-    // ---------- BELT WORN CHECK ----------
-    #define IR_WORN_THRESHOLD 4500
-    beltWorn = (irValue > IR_WORN_THRESHOLD && bodyTempLocal > TEMP_WORN_THRESHOLD);
-    bool vitalsAbnormal = (heartRate < HR_LOW || heartRate > HR_HIGH || spo2 < SPO2_LOW);
+  // ---------- BELT WORN CHECK ----------
+  #define IR_WORN_THRESHOLD 4500
+  beltWorn = (irValue > IR_WORN_THRESHOLD && bodyTempLocal > TEMP_WORN_THRESHOLD);
+  bool vitalsAbnormal = (heartRate < HR_LOW || heartRate > HR_HIGH || spo2 < SPO2_LOW);
 
-    // ---------- STATE MACHINE ----------
-    if (currentState != FALL_DETECTED) {
-      if (accMagG > INSTABILITY_THRESHOLD && accMagG <= SUDDEN_THRESHOLD && beltWorn && vitalsAbnormal) {
-        currentState = PREFALL;
-        micMessage = "Pre-fall instability detected on Wrist Belt. Asking: 'Are you okay?'";
-      } else if (accMagG > SUDDEN_THRESHOLD && accMagG <= FALL_THRESHOLD) {
-        currentState = SUDDEN_MOVEMENT;
-      } else if (accMagG > FALL_THRESHOLD && beltWorn) {
-        currentState = FALL_DETECTED;
-        fallTime = millis();
-        micMessage = "EMERGENCY: Fall impact detected on Wrist Belt! Urgent help requested.";
-      } else {
-        currentState = NORMAL;
-      }
-    }
+  // ---------- MICROPHONE TRIGGER CHECK ----------
+  if (digitalRead(MIC_BUTTON_PIN) == LOW) {
+    micMessage = "Senior citizen pressed Wrist Mic button: 'Help needed!'";
+    Serial.println("🎙️ [MIC TRIGGERED]: " + micMessage);
+  } else if (micMessage.length() > 0 && currentState == NORMAL) {
+    micMessage = "";
+  }
 
-    // ---------- ACTIONS BASED ON STATE ----------
-    switch (currentState) {
-      case NORMAL:
-        digitalWrite(BUZZER_PIN, LOW);
-        break;
+  // ---------- STATE MACHINE ----------
+  if (currentState == FALL_DETECTED) {
+    goto STATE_OUTPUT;
+  }
 
-      case PREFALL:
-        digitalWrite(BUZZER_PIN, LOW);
-        sendSmartSMSAlert("PRE-FALL", "Pre-fall detected on Wrist Belt! Please check senior ward.");
-        break;
+  if (accMagG > INSTABILITY_THRESHOLD && accMagG <= SUDDEN_THRESHOLD && beltWorn && vitalsAbnormal) {
+    currentState = PREFALL;
+    micMessage = "Pre-fall instability detected on Wrist Belt. Asking: 'Are you okay?'";
+  } else if (accMagG > SUDDEN_THRESHOLD && accMagG <= FALL_THRESHOLD) {
+    currentState = SUDDEN_MOVEMENT;
+  } else if (accMagG > FALL_THRESHOLD && beltWorn) {
+    currentState = FALL_DETECTED;
+    fallTime = millis();
+    micMessage = "EMERGENCY: Fall impact detected on Wrist Belt! Urgent help requested.";
+  } else {
+    currentState = NORMAL;
+  }
 
-      case SUDDEN_MOVEMENT:
-        digitalWrite(BUZZER_PIN, LOW);
-        break;
-
-      case FALL_DETECTED:
-        digitalWrite(BUZZER_PIN, HIGH);
-        sendSmartSMSAlert("FALL", "EMERGENCY: Fall detected on Wrist Belt! Immediate assistance required!");
-        break;
-    }
-
-    // ---------- USER MANUAL OK OVERRIDE ----------
-    if (digitalRead(BUTTON_PIN) == LOW) {
-      Serial.println("USER RESPONSE: I'M OK");
+  STATE_OUTPUT:
+  switch (currentState) {
+    case NORMAL:
       digitalWrite(BUZZER_PIN, LOW);
-      currentState = NORMAL;
-      micMessage = "Senior pressed 'I AM OK' button on belt.";
-    }
+      break;
 
-    // ---------- SEND TELEMETRY ----------
-    unsigned long currentTime = millis();
-    if (currentTime - lastSendTime >= SEND_INTERVAL) {
-      sendDataToServer(currentState, heartRate, spo2, bodyTempLocal, beltWorn, accMagG, micMessage);
-      lastSendTime = currentTime;
-    }
+    case PREFALL:
+      digitalWrite(BUZZER_PIN, LOW);
+      sendSmartSMSAlert("PRE-FALL", "Pre-fall detected on Wrist Belt! Please check senior ward.");
+      break;
+
+    case SUDDEN_MOVEMENT:
+      digitalWrite(BUZZER_PIN, LOW);
+      break;
+
+    case FALL_DETECTED:
+      digitalWrite(BUZZER_PIN, HIGH);
+      sendSmartSMSAlert("FALL", "EMERGENCY: Fall detected on Wrist Belt! Immediate assistance required!");
+      break;
   }
 
-  // Print status every 5 seconds
-  static unsigned long lastStatusTime = 0;
-  if (millis() - lastStatusTime > 5000) {
-    Serial.print("📊 Status - HR: ");
-    Serial.print(heartRate);
-    Serial.print(" | SpO2: ");
-    Serial.print(spo2);
-    Serial.print(" | Connected: ");
-    Serial.print(deviceConnected ? "YES" : "NO");
-    Serial.print(" | IR: ");
-    Serial.println(irValue);
-    lastStatusTime = millis();
+  // ---------- USER MANUAL OK OVERRIDE ----------
+  if (digitalRead(BUTTON_PIN) == LOW) {
+    Serial.println("USER RESPONSE: I'M OK");
+    digitalWrite(BUZZER_PIN, LOW);
+    currentState = NORMAL;
+    micMessage = "Senior pressed 'I AM OK' button on belt.";
   }
+
+  // ---------- SEND TELEMETRY TO SPRING BOOT SERVER ----------
+  unsigned long currentTime = millis();
+  if (currentTime - lastSendTime >= SEND_INTERVAL) {
+    sendDataToServer(currentState, heartRate, spo2, bodyTempLocal, beltWorn, accMagG, micMessage);
+    lastSendTime = currentTime;
+  }
+
   delay(10);
 }
