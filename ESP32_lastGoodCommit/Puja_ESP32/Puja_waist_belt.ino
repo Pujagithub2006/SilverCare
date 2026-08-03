@@ -11,6 +11,8 @@
 // ============================================================
 #include <BLEDevice.h>
 #include <BLEClient.h>
+#include <BLEServer.h>
+#include <BLE2902.h>
 #include <BLEUtils.h>
 #include <BLEScan.h>
 #include <BLEAdvertisedDevice.h>
@@ -22,9 +24,6 @@
 #include <esp_heap_caps.h>
 #include <esp_task_wdt.h>
 #include <esp_system.h>
-// NOTE: WiFi.h removed - it was included but never used anywhere in this
-// sketch. Dropping it frees a bit of heap/flash that BLE + mbedTLS need.
-// If you add WiFi functionality later, just re-add: #include <WiFi.h>
 
 // ============================================================
 //  INCREASE BUFFER SIZES
@@ -36,12 +35,20 @@
 #define ENCRYPTION_BUFFER_SIZE 1024
 
 // ============================================================
-//  CONFIGURATION
+//  CONFIGURATION - WRIST BAND (the device we connect OUT to)
 // ============================================================
-#define SERVICE_UUID "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
-#define CHARACTERISTIC_UUID "beb5483e-36e1-4688-b7f5-ea07361b26a8"
-#define IDENTITY_UUID "beb5483e-36e1-4688-b7f5-ea07361b26a9"
+#define WRIST_SERVICE_UUID "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
+#define WRIST_CHARACTERISTIC_UUID "beb5483e-36e1-4688-b7f5-ea07361b26a8"
+#define WRIST_IDENTITY_UUID "beb5483e-36e1-4688-b7f5-ea07361b26a9"
 #define WRIST_NAME "SilverCare_Wrist"
+
+// ============================================================
+//  CONFIGURATION - WAIST BELT'S OWN IDENTITY (mutual pairing)
+// ============================================================
+#define WAIST_SERVICE_UUID "5fafc201-1fb5-459e-8fcc-c5c9c331914c"
+#define WAIST_IDENTITY_UUID "cbb5483e-36e1-4688-b7f5-ea07361b26aa"
+#define WAIST_PAIR_UUID "cbb5483e-36e1-4688-b7f5-ea07361b26ab"
+#define WAIST_NAME "SilverCare_Waist"
 
 // ============================================================
 //  ENCRYPTION CONFIGURATION
@@ -92,10 +99,6 @@ struct PairedDevice {
 
     static PairedDevice deserialize(String data) {
         PairedDevice device;
-        // NOTE: try/catch left in place for structural parity with the
-        // original sketch, but be aware Arduino String parsing calls here
-        // (indexOf/substring/toInt) do not throw C++ exceptions by default
-        // on ESP32 - the real safety net is the index bounds-check below.
         try {
             int pos1 = data.indexOf('|');
             int pos2 = data.indexOf('|', pos1 + 1);
@@ -136,7 +139,7 @@ struct PairedDevice {
 };
 
 // ============================================================
-//  ENCRYPTION MANAGER - SIMPLE FIXED VERSION (NO ENTROPY)
+//  ENCRYPTION MANAGER
 // ============================================================
 class EncryptionManager {
 private:
@@ -160,7 +163,6 @@ public:
         }
         if (plaintext.length() == 0 || plaintext.length() > 128) return "";
 
-        // CRITICAL FIX: Reinitialize for each operation
         mbedtls_gcm_free(&gcm_ctx);
         mbedtls_gcm_init(&gcm_ctx);
         mbedtls_gcm_setkey(&gcm_ctx, MBEDTLS_CIPHER_ID_AES, ENCRYPTION_KEY, 256);
@@ -202,7 +204,6 @@ public:
         }
         if (encrypted.length() == 0) return "";
 
-        // CRITICAL FIX: Reinitialize for each operation
         mbedtls_gcm_free(&gcm_ctx);
         mbedtls_gcm_init(&gcm_ctx);
         mbedtls_gcm_setkey(&gcm_ctx, MBEDTLS_CIPHER_ID_AES, ENCRYPTION_KEY, 256);
@@ -276,13 +277,6 @@ public:
     void init() {
         if (initialized) return;
 
-        // FIX: preferences.begin() returns a bool indicating success/failure.
-        // The original code discarded that return value, so a corrupted NVS
-        // partition (which can happen after a few crash-reset cycles) would
-        // silently "succeed" with an unusable preferences handle, and the
-        // catch(...) block below never fires because begin() does not throw.
-        // We now explicitly check the return value and reset the namespace
-        // if it fails, same recovery behavior as before but actually reliable.
         bool opened = preferences.begin("device_db", false);
 
         if (!opened) {
@@ -446,25 +440,13 @@ bool hasSufficientMemory(size_t required) {
 }
 
 // ============================================================
-//  BLE GLOBALS
+//  BLE GLOBALS - CLIENT SIDE (us -> wrist band's server)
 // ============================================================
 BLEClient* pClient = NULL;
 BLERemoteCharacteristic* pChar = NULL;
 BLERemoteCharacteristic* pIdentityChar = NULL;
 BLEScan* pScan = NULL;
 
-// FIX: ScanCallbacks and ClientCallbacks are now allocated ONCE and reused,
-// instead of being `new`'d every time connectToDevice()/continuousScan()
-// runs. The original code called
-//     pScan->setAdvertisedDeviceCallbacks(new ScanCallbacks(), false);
-// on every single loop() iteration while not connected/connecting - which is
-// most of the time. Each call leaked one ScanCallbacks object (never freed),
-// and ClientCallbacks leaked one object per connection attempt. This is an
-// unbounded heap leak. On ESP32 Arduino, C++ exceptions are disabled by
-// default, so a failed `new` from heap exhaustion does not throw and get
-// caught by the try/catch blocks - it calls abort(), which is exactly the
-// kind of silent reset-loop you were seeing (ROM banner repeating, nothing
-// from setup() ever printing). Reusing single static instances fixes this.
 class ScanCallbacks;
 class ClientCallbacks;
 ScanCallbacks* scanCallbacksInstance = nullptr;
@@ -490,12 +472,35 @@ bool bleInitialized = false;
 DeviceDatabase deviceDB;
 
 // ============================================================
+//  BLE GLOBALS - SERVER SIDE (wrist band -> us) — MUTUAL PAIRING
+// ============================================================
+Preferences idPrefs;
+String myUniqueID = "";
+
+BLEServer* pWaistServer = NULL;
+BLEService* pWaistService = NULL;
+BLECharacteristic* pWaistIdentityChar = NULL;
+BLECharacteristic* pWaistPairChar = NULL;
+BLEAdvertising* pWaistAdvertising = NULL;
+
+bool wristCentralConnected = false;
+bool serverLinkVerified = false;
+
+// ============================================================
 //  FORWARD DECLARATIONS
 // ============================================================
 void connectToDevice(String address);
 void processReceivedData(String encryptedData);
 void continuousScan();
 void deleteClient(BLEClient* client);
+bool mutualPairingConfirmed();
+
+// ============================================================
+//  MUTUAL PAIRING STATUS
+// ============================================================
+bool mutualPairingConfirmed() {
+    return connected && serverLinkVerified;
+}
 
 // ============================================================
 //  HELPER: DELETE CLIENT
@@ -534,7 +539,7 @@ String readCharacteristicValue(BLERemoteCharacteristic* pChar) {
 }
 
 // ============================================================
-//  CLIENT CALLBACKS
+//  CLIENT CALLBACKS (our link OUT to the wrist band's server)
 // ============================================================
 class ClientCallbacks : public BLEClientCallbacks {
     void onConnect(BLEClient* pClient) {
@@ -554,13 +559,16 @@ class ClientCallbacks : public BLEClientCallbacks {
         waitingForData = true;
         dataRetryStartTime = millis();
         dataReceived = false;
+        
+        // After connection, the wrist band will connect to our server
+        // and complete the mutual pairing handshake
     }
 
     void onDisconnect(BLEClient* pClient) {
         connected = false;
         connecting = false;
 
-        Serial.println("❌ [BLE] Disconnected");
+        Serial.println("❌ [BLE] Disconnected from Wrist");
         Serial.println("🔄 Will try to reconnect...");
 
         pClient = NULL;
@@ -575,10 +583,66 @@ class ClientCallbacks : public BLEClientCallbacks {
 };
 
 // ============================================================
-//  NOTIFICATION CALLBACK
+//  SERVER CALLBACKS (wrist band's link IN to our server) — NEW
+// ============================================================
+class WaistServerCallbacks : public BLEServerCallbacks {
+    void onConnect(BLEServer* srv) {
+        wristCentralConnected = true;
+        Serial.println("========================================");
+        Serial.println("✅ [BLE-SERVER] Wrist band connected to our identity service");
+        Serial.println("   (waiting for PAIR handshake)");
+        Serial.println("========================================");
+    }
+
+    void onDisconnect(BLEServer* srv) {
+        wristCentralConnected = false;
+        serverLinkVerified = false;
+        Serial.println("❌ [BLE-SERVER] Wrist band disconnected from our identity service");
+        if (pWaistAdvertising) {
+            pWaistAdvertising->start();
+        }
+    }
+};
+
+// ============================================================
+//  PAIR CHARACTERISTIC CALLBACKS (handshake handler) — NEW
+// ============================================================
+class WaistPairCharCallbacks : public BLECharacteristicCallbacks {
+    void onWrite(BLECharacteristic* ch) {
+        String value = String(ch->getValue().c_str());
+        if (!value.startsWith("PAIR:")) return;
+
+        String peerID = value.substring(5);
+        Serial.println("📥 [BLE-SERVER] PAIR request from Device ID: " + peerID);
+
+        // Verify the device is in our paired database
+        PairedDevice* known = deviceDB.getDeviceByUID(peerID);
+        if (known != nullptr) {
+            serverLinkVerified = true;
+            String ack = "PAIR_ACK:" + myUniqueID;
+            ch->setValue(ack.c_str());
+            ch->notify();
+            Serial.println("✅ [BLE-SERVER] PAIR acknowledged - reverse link verified with '" +
+                            known->name + "'");
+            Serial.println("🤝 MUTUAL PAIRING COMPLETE!");
+        } else {
+            Serial.println("❌ [BLE-SERVER] PAIR rejected - Device ID not in paired database");
+            Serial.println("   Device ID: " + peerID);
+            Serial.println("   Our database contains " + String(deviceDB.getAllDevices().size()) + " devices");
+        }
+    }
+};
+
+// ============================================================
+//  NOTIFICATION CALLBACK (vitals data arriving from the wrist band)
 // ============================================================
 void notifyCallback(BLERemoteCharacteristic* pChar, uint8_t* data, size_t len, bool isNotify) {
     if (len == 0 || data == NULL || len > 1024) return;
+
+    if (!mutualPairingConfirmed()) {
+        Serial.println("⏳ [BLE] Data received but mutual pairing not yet confirmed - ignoring");
+        return;
+    }
 
     dataReceptionAttempts++;
 
@@ -666,17 +730,8 @@ class ScanCallbacks : public BLEAdvertisedDeviceCallbacks {
                 Serial.println(" dBm)");
             }
 
-            // FIX (Unique Device ID pairing): we no longer require the MAC
-            // to already match a database entry before attempting a
-            // connection. BLE peripherals can use random/private addresses
-            // that rotate over time, so a MAC-only pre-check would cause a
-            // legitimately paired wrist band to stop being recognized the
-            // moment its address changes. Instead we connect to ANY device
-            // advertising our expected name, and let connectToDevice()
-            // verify (and self-heal) identity via the Identity
-            // characteristic's stable Device ID after the connection is up.
             if (deviceName == WRIST_NAME && !connected && !connecting) {
-                Serial.println("📡 Found a SilverCare Wrist advertising - attempting connection to verify identity");
+                Serial.println("📡 Found a SilverCare Wrist advertising - attempting connection");
                 if (pScan) {
                     pScan->stop();
                 }
@@ -689,7 +744,7 @@ class ScanCallbacks : public BLEAdvertisedDeviceCallbacks {
 };
 
 // ============================================================
-//  CONNECT TO DEVICE
+//  CONNECT TO DEVICE (wrist band)
 // ============================================================
 void connectToDevice(String address) {
     if (connecting || connected) {
@@ -701,17 +756,11 @@ void connectToDevice(String address) {
         return;
     }
 
-    // FIX (Unique Device ID pairing): we intentionally do NOT require a
-    // pre-existing database entry keyed by MAC before connecting. The device
-    // is identified authoritatively by the stable Device ID read from the
-    // Identity characteristic AFTER the BLE connection is established (see
-    // below). This lets a paired wrist band still be recognized even if its
-    // BLE address has changed since it was first paired.
     connecting = true;
     connectStartTime = millis();
     connectAttempts++;
     currentDeviceAddress = address;
-    currentDeviceUID = ""; // not known yet - resolved after identity read below
+    currentDeviceUID = "";
 
     Serial.println("========================================");
     Serial.println("🔗 Connecting to advertised address: " + address);
@@ -733,8 +782,6 @@ void connectToDevice(String address) {
             return;
         }
 
-        // FIX: reuse a single ClientCallbacks instance instead of `new`-ing
-        // one on every connection attempt (was leaking memory each retry).
         if (clientCallbacksInstance == nullptr) {
             clientCallbacksInstance = new ClientCallbacks();
         }
@@ -746,11 +793,11 @@ void connectToDevice(String address) {
             Serial.println("✅ Connected! Discovering services...");
             delay(200);
 
-            BLERemoteService* pService = pClient->getService(SERVICE_UUID);
+            BLERemoteService* pService = pClient->getService(WRIST_SERVICE_UUID);
             if (pService) {
                 Serial.println("✅ Service found");
 
-                pIdentityChar = pService->getCharacteristic(IDENTITY_UUID);
+                pIdentityChar = pService->getCharacteristic(WRIST_IDENTITY_UUID);
                 if (pIdentityChar) {
                     String deviceUID = readCharacteristicValue(pIdentityChar);
 
@@ -761,12 +808,6 @@ void connectToDevice(String address) {
                         return;
                     }
 
-                    // FIX (Unique Device ID pairing): resolve which paired
-                    // device this is primarily by its stable Device ID, not
-                    // by MAC. Fall back to a MAC match only for
-                    // backward-compatibility with entries added manually
-                    // (e.g. via the "add" serial command) before their real
-                    // Device ID was ever learned.
                     PairedDevice* paired = deviceDB.getDeviceByUID(deviceUID);
                     if (!paired) {
                         paired = deviceDB.getDeviceByAddress(address);
@@ -780,9 +821,6 @@ void connectToDevice(String address) {
                         return;
                     }
 
-                    // Self-heal: keep the stored record's MAC and Device ID
-                    // in sync with what we just observed, so future scans
-                    // and reconnects work even if the BLE address rotated.
                     bool recordChanged = false;
                     if (paired->address != address) {
                         Serial.println("🔄 MAC address changed for '" + paired->name +
@@ -805,7 +843,7 @@ void connectToDevice(String address) {
                                     " (ID: " + paired->uniqueID + ")");
                 }
 
-                pChar = pService->getCharacteristic(CHARACTERISTIC_UUID);
+                pChar = pService->getCharacteristic(WRIST_CHARACTERISTIC_UUID);
                 if (pChar) {
                     Serial.println("✅ Characteristic found");
 
@@ -823,7 +861,8 @@ void connectToDevice(String address) {
                         deviceDB.updateConnection(address, 0);
 
                         Serial.println("========================================");
-                        Serial.println("✅ SUCCESSFULLY CONNECTED!");
+                        Serial.println("✅ SUCCESSFULLY CONNECTED! (client-side link verified)");
+                        Serial.println("   Waiting for wrist band to complete reverse link...");
                         Serial.println("========================================");
                         return;
                     }
@@ -872,11 +911,6 @@ void continuousScan() {
                 return;
             }
 
-            // FIX: reuse a single ScanCallbacks instance instead of `new`-ing
-            // a fresh one on every loop() call. This was the main cause of
-            // the unbounded heap leak / crash-reset loop: this function runs
-            // constantly while idle-scanning (i.e. most of the time), so the
-            // old code leaked one ScanCallbacks object per loop iteration.
             if (scanCallbacksInstance == nullptr) {
                 scanCallbacksInstance = new ScanCallbacks();
                 pScan->setAdvertisedDeviceCallbacks(scanCallbacksInstance, false);
@@ -991,10 +1025,14 @@ void printStatus() {
     if (millis() - lastStatusTime > 10000) {
         Serial.println("========================================");
         Serial.println("📊 SYSTEM STATUS");
-        Serial.print("🔗 Connected: ");
+        Serial.print("🔗 Connected (client -> wrist server): ");
         Serial.println(connected ? "YES" : "NO");
         Serial.print("🔄 Connecting: ");
         Serial.println(connecting ? "YES" : "NO");
+        Serial.print("🔁 Reverse link (wrist -> our server): ");
+        Serial.println(wristCentralConnected ? (serverLinkVerified ? "VERIFIED" : "CONNECTED (unverified)") : "NOT CONNECTED");
+        Serial.print("🤝 Mutual Pairing: ");
+        Serial.println(mutualPairingConfirmed() ? "CONFIRMED - data accepted" : "WAITING");
         Serial.print("📊 Data Received: ");
         Serial.println(dataReceived ? "YES" : "NO");
         Serial.print("📱 Paired Devices: ");
@@ -1027,7 +1065,7 @@ void addDemoDevices() {
     PairedDevice device1;
     device1.address = "AA:BB:CC:DD:EE:01";
     device1.name = "SilverCare_Wrist_01";
-    device1.uniqueID = "UID_001";
+    device1.uniqueID = "SCW_001";
     device1.priority = 10;
     device1.autoConnect = true;
     device1.connectionCount = 0;
@@ -1039,7 +1077,7 @@ void addDemoDevices() {
     PairedDevice device2;
     device2.address = "AA:BB:CC:DD:EE:02";
     device2.name = "SilverCare_Wrist_02";
-    device2.uniqueID = "UID_002";
+    device2.uniqueID = "SCW_002";
     device2.priority = 8;
     device2.autoConnect = true;
     device2.connectionCount = 0;
@@ -1047,18 +1085,6 @@ void addDemoDevices() {
     device2.lastSeen = 0;
     device2.lastConnected = 0;
     deviceDB.addDevice(device2);
-
-    PairedDevice device3;
-    device3.address = "AA:BB:CC:DD:EE:03";
-    device3.name = "SilverCare_Wrist_03";
-    device3.uniqueID = "UID_003";
-    device3.priority = 5;
-    device3.autoConnect = false;
-    device3.connectionCount = 0;
-    device3.password = "SC2024_003";
-    device3.lastSeen = 0;
-    device3.lastConnected = 0;
-    deviceDB.addDevice(device3);
 }
 
 // ============================================================
@@ -1158,6 +1184,12 @@ void processSerialCommand() {
     else if (command == "memory") {
         printMemoryInfo();
     }
+    else if (command == "pairstatus") {
+        Serial.println("🤝 Mutual pairing: " + String(mutualPairingConfirmed() ? "CONFIRMED" : "NOT YET"));
+        Serial.println("   Client link (us -> wrist): " + String(connected ? "UP" : "DOWN"));
+        Serial.println("   Server link (wrist -> us): " + String(serverLinkVerified ? "VERIFIED" : "NOT VERIFIED"));
+        Serial.println("   Our Device ID: " + myUniqueID);
+    }
     else if (command == "help") {
         Serial.println("========================================");
         Serial.println("📖 COMMANDS");
@@ -1170,6 +1202,7 @@ void processSerialCommand() {
         Serial.println("remove <MAC>            - Remove device");
         Serial.println("priority <MAC> <num>    - Set device priority (0-10)");
         Serial.println("memory                  - Show memory info");
+        Serial.println("pairstatus              - Show mutual pairing status");
         Serial.println("help                    - Show this help");
         Serial.println("========================================");
     }
@@ -1179,51 +1212,31 @@ void processSerialCommand() {
 //  SETUP
 // ============================================================
 void setup() {
-    // ====== INCREASE SERIAL BUFFER ======
     Serial.setRxBufferSize(SERIAL_RX_BUFFER_SIZE);
     Serial.setTxBufferSize(SERIAL_TX_BUFFER_SIZE);
     Serial.begin(115200);
 
-    // ====== WAIT FOR POWER TO STABILIZE ======
     delay(3000);
 
     Serial.println();
     Serial.println("========================================");
-    Serial.println("=== SILVERCARE WAIST BELT BLE CLIENT ===");
-    Serial.println("=== (Arduino IDE - FIXED VERSION) ===");
+    Serial.println("=== SILVERCARE WAIST BELT BLE CLIENT+SERVER ===");
+    Serial.println("=== (MUTUAL PAIRING VERSION) ===");
     Serial.println("========================================");
 
-    // ====== DISABLE WATCHDOG ======
-    // FIX: The original code called esp_task_wdt_init() to *reconfigure* the
-    // hardware Task Watchdog (TWDT) that the ESP32 Arduino core (3.x / IDF 5.x)
-    // already auto-initializes and auto-subscribes the loop task to at boot.
-    // Re-initializing it here drops that existing subscription, so the
-    // framework's internal watchdog-feed hook (and/or the BLE stack's task)
-    // keeps calling esp_task_wdt_reset() against a now-orphaned task handle,
-    // producing the repeating "esp_task_wdt_reset(): task not found" spam.
-    //
-    // Since this sketch already implements its own software watchdog
-    // (see lastLoopTime / WATCHDOG_TIMEOUT in loop()), we don't need the
-    // hardware TWDT at all - we just deinit it outright instead of
-    // reconfiguring it. This also removes the old disableCore0WDT()/
-    // disableCore1WDT() calls, which are legacy pre-IDF4 APIs that don't
-    // apply to the TWDT on newer cores and were redundant here anyway.
     esp_err_t wdtDeinitResult = esp_task_wdt_deinit();
     if (wdtDeinitResult == ESP_OK) {
-        Serial.println("🛡️ Hardware Task Watchdog: DISABLED (using software watchdog instead)");
+        Serial.println("🛡️ Hardware Task Watchdog: DISABLED");
     } else {
-        Serial.println("⚠️ Task Watchdog deinit returned non-OK (may not have been active) - continuing");
+        Serial.println("⚠️ Task Watchdog deinit returned non-OK - continuing");
     }
 
-    // ====== PRINT MEMORY INFO ======
     printMemoryInfo();
 
-    // ====== INITIALIZE ENCRYPTION (FIXED) ======
     if (!EncryptionManager::init()) {
         Serial.println("⚠️ Encryption init failed, continuing anyway...");
     }
 
-    // ====== INITIALIZE BLE WITH RETRY ======
     int bleRetries = 3;
     while (bleRetries > 0 && !bleInitialized) {
         try {
@@ -1250,25 +1263,76 @@ void setup() {
         ESP.restart();
     }
 
-    // ====== INITIALIZE DEVICE DATABASE ======
     deviceDB.init();
 
-    // ====== ADD DEMO DEVICES IF NONE EXIST ======
     if (deviceDB.getAllDevices().size() == 0) {
         addDemoDevices();
     }
 
     deviceDB.printAllDevices();
 
-    // ====== PRINT CONFIGURATION ======
+    bool idPrefsOpened = idPrefs.begin("waist_id", false);
+    if (!idPrefsOpened) {
+        idPrefs.end();
+        idPrefs.begin("waist_id", true);
+        idPrefs.clear();
+        idPrefs.end();
+        idPrefsOpened = idPrefs.begin("waist_id", false);
+        Serial.println(idPrefsOpened ? "🔄 Waist ID preferences reset" : "❌ Waist ID preferences still unavailable");
+    }
+    myUniqueID = idPrefs.getString("unique_id", "");
+    if (myUniqueID.length() == 0) {
+        myUniqueID = "SCB_" + String(millis(), HEX);
+        idPrefs.putString("unique_id", myUniqueID);
+    }
+    idPrefs.end();
+    Serial.println("🆔 Waist Belt Device ID: " + myUniqueID);
+
+    // START OUR OWN GATT SERVER
+    try {
+        pWaistServer = BLEDevice::createServer();
+        pWaistServer->setCallbacks(new WaistServerCallbacks());
+
+        pWaistService = pWaistServer->createService(WAIST_SERVICE_UUID);
+
+        pWaistIdentityChar = pWaistService->createCharacteristic(
+            WAIST_IDENTITY_UUID,
+            BLECharacteristic::PROPERTY_READ
+        );
+        pWaistIdentityChar->setValue(myUniqueID.c_str());
+
+        pWaistPairChar = pWaistService->createCharacteristic(
+            WAIST_PAIR_UUID,
+            BLECharacteristic::PROPERTY_READ |
+            BLECharacteristic::PROPERTY_WRITE |
+            BLECharacteristic::PROPERTY_NOTIFY
+        );
+        pWaistPairChar->setCallbacks(new WaistPairCharCallbacks());
+        pWaistPairChar->addDescriptor(new BLE2902());
+
+        pWaistService->start();
+
+        pWaistAdvertising = BLEDevice::getAdvertising();
+        pWaistAdvertising->addServiceUUID(WAIST_SERVICE_UUID);
+        pWaistAdvertising->setScanResponse(true);
+
+        BLEAdvertisementData waistAdvData;
+        waistAdvData.setName(WAIST_NAME);
+        pWaistAdvertising->setAdvertisementData(waistAdvData);
+
+        pWaistAdvertising->start();
+        Serial.println("📡 Waist Belt now advertising as: " + String(WAIST_NAME));
+    } catch (...) {
+        Serial.println("❌ Failed to start Waist Belt's own GATT server/advertising");
+    }
+
     Serial.println("========================================");
-    Serial.println("🔐 AES-256-GCM Encryption: ENABLED (FIXED)");
+    Serial.println("🔐 AES-256-GCM Encryption: ENABLED");
     Serial.println("⏱️ Connection Timeout: 1 MINUTE");
-    Serial.println("⏱️ Data Reception Timeout: 1 MINUTE");
     Serial.println("🔄 Continuous Scanning: ENABLED");
+    Serial.println("📡 Own Advertising (reverse link): ENABLED");
+    Serial.println("🤝 Mutual Pairing Required Before Data Accepted: YES");
     Serial.println("📚 Multi-Device Support: ENABLED");
-    Serial.println("📊 Serial Buffer: " + String(SERIAL_RX_BUFFER_SIZE) + " bytes");
-    Serial.println("📊 BLE MTU: " + String(BLE_MTU_SIZE) + " bytes");
     Serial.println("========================================");
     Serial.println("💡 Type 'help' for commands");
     Serial.println("🔄 Starting continuous scan...");
@@ -1281,7 +1345,6 @@ void setup() {
 //  LOOP
 // ============================================================
 void loop() {
-    // ====== WATCHDOG RESET PROTECTION ======
     unsigned long currentTime = millis();
     if (currentTime - lastLoopTime > WATCHDOG_TIMEOUT) {
         Serial.println("⚠️ Loop timeout detected! Resetting...");
@@ -1291,22 +1354,17 @@ void loop() {
     }
     lastLoopTime = currentTime;
 
-    // ====== PROCESS SERIAL COMMANDS ======
     processSerialCommand();
 
-    // ====== CONTINUOUS SCANNING (NO GAPS) ======
     if (!connected && !connecting && bleInitialized) {
         continuousScan();
     }
 
-    // ====== MANAGE TIMEOUTS ======
     manageConnectionTimeout();
     manageDataReception();
     autoReconnect();
 
-    // ====== STATUS REPORTING ======
     printStatus();
 
-    // ====== SMALL DELAY TO PREVENT WATCHDOG ======
     delay(50);
 }
