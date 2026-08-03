@@ -1,14 +1,26 @@
 // ============================================================
+//  CRITICAL FIXES FOR ARDUINO IDE - MUST BE FIRST
+// ============================================================
+#define ESP_TASK_BT_BT_STACK_SIZE 10240
+#define ESP_TASK_BT_GATTS_STACK_SIZE 10240
+#define ESP_TASK_BT_GATTC_STACK_SIZE 10240
+#define ESP_TASK_BT_BLE_STACK_SIZE 10240
+
+// ============================================================
 //  INCLUDES
 // ============================================================
-#include <NimBLEDevice.h>
-#include <NimBLEClient.h>
-#include <NimBLEServer.h>
-#include <NimBLEUtils.h>
-#include <NimBLEScan.h>
+#include <BLEDevice.h>
+#include <BLEClient.h>
+#include <BLEServer.h>
+#include <BLE2902.h>
+#include <BLEUtils.h>
+#include <BLEScan.h>
+#include <BLEAdvertisedDevice.h>
 #include <Preferences.h>
 #include <vector>
 #include <algorithm>
+#include <mbedtls/aes.h>
+#include <mbedtls/gcm.h>
 #include <esp_heap_caps.h>
 #include <esp_task_wdt.h>
 #include <esp_system.h>
@@ -19,6 +31,8 @@
 #define SERIAL_RX_BUFFER_SIZE 4096
 #define SERIAL_TX_BUFFER_SIZE 4096
 #define BLE_MTU_SIZE 247
+#define SCAN_BUFFER_SIZE 1024
+#define ENCRYPTION_BUFFER_SIZE 1024
 
 // ============================================================
 //  CONFIGURATION - WRIST BAND (the device we connect TO)
@@ -48,8 +62,8 @@ static const uint8_t ENCRYPTION_IV[12] = {
 // ============================================================
 const unsigned long CONNECTION_TIMEOUT = 60000;
 const unsigned long DATA_RETRY_TIMEOUT = 60000;
-const unsigned long SCAN_INTERVAL = 3;
-const unsigned long RECONNECT_DELAY = 5000;
+const unsigned long SCAN_INTERVAL = 5;
+const unsigned long RECONNECT_DELAY = 30000;
 const unsigned long WATCHDOG_TIMEOUT = 5000;
 
 // ============================================================
@@ -111,6 +125,7 @@ struct PairedDevice {
         }
         device.isActive = false;
         device.avgRSSI = 0;
+
         return device;
     }
 };
@@ -140,6 +155,7 @@ public:
         }
         if (plaintext.length() == 0 || plaintext.length() > 128) return "";
 
+        // Reinitialize for each operation
         mbedtls_gcm_free(&gcm_ctx);
         mbedtls_gcm_init(&gcm_ctx);
         mbedtls_gcm_setkey(&gcm_ctx, MBEDTLS_CIPHER_ID_AES, ENCRYPTION_KEY, 256);
@@ -171,6 +187,7 @@ public:
             result += String(tag[i], HEX);
             if (i < 15) result += ":";
         }
+
         return result;
     }
 
@@ -180,6 +197,7 @@ public:
         }
         if (encrypted.length() == 0) return "";
 
+        // Reinitialize for each operation
         mbedtls_gcm_free(&gcm_ctx);
         mbedtls_gcm_init(&gcm_ctx);
         mbedtls_gcm_setkey(&gcm_ctx, MBEDTLS_CIPHER_ID_AES, ENCRYPTION_KEY, 256);
@@ -231,6 +249,7 @@ public:
             Serial.println("❌ Decryption failed");
             return "";
         }
+
         return String((char*)plaintext, ciphertextLen);
     }
 };
@@ -253,6 +272,7 @@ public:
         if (initialized) return;
 
         bool opened = preferences.begin("device_db", false);
+
         if (!opened) {
             Serial.println("❌ Failed to initialize preferences");
             preferences.end();
@@ -295,6 +315,7 @@ public:
         if (!initialized) return;
         try {
             preferences.putInt("device_count", devices.size());
+
             for (size_t i = 0; i < devices.size(); i++) {
                 String key = "dev_" + String(i);
                 preferences.putString(key.c_str(), devices[i].serialize());
@@ -314,6 +335,7 @@ public:
                 return;
             }
         }
+
         if (devices.size() < MAX_DEVICES) {
             devices.push_back(device);
             saveDevices();
@@ -323,6 +345,7 @@ public:
     void removeDevice(String address) {
         auto it = std::remove_if(devices.begin(), devices.end(),
             [address](PairedDevice& d) { return d.address == address; });
+
         if (it != devices.end()) {
             devices.erase(it, devices.end());
             saveDevices();
@@ -345,6 +368,25 @@ public:
         return nullptr;
     }
 
+    std::vector<PairedDevice> getAutoConnectDevices() {
+        std::vector<PairedDevice> result;
+        for (auto& d : devices) {
+            if (d.autoConnect) result.push_back(d);
+        }
+        return result;
+    }
+
+    PairedDevice* getHighestPriorityDevice() {
+        if (devices.empty()) return nullptr;
+        PairedDevice* best = &devices[0];
+        for (auto& d : devices) {
+            if (d.priority > best->priority) {
+                best = &d;
+            }
+        }
+        return best;
+    }
+
     void updateConnection(String address, float rssi) {
         PairedDevice* device = getDeviceByAddress(address);
         if (device) {
@@ -363,8 +405,9 @@ public:
         Serial.println("========================================");
         for (size_t i = 0; i < devices.size(); i++) {
             auto& d = devices[i];
-            Serial.printf("#%d: %s | MAC: %s | Priority: %d\n",
-                i+1, d.name.c_str(), d.address.c_str(), d.priority);
+            Serial.printf("#%d: %s | MAC: %s | Priority: %d | Auto: %s | Conn: %d\n",
+                i+1, d.name.c_str(), d.address.c_str(), d.priority,
+                d.autoConnect ? "YES" : "NO", d.connectionCount);
         }
         Serial.println("========================================");
     }
@@ -376,16 +419,33 @@ public:
 void printMemoryInfo() {
     Serial.print("📊 Free Heap: ");
     Serial.print(ESP.getFreeHeap());
+    Serial.print(" bytes | Free PSRAM: ");
+    Serial.print(ESP.getFreePsram());
     Serial.println(" bytes");
 }
 
+bool hasSufficientMemory(size_t required) {
+    size_t freeHeap = ESP.getFreeHeap();
+    if (freeHeap < required + 4096) {
+        Serial.printf("⚠️ Low memory: %d bytes free, need %d\n", freeHeap, required);
+        return false;
+    }
+    return true;
+}
+
 // ============================================================
-//  BLE GLOBALS
+//  BLE GLOBALS - CLIENT SIDE
 // ============================================================
-NimBLEClient* pClient = NULL;
-NimBLERemoteCharacteristic* pChar = NULL;
-NimBLERemoteCharacteristic* pIdentityChar = NULL;
-NimBLEScan* pScan = NULL;
+BLEClient* pClient = NULL;
+BLERemoteCharacteristic* pChar = NULL;
+BLERemoteCharacteristic* pIdentityChar = NULL;
+BLEScan* pScan = NULL;
+
+// Static callback instances to prevent memory leaks
+class ScanCallbacks;
+class ClientCallbacks;
+ScanCallbacks* scanCallbacksInstance = nullptr;
+ClientCallbacks* clientCallbacksInstance = nullptr;
 
 bool connected = false;
 bool connecting = false;
@@ -396,8 +456,11 @@ String currentDeviceUID = "";
 unsigned long connectStartTime = 0;
 unsigned long dataRetryStartTime = 0;
 unsigned long lastReconnectAttempt = 0;
+unsigned long lastDataTime = 0;
 int connectAttempts = 0;
 int successfulConnects = 0;
+int dataReceptionAttempts = 0;
+int successfulDataReceptions = 0;
 unsigned long lastLoopTime = 0;
 bool bleInitialized = false;
 
@@ -409,13 +472,49 @@ DeviceDatabase deviceDB;
 void connectToDevice(String address);
 void processReceivedData(String encryptedData);
 void continuousScan();
-void deleteClient(NimBLEClient* client);
+void deleteClient(BLEClient* client);
+
+// ============================================================
+//  HELPER: DELETE CLIENT
+// ============================================================
+void deleteClient(BLEClient* client) {
+    if (client != NULL) {
+        try {
+            if (client->isConnected()) {
+                client->disconnect();
+                delay(50);
+            }
+        } catch (...) {
+            // Ignore errors during cleanup
+        }
+        try {
+            delete client;
+        } catch (...) {
+            // Ignore
+        }
+        client = NULL;
+    }
+    delay(50);
+}
+
+// ============================================================
+//  HELPER: Read characteristic value
+// ============================================================
+String readCharacteristicValue(BLERemoteCharacteristic* pChar) {
+    if (pChar == NULL) return "";
+    try {
+        auto value = pChar->readValue();
+        return String(value.c_str());
+    } catch (...) {
+        return "";
+    }
+}
 
 // ============================================================
 //  CLIENT CALLBACKS
 // ============================================================
-class ClientCallbacks : public NimBLEClientCallbacks {
-    void onConnect(NimBLEClient* pClient) {
+class ClientCallbacks : public BLEClientCallbacks {
+    void onConnect(BLEClient* pClient) {
         connected = true;
         connecting = false;
         successfulConnects++;
@@ -434,13 +533,14 @@ class ClientCallbacks : public NimBLEClientCallbacks {
         dataReceived = false;
     }
 
-    void onDisconnect(NimBLEClient* pClient, int reason) {
+    void onDisconnect(BLEClient* pClient) {
         connected = false;
         connecting = false;
 
         Serial.println("❌ [BLE] Disconnected");
         Serial.println("🔄 Will try to reconnect...");
 
+        pClient = NULL;
         pChar = NULL;
         pIdentityChar = NULL;
 
@@ -454,8 +554,10 @@ class ClientCallbacks : public NimBLEClientCallbacks {
 // ============================================================
 //  NOTIFICATION CALLBACK
 // ============================================================
-void notifyCallback(NimBLERemoteCharacteristic* pChar, uint8_t* data, size_t len, bool isNotify) {
+void notifyCallback(BLERemoteCharacteristic* pChar, uint8_t* data, size_t len, bool isNotify) {
     if (len == 0 || data == NULL || len > 1024) return;
+
+    dataReceptionAttempts++;
 
     try {
         String encryptedData;
@@ -495,8 +597,10 @@ void processReceivedData(String encryptedData) {
             long ir = decryptedData.substring(secondColon + 1, thirdColon).toFloat();
             float temp = decryptedData.substring(thirdColon + 1).toFloat();
 
+            successfulDataReceptions++;
             dataReceived = true;
             waitingForData = false;
+            lastDataTime = millis();
 
             Serial.println("========================================");
             Serial.println("✅ DATA RECEIVED SUCCESSFULLY!");
@@ -522,14 +626,14 @@ void processReceivedData(String encryptedData) {
 // ============================================================
 //  SCAN CALLBACKS
 // ============================================================
-class ScanCallbacks : public NimBLEScanCallbacks {
-    void onResult(const NimBLEAdvertisedDevice* advertisedDevice) override {
+class ScanCallbacks : public BLEAdvertisedDeviceCallbacks {
+    void onResult(BLEAdvertisedDevice advertisedDevice) {
         try {
-            String deviceName = advertisedDevice->getName().c_str();
-            String deviceAddress = advertisedDevice->getAddress().toString().c_str();
-            int rssi = advertisedDevice->getRSSI();
+            String deviceName = advertisedDevice.getName().c_str();
+            String deviceAddress = advertisedDevice.getAddress().toString().c_str();
+            int rssi = advertisedDevice.getRSSI();
 
-            if (deviceName.length() > 0) {
+            if (deviceName.length() > 0 && deviceName.length() < 64) {
                 Serial.print("📱 Found: ");
                 Serial.print(deviceName);
                 Serial.print(" @ ");
@@ -540,33 +644,10 @@ class ScanCallbacks : public NimBLEScanCallbacks {
             }
 
             if (deviceName == WRIST_NAME && !connected && !connecting) {
-                Serial.println("========================================");
-                Serial.println("🎯 FOUND WRIST BAND!");
-                Serial.println("📱 Name: " + deviceName);
-                Serial.println("📱 Address: " + deviceAddress);
-                Serial.println("========================================");
-                
+                Serial.println("📡 Found a SilverCare Wrist advertising - attempting connection");
                 if (pScan) {
                     pScan->stop();
                 }
-                
-                // Auto-add to database if not already present
-                PairedDevice* existing = deviceDB.getDeviceByAddress(deviceAddress);
-                if (!existing) {
-                    PairedDevice newDevice;
-                    newDevice.address = deviceAddress;
-                    newDevice.name = deviceName;
-                    newDevice.uniqueID = "AUTO_" + String(millis(), HEX);
-                    newDevice.priority = 10;
-                    newDevice.autoConnect = true;
-                    newDevice.connectionCount = 0;
-                    newDevice.password = "SC2024_AUTO";
-                    newDevice.lastSeen = millis();
-                    newDevice.lastConnected = 0;
-                    deviceDB.addDevice(newDevice);
-                    Serial.println("✅ Auto-added to database!");
-                }
-                
                 connectToDevice(deviceAddress);
             }
         } catch (...) {
@@ -583,13 +664,19 @@ void connectToDevice(String address) {
         return;
     }
 
+    if (!hasSufficientMemory(4096)) {
+        Serial.println("❌ Insufficient memory for connection");
+        return;
+    }
+
     connecting = true;
     connectStartTime = millis();
     connectAttempts++;
     currentDeviceAddress = address;
+    currentDeviceUID = "";
 
     Serial.println("========================================");
-    Serial.println("🔗 Connecting to: " + address);
+    Serial.println("🔗 Connecting to advertised address: " + address);
     Serial.print("🔢 Attempt #");
     Serial.println(connectAttempts);
     Serial.println("========================================");
@@ -601,29 +688,72 @@ void connectToDevice(String address) {
     }
 
     try {
-        pClient = NimBLEDevice::createClient();
+        pClient = BLEDevice::createClient();
         if (pClient == NULL) {
             Serial.println("❌ Failed to create client!");
             connecting = false;
             return;
         }
 
-        pClient->setClientCallbacks(new ClientCallbacks(), false);
+        if (clientCallbacksInstance == nullptr) {
+            clientCallbacksInstance = new ClientCallbacks();
+        }
+        pClient->setClientCallbacks(clientCallbacksInstance);
 
-        NimBLEAddress bleAddress(address.c_str());
+        BLEAddress bleAddress(address.c_str());
 
-        if (pClient->connect(bleAddress, true)) {
+        if (pClient->connect(bleAddress)) {
             Serial.println("✅ Connected! Discovering services...");
             delay(200);
 
-            NimBLERemoteService* pService = pClient->getService(SERVICE_UUID);
+            BLERemoteService* pService = pClient->getService(SERVICE_UUID);
             if (pService) {
                 Serial.println("✅ Service found");
 
                 pIdentityChar = pService->getCharacteristic(IDENTITY_UUID);
                 if (pIdentityChar) {
-                    String deviceUID = pIdentityChar->readValue().c_str();
-                    Serial.println("🆔 Device UID: " + deviceUID);
+                    String deviceUID = readCharacteristicValue(pIdentityChar);
+
+                    if (deviceUID.length() == 0) {
+                        Serial.println("❌ Could not read Device ID from identity characteristic!");
+                        pClient->disconnect();
+                        connecting = false;
+                        return;
+                    }
+
+                    PairedDevice* paired = deviceDB.getDeviceByUID(deviceUID);
+                    if (!paired) {
+                        paired = deviceDB.getDeviceByAddress(address);
+                    }
+
+                    if (!paired) {
+                        Serial.println("❌ Unknown device - Device ID '" + deviceUID +
+                                        "' is not in the paired device database. Rejecting.");
+                        pClient->disconnect();
+                        connecting = false;
+                        return;
+                    }
+
+                    bool recordChanged = false;
+                    if (paired->address != address) {
+                        Serial.println("🔄 MAC address changed for '" + paired->name +
+                                        "' (" + paired->address + " -> " + address + ") - updating record");
+                        paired->address = address;
+                        recordChanged = true;
+                    }
+                    if (paired->uniqueID != deviceUID) {
+                        paired->uniqueID = deviceUID;
+                        recordChanged = true;
+                    }
+                    if (recordChanged) {
+                        deviceDB.saveDevices();
+                    }
+
+                    currentDeviceUID = paired->uniqueID;
+                    currentDeviceAddress = paired->address;
+
+                    Serial.println("✅ Device identity verified: " + paired->name +
+                                    " (ID: " + paired->uniqueID + ")");
                 }
 
                 pChar = pService->getCharacteristic(CHARACTERISTIC_UUID);
@@ -631,15 +761,20 @@ void connectToDevice(String address) {
                     Serial.println("✅ Characteristic found");
 
                     if (pChar->canNotify()) {
-                        pChar->subscribe(true, notifyCallback);
+                        pChar->registerForNotify(notifyCallback);
                         Serial.println("✅ Subscribed to notifications");
+
+                        String value = readCharacteristicValue(pChar);
+                        if (value.length() > 0) {
+                            notifyCallback(pChar, (uint8_t*)value.c_str(), value.length(), false);
+                        }
 
                         connected = true;
                         connecting = false;
                         deviceDB.updateConnection(address, 0);
 
                         Serial.println("========================================");
-                        Serial.println("✅ SUCCESSFULLY CONNECTED TO WRIST BAND!");
+                        Serial.println("✅ SUCCESSFULLY CONNECTED!");
                         Serial.println("========================================");
                         return;
                     }
@@ -648,9 +783,13 @@ void connectToDevice(String address) {
 
             Serial.println("❌ Failed to discover services");
             pClient->disconnect();
+            deleteClient(pClient);
+            pClient = NULL;
             connecting = false;
         } else {
             Serial.println("❌ Connection failed");
+            deleteClient(pClient);
+            pClient = NULL;
             connecting = false;
         }
     } catch (const std::exception& e) {
@@ -671,42 +810,26 @@ void connectToDevice(String address) {
 }
 
 // ============================================================
-//  DELETE CLIENT
-// ============================================================
-void deleteClient(NimBLEClient* client) {
-    if (client != NULL) {
-        try {
-            if (client->isConnected()) {
-                client->disconnect();
-                delay(50);
-            }
-        } catch (...) {}
-        try {
-            delete client;
-        } catch (...) {}
-        client = NULL;
-    }
-    delay(50);
-}
-
-// ============================================================
 //  CONTINUOUS SCANNING
 // ============================================================
 void continuousScan() {
     if (!connected && !connecting) {
         try {
             if (pScan == NULL) {
-                pScan = NimBLEDevice::getScan();
+                pScan = BLEDevice::getScan();
             }
             if (pScan == NULL) {
                 Serial.println("❌ Failed to create scanner!");
                 return;
             }
 
-            pScan->setScanCallbacks(new ScanCallbacks(), false);
-            pScan->setActiveScan(true);
-            pScan->setInterval(100);
-            pScan->setWindow(50);
+            if (scanCallbacksInstance == nullptr) {
+                scanCallbacksInstance = new ScanCallbacks();
+                pScan->setAdvertisedDeviceCallbacks(scanCallbacksInstance, false);
+                pScan->setActiveScan(true);
+                pScan->setInterval(100);
+                pScan->setWindow(50);
+            }
 
             pScan->start(SCAN_INTERVAL, false);
         } catch (...) {
@@ -717,13 +840,89 @@ void continuousScan() {
 }
 
 // ============================================================
+//  MANAGE DATA RECEPTION
+// ============================================================
+void manageDataReception() {
+    if (connected && waitingForData && !dataReceived) {
+        unsigned long elapsed = millis() - dataRetryStartTime;
+
+        if (elapsed > DATA_RETRY_TIMEOUT) {
+            Serial.println("⏰ DATA RECEPTION TIMEOUT (1 minute)");
+            Serial.println("🔄 Re-requesting data...");
+
+            if (pChar) {
+                try {
+                    String value = readCharacteristicValue(pChar);
+                    if (value.length() > 0) {
+                        notifyCallback(pChar, (uint8_t*)value.c_str(), value.length(), false);
+                    }
+                } catch (...) {
+                    Serial.println("❌ Error reading data");
+                }
+
+                dataRetryStartTime = millis();
+            } else {
+                Serial.println("❌ Characteristic lost! Reconnecting...");
+                if (pClient) {
+                    pClient->disconnect();
+                }
+                connected = false;
+                waitingForData = false;
+            }
+        }
+    }
+}
+
+// ============================================================
+//  MANAGE CONNECTION TIMEOUT
+// ============================================================
+void manageConnectionTimeout() {
+    if (connecting) {
+        unsigned long elapsed = millis() - connectStartTime;
+
+        if (elapsed > CONNECTION_TIMEOUT) {
+            Serial.println("========================================");
+            Serial.println("⏰ CONNECTION TIMEOUT (1 minute)");
+            Serial.print("📊 Attempts: ");
+            Serial.println(connectAttempts);
+            Serial.println("🔄 Retrying...");
+            Serial.println("========================================");
+
+            if (pClient) {
+                try {
+                    pClient->disconnect();
+                } catch (...) {}
+                deleteClient(pClient);
+                pClient = NULL;
+            }
+            connecting = false;
+            pChar = NULL;
+            pIdentityChar = NULL;
+        }
+    }
+}
+
+// ============================================================
 //  AUTO RECONNECT
 // ============================================================
 void autoReconnect() {
     if (!connected && !connecting) {
         unsigned long now = millis();
+
         if (now - lastReconnectAttempt > RECONNECT_DELAY) {
-            Serial.println("🔄 Scanning for wrist band...");
+            Serial.println("🔄 Attempting to reconnect...");
+
+            std::vector<PairedDevice> autoDevices = deviceDB.getAutoConnectDevices();
+
+            if (autoDevices.size() > 0) {
+                for (auto& device : autoDevices) {
+                    if (device.address != currentDeviceAddress) {
+                        connectToDevice(device.address);
+                        if (connecting) break;
+                    }
+                }
+            }
+
             lastReconnectAttempt = now;
         }
     }
@@ -750,6 +949,10 @@ void printStatus() {
         Serial.println(connectAttempts);
         Serial.print("✅ Successful Connects: ");
         Serial.println(successfulConnects);
+        Serial.print("📥 Data Attempts: ");
+        Serial.println(dataReceptionAttempts);
+        Serial.print("📤 Successful Data: ");
+        Serial.println(successfulDataReceptions);
         printMemoryInfo();
 
         if (connected && pClient) {
@@ -759,6 +962,37 @@ void printStatus() {
         Serial.println("========================================");
         lastStatusTime = millis();
     }
+}
+
+// ============================================================
+//  ADD DEMO DEVICES
+// ============================================================
+void addDemoDevices() {
+    Serial.println("📝 Adding demo devices...");
+
+    PairedDevice device1;
+    device1.address = "AA:BB:CC:DD:EE:01";
+    device1.name = "SilverCare_Wrist_01";
+    device1.uniqueID = "SCW_001";
+    device1.priority = 10;
+    device1.autoConnect = true;
+    device1.connectionCount = 0;
+    device1.password = "SC2024_001";
+    device1.lastSeen = 0;
+    device1.lastConnected = 0;
+    deviceDB.addDevice(device1);
+
+    PairedDevice device2;
+    device2.address = "AA:BB:CC:DD:EE:02";
+    device2.name = "SilverCare_Wrist_02";
+    device2.uniqueID = "SCW_002";
+    device2.priority = 8;
+    device2.autoConnect = true;
+    device2.connectionCount = 0;
+    device2.password = "SC2024_002";
+    device2.lastSeen = 0;
+    device2.lastConnected = 0;
+    deviceDB.addDevice(device2);
 }
 
 // ============================================================
@@ -773,13 +1007,12 @@ void processSerialCommand() {
     if (command == "list") {
         deviceDB.printAllDevices();
     }
-    else if (command == "scan") {
-        if (pScan) {
-            pScan->stop();
-            delay(100);
-            pScan->start(SCAN_INTERVAL, false);
-            Serial.println("🔄 Scanning started...");
-        }
+    else if (command == "connect") {
+        autoReconnect();
+    }
+    else if (command.startsWith("connect ")) {
+        String address = command.substring(8);
+        connectToDevice(address);
     }
     else if (command == "disconnect") {
         if (pClient) {
@@ -789,22 +1022,89 @@ void processSerialCommand() {
         connecting = false;
         Serial.println("🔌 Disconnected");
     }
-    else if (command == "clear") {
-        auto devices = deviceDB.getAllDevices();
-        for (auto& d : devices) {
-            deviceDB.removeDevice(d.address);
+    else if (command.startsWith("add ")) {
+        String data = command.substring(4);
+        PairedDevice device;
+
+        int macStart = data.indexOf("MAC:") + 4;
+        int macEnd = data.indexOf(',', macStart);
+        if (macStart > 4 && macEnd > macStart) {
+            device.address = data.substring(macStart, macEnd);
         }
-        Serial.println("🗑️ All devices cleared");
+
+        int nameStart = data.indexOf("Name:") + 5;
+        int nameEnd = data.indexOf(',', nameStart);
+        if (nameStart > 5 && nameEnd > nameStart) {
+            device.name = data.substring(nameStart, nameEnd);
+        }
+
+        int uidStart = data.indexOf("UID:") + 4;
+        int uidEnd = data.indexOf(',', uidStart);
+        if (uidStart > 4 && uidEnd > uidStart) {
+            device.uniqueID = data.substring(uidStart, uidEnd);
+        }
+
+        int priorityStart = data.indexOf("Priority:") + 9;
+        if (priorityStart > 9) {
+            int priorityEnd = data.indexOf(',', priorityStart);
+            if (priorityEnd == -1) priorityEnd = data.length();
+            device.priority = data.substring(priorityStart, priorityEnd).toInt();
+        } else {
+            device.priority = 5;
+        }
+
+        device.autoConnect = true;
+        device.connectionCount = 0;
+        device.password = "SC2024_" + device.uniqueID;
+        device.lastSeen = 0;
+        device.lastConnected = 0;
+
+        if (device.address.length() > 0 && device.uniqueID.length() > 0) {
+            deviceDB.addDevice(device);
+            Serial.println("✅ Device added successfully!");
+        } else {
+            Serial.println("❌ Invalid device data!");
+        }
+    }
+    else if (command.startsWith("remove ")) {
+        String address = command.substring(7);
+        deviceDB.removeDevice(address);
+        if (currentDeviceAddress == address) {
+            connected = false;
+            connecting = false;
+            if (pClient) {
+                pClient->disconnect();
+            }
+        }
+    }
+    else if (command.startsWith("priority ")) {
+        String address = command.substring(9, command.indexOf(' ', 9));
+        int priority = command.substring(command.lastIndexOf(' ') + 1).toInt();
+        PairedDevice* device = deviceDB.getDeviceByAddress(address);
+        if (device) {
+            device->priority = priority;
+            deviceDB.saveDevices();
+            Serial.println("✅ Priority updated to " + String(priority));
+        } else {
+            Serial.println("❌ Device not found");
+        }
+    }
+    else if (command == "memory") {
+        printMemoryInfo();
     }
     else if (command == "help") {
         Serial.println("========================================");
         Serial.println("📖 COMMANDS");
         Serial.println("========================================");
-        Serial.println("list       - List all paired devices");
-        Serial.println("scan       - Force a BLE scan");
-        Serial.println("disconnect - Disconnect current device");
-        Serial.println("clear      - Clear all paired devices");
-        Serial.println("help       - Show this help");
+        Serial.println("list                    - List all paired devices");
+        Serial.println("connect                 - Auto-connect to best device");
+        Serial.println("connect <MAC>           - Connect to specific device");
+        Serial.println("disconnect              - Disconnect current device");
+        Serial.println("add MAC:XX,Name:YY,...  - Add new device");
+        Serial.println("remove <MAC>            - Remove device");
+        Serial.println("priority <MAC> <num>    - Set device priority (0-10)");
+        Serial.println("memory                  - Show memory info");
+        Serial.println("help                    - Show this help");
         Serial.println("========================================");
     }
 }
@@ -816,34 +1116,39 @@ void setup() {
     Serial.setRxBufferSize(SERIAL_RX_BUFFER_SIZE);
     Serial.setTxBufferSize(SERIAL_TX_BUFFER_SIZE);
     Serial.begin(115200);
+
     delay(3000);
 
     Serial.println();
     Serial.println("========================================");
-    Serial.println("=== SILVERCARE WAIST BELT ===");
+    Serial.println("=== SILVERCARE WAIST BELT BLE CLIENT ===");
     Serial.println("========================================");
 
-    // Disable watchdog
-    esp_task_wdt_deinit();
+    esp_err_t wdtDeinitResult = esp_task_wdt_deinit();
+    if (wdtDeinitResult == ESP_OK) {
+        Serial.println("🛡️ Hardware Task Watchdog: DISABLED");
+    } else {
+        Serial.println("⚠️ Task Watchdog deinit returned non-OK - continuing");
+    }
 
     printMemoryInfo();
 
-    // Initialize encryption
     if (!EncryptionManager::init()) {
         Serial.println("⚠️ Encryption init failed, continuing anyway...");
     }
 
-    // Initialize BLE
     int bleRetries = 3;
     while (bleRetries > 0 && !bleInitialized) {
         try {
-            NimBLEDevice::init("");
-            NimBLEDevice::setMTU(BLE_MTU_SIZE);
-            NimBLEDevice::setPower(ESP_PWR_LVL_P9);
+            BLEDevice::init("");
+            BLEDevice::setMTU(BLE_MTU_SIZE);
+            BLEDevice::setPower(ESP_PWR_LVL_P9);
 
             bleInitialized = true;
             Serial.print("📱 Waist MAC: ");
-            Serial.println(NimBLEDevice::getAddress().toString().c_str());
+            Serial.println(BLEDevice::getAddress().toString().c_str());
+            Serial.print("📊 BLE MTU: ");
+            Serial.println(BLE_MTU_SIZE);
             break;
         } catch (...) {
             Serial.printf("❌ BLE init attempt %d failed\n", 4 - bleRetries);
@@ -858,15 +1163,22 @@ void setup() {
         ESP.restart();
     }
 
-    // Initialize device database
     deviceDB.init();
 
+    if (deviceDB.getAllDevices().size() == 0) {
+        addDemoDevices();
+    }
+
+    deviceDB.printAllDevices();
+
     Serial.println("========================================");
-    Serial.println("🔍 Scanning for: " + String(WRIST_NAME));
-    Serial.println("📱 Device Name: " + String(WRIST_NAME));
+    Serial.println("🔐 AES-256-GCM Encryption: ENABLED");
+    Serial.println("⏱️ Connection Timeout: 1 MINUTE");
+    Serial.println("🔄 Continuous Scanning: ENABLED");
+    Serial.println("📚 Multi-Device Support: ENABLED");
     Serial.println("========================================");
     Serial.println("💡 Type 'help' for commands");
-    Serial.println("🔍 Scanning for wrist band...");
+    Serial.println("🔄 Starting continuous scan...");
     Serial.println("========================================");
 
     lastReconnectAttempt = millis() - RECONNECT_DELAY;
@@ -891,7 +1203,10 @@ void loop() {
         continuousScan();
     }
 
+    manageConnectionTimeout();
+    manageDataReception();
     autoReconnect();
+
     printStatus();
 
     delay(50);
