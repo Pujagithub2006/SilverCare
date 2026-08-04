@@ -1,5 +1,5 @@
 // ============================================================
-//  CRITICAL FIXES FOR ARDUINO IDE - MUST BE FIRST
+//  RECOMMIT - CRITICAL FIXES FOR ARDUINO IDE - MUST BE FIRST
 // ============================================================
 #define ESP_TASK_BT_BT_STACK_SIZE 10240
 #define ESP_TASK_BT_GATTS_STACK_SIZE 10240
