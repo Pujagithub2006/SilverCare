@@ -16,7 +16,7 @@ import java.util.stream.Collectors;
 @Service
 public class ChatbotService {
 
-    @Value("${google.ai.api.key:YOUR_GEMINI_API_KEY}")
+    @Value("${google.ai.api.key:}")
     private String apiKey;
 
     @Value("${groq.api.key:}")
@@ -80,7 +80,7 @@ public class ChatbotService {
         }
 
         // 3. Try Google Gemini Generative AI API (gemini-2.0-flash / gemini-1.5-flash) if key valid
-        if (botReply == null && apiKey != null && !apiKey.isEmpty() && !apiKey.startsWith("YOUR_") && !apiKey.equals("YOUR_GEMINI_API_KEY")) {
+        if (botReply == null && apiKey != null && !apiKey.isEmpty() && !apiKey.startsWith("YOUR_")) {
             botReply = queryGeminiApi(apiKey, systemPrompt, msg, history);
         }
 

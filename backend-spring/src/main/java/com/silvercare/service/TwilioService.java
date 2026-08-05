@@ -13,16 +13,16 @@ import jakarta.annotation.PostConstruct;
 @Service
 public class TwilioService {
 
-    @Value("${twilio.account.sid:YOUR_TWILIO_ACCOUNT_SID}")
+    @Value("${twilio.account.sid:}")
     private String accountSid;
 
-    @Value("${twilio.auth.token:YOUR_TWILIO_AUTH_TOKEN}")
+    @Value("${twilio.auth.token:}")
     private String authToken;
 
-    @Value("${twilio.phone.number:YOUR_TWILIO_PHONE_NUMBER}")
+    @Value("${twilio.phone.number:}")
     private String fromPhone;
 
-    @Value("${twilio.enabled:true}")
+    @Value("${twilio.enabled:false}")
     private boolean twilioEnabled;
 
     @PostConstruct
