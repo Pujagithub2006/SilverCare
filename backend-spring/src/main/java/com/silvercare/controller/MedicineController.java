@@ -65,8 +65,8 @@ public class MedicineController {
 
     @GetMapping("/medicines/{elderlyId}")
     public ResponseEntity<Map<String, Object>> getMedicines(@PathVariable String elderlyId) {
-        List<Medicine> activeList = medicineService.getActiveMedicines(elderlyId);
-        return ResponseEntity.ok(Map.of("medicines", activeList));
+        List<Medicine> list = medicineService.getAllMedicines(elderlyId);
+        return ResponseEntity.ok(Map.of("medicines", list));
     }
 
     @PostMapping("/medicine/confirm")

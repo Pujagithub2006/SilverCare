@@ -42,8 +42,13 @@ export const fetchSensorData = async () => {
     const response = await api.get('/api/sensor-data');
     return response.data;
   } catch (error) {
-    const legacy = await axios.get(`${LEGACY_API_BASE}/api/sensor-data`);
-    return legacy.data;
+    if (error.response && error.response.data) return error.response.data;
+    try {
+      const legacy = await axios.get(`${LEGACY_API_BASE}/api/sensor-data`);
+      return legacy.data;
+    } catch (e) {
+      return { status: 'error', message: 'Sensor data unavailable' };
+    }
   }
 };
 
@@ -52,8 +57,13 @@ export const fetchDeviceStatus = async () => {
     const response = await api.get('/api/device-status');
     return response.data;
   } catch (error) {
-    const legacy = await axios.get(`${LEGACY_API_BASE}/api/device-status`);
-    return legacy.data;
+    if (error.response && error.response.data) return error.response.data;
+    try {
+      const legacy = await axios.get(`${LEGACY_API_BASE}/api/device-status`);
+      return legacy.data;
+    } catch (e) {
+      return { status: 'error', message: 'Device status unavailable' };
+    }
   }
 };
 
@@ -66,12 +76,17 @@ export const acknowledgeAlert = async (alertId, guardianUsername, responseMessag
     });
     return response.data;
   } catch (error) {
-    const legacy = await axios.post(`${LEGACY_API_BASE}/api/alerts/acknowledge`, {
-      alertId,
-      guardianUsername,
-      responseMessage,
-    });
-    return legacy.data;
+    if (error.response && error.response.data) return error.response.data;
+    try {
+      const legacy = await axios.post(`${LEGACY_API_BASE}/api/alerts/acknowledge`, {
+        alertId,
+        guardianUsername,
+        responseMessage,
+      });
+      return legacy.data;
+    } catch (e) {
+      return { status: 'error', message: 'Acknowledge failed' };
+    }
   }
 };
 
@@ -80,8 +95,13 @@ export const fetchActiveAlerts = async (elderlyId) => {
     const response = await api.get(`/api/alerts/active/${elderlyId}`);
     return response.data;
   } catch (error) {
-    const legacy = await axios.get(`${LEGACY_API_BASE}/api/alerts/active/${elderlyId}`);
-    return legacy.data;
+    if (error.response && error.response.data) return error.response.data;
+    try {
+      const legacy = await axios.get(`${LEGACY_API_BASE}/api/alerts/active/${elderlyId}`);
+      return legacy.data;
+    } catch (e) {
+      return { status: 'error', alerts: [] };
+    }
   }
 };
 
@@ -95,13 +115,18 @@ export const uploadVoiceMessage = async (elderlyId, deviceId, audioData, trigger
     });
     return response.data;
   } catch (error) {
-    const legacy = await axios.post(`${LEGACY_API_BASE}/api/alerts/voice-message`, {
-      elderlyId,
-      deviceId,
-      audioData,
-      triggerEvent,
-    });
-    return legacy.data;
+    if (error.response && error.response.data) return error.response.data;
+    try {
+      const legacy = await axios.post(`${LEGACY_API_BASE}/api/alerts/voice-message`, {
+        elderlyId,
+        deviceId,
+        audioData,
+        triggerEvent,
+      });
+      return legacy.data;
+    } catch (e) {
+      return { status: 'error', message: 'Voice upload failed' };
+    }
   }
 };
 
@@ -110,8 +135,13 @@ export const fetchFirebaseRecords = async () => {
     const response = await api.get('/api/alerts/firebase-encrypted-storage');
     return response.data;
   } catch (error) {
-    const legacy = await axios.get(`${LEGACY_API_BASE}/api/alerts/firebase-encrypted-storage`);
-    return legacy.data;
+    if (error.response && error.response.data) return error.response.data;
+    try {
+      const legacy = await axios.get(`${LEGACY_API_BASE}/api/alerts/firebase-encrypted-storage`);
+      return legacy.data;
+    } catch (e) {
+      return { status: 'error', records: [] };
+    }
   }
 };
 
@@ -156,8 +186,13 @@ export const registerElderlySession = async (elderlyId, deviceInfo) => {
     const response = await api.post('/elderly/register-session', { elderly_id: elderlyId, device_info: deviceInfo });
     return response.data;
   } catch (error) {
-    const legacyResponse = await axios.post(`${LEGACY_API_BASE}/elderly/register-session`, { elderly_id: elderlyId, device_info: deviceInfo });
-    return legacyResponse.data;
+    if (error.response && error.response.data) return error.response.data;
+    try {
+      const legacyResponse = await axios.post(`${LEGACY_API_BASE}/elderly/register-session`, { elderly_id: elderlyId, device_info: deviceInfo });
+      return legacyResponse.data;
+    } catch (e) {
+      return { status: 'error' };
+    }
   }
 };
 
@@ -166,8 +201,13 @@ export const unregisterElderlySession = async (elderlyId) => {
     const response = await api.post('/elderly/unregister-session', { elderly_id: elderlyId });
     return response.data;
   } catch (error) {
-    const legacyResponse = await axios.post(`${LEGACY_API_BASE}/elderly/unregister-session`, { elderly_id: elderlyId });
-    return legacyResponse.data;
+    if (error.response && error.response.data) return error.response.data;
+    try {
+      const legacyResponse = await axios.post(`${LEGACY_API_BASE}/elderly/unregister-session`, { elderly_id: elderlyId });
+      return legacyResponse.data;
+    } catch (e) {
+      return { status: 'error' };
+    }
   }
 };
 
@@ -176,8 +216,13 @@ export const getElderlyNotifications = async (elderlyId) => {
     const response = await api.get(`/elderly/notifications/${elderlyId}`);
     return response.data;
   } catch (error) {
-    const legacyResponse = await axios.get(`${LEGACY_API_BASE}/elderly/notifications/${elderlyId}`);
-    return legacyResponse.data;
+    if (error.response && error.response.data) return error.response.data;
+    try {
+      const legacyResponse = await axios.get(`${LEGACY_API_BASE}/elderly/notifications/${elderlyId}`);
+      return legacyResponse.data;
+    } catch (e) {
+      return { status: 'error', notifications: [] };
+    }
   }
 };
 
@@ -186,8 +231,13 @@ export const clearElderlyNotification = async (elderlyId, medicineId, response) 
     const apiResponse = await api.post('/elderly/clear-notification', { elderly_id: elderlyId, medicine_id: medicineId, response });
     return apiResponse.data;
   } catch (error) {
-    const legacyResponse = await axios.post(`${LEGACY_API_BASE}/elderly/clear-notification`, { elderly_id: elderlyId, medicine_id: medicineId, response });
-    return legacyResponse.data;
+    if (error.response && error.response.data) return error.response.data;
+    try {
+      const legacyResponse = await axios.post(`${LEGACY_API_BASE}/elderly/clear-notification`, { elderly_id: elderlyId, medicine_id: medicineId, response });
+      return legacyResponse.data;
+    } catch (e) {
+      return { status: 'error' };
+    }
   }
 };
 
@@ -196,8 +246,13 @@ export const notifyGuardianFall = async (payload) => {
     const response = await api.post('/notify-guardian-fall', normalizeEmergencyPayload(payload));
     return response.data;
   } catch (error) {
-    const legacyResponse = await axios.post(`${LEGACY_API_BASE}/notify-guardian-fall`, payload);
-    return legacyResponse.data;
+    if (error.response && error.response.data) return error.response.data;
+    try {
+      const legacyResponse = await axios.post(`${LEGACY_API_BASE}/notify-guardian-fall`, payload);
+      return legacyResponse.data;
+    } catch (e) {
+      return { status: 'error' };
+    }
   }
 };
 
@@ -206,8 +261,13 @@ export const triggerEmergency = async (payload) => {
     const response = await api.post('/emergency-call', normalizeEmergencyPayload(payload));
     return response.data;
   } catch (error) {
-    const legacyResponse = await axios.post(`${LEGACY_API_BASE}/api/emergency`, payload);
-    return legacyResponse.data;
+    if (error.response && error.response.data) return error.response.data;
+    try {
+      const legacyResponse = await axios.post(`${LEGACY_API_BASE}/api/emergency`, payload);
+      return legacyResponse.data;
+    } catch (e) {
+      return { status: 'error' };
+    }
   }
 };
 
@@ -216,8 +276,13 @@ export const confirmSafe = async (payload) => {
     const response = await api.post('/notify-guardian-safe', normalizeEmergencyPayload(payload));
     return response.data;
   } catch (error) {
-    const legacyResponse = await axios.post(`${LEGACY_API_BASE}/api/response`, payload);
-    return legacyResponse.data;
+    if (error.response && error.response.data) return error.response.data;
+    try {
+      const legacyResponse = await axios.post(`${LEGACY_API_BASE}/api/response`, payload);
+      return legacyResponse.data;
+    } catch (e) {
+      return { status: 'error' };
+    }
   }
 };
 
@@ -226,8 +291,13 @@ export const getMedicines = async (elderlyId) => {
     const response = await api.get(`/medicines/${elderlyId}`);
     return response.data;
   } catch (error) {
-    const legacyResponse = await axios.get(`${LEGACY_API_BASE}/medicines/${elderlyId}`);
-    return legacyResponse.data;
+    if (error.response && error.response.data) return error.response.data;
+    try {
+      const legacyResponse = await axios.get(`${LEGACY_API_BASE}/medicines/${elderlyId}`);
+      return legacyResponse.data;
+    } catch (e) {
+      return { status: 'error', medicines: [] };
+    }
   }
 };
 
@@ -241,15 +311,22 @@ export const confirmMedicineTaken = async ({ medicineId, elderlyId, timeTaken, t
     });
     return response.data;
   } catch (error) {
-    const legacyResponse = await axios.post(`${LEGACY_API_BASE}/medicine/confirm`, {
-      medicine_id: medicineId,
-      elderly_id: elderlyId,
-      time_taken: timeTaken,
-      taken,
-    });
-    return legacyResponse.data;
+    if (error.response && error.response.data) return error.response.data;
+    try {
+      const legacyResponse = await axios.post(`${LEGACY_API_BASE}/medicine/confirm`, {
+        medicine_id: medicineId,
+        elderly_id: elderlyId,
+        time_taken: timeTaken,
+        taken,
+      });
+      return legacyResponse.data;
+    } catch (e) {
+      return { status: 'error' };
+    }
   }
 };
+
+export const confirmMedicine = confirmMedicineTaken;
 
 // ==================== GUARDIAN API SERVICES ====================
 
@@ -258,12 +335,19 @@ export async function guardianLogin(username, password) {
     const response = await api.post('/guardian-login', { username, password });
     return { ok: true, data: response.data };
   } catch (error) {
-    const legacyResponse = await fetch(`${LEGACY_API_BASE}/guardian-login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password }),
-    });
-    return { ok: legacyResponse.ok, data: await legacyResponse.json() };
+    if (error.response && error.response.data) {
+      return { ok: false, data: error.response.data };
+    }
+    try {
+      const legacyResponse = await fetch(`${LEGACY_API_BASE}/guardian-login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      });
+      return { ok: legacyResponse.ok, data: await legacyResponse.json() };
+    } catch (e) {
+      return { ok: false, data: { status: 'error', message: 'Backend connection failed' } };
+    }
   }
 }
 
@@ -272,12 +356,19 @@ export async function guardianRegister(userData) {
     const response = await api.post('/guardian-register', userData);
     return { ok: true, data: response.data };
   } catch (error) {
-    const legacyResponse = await fetch(`${LEGACY_API_BASE}/guardian-register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(userData),
-    });
-    return { ok: legacyResponse.ok, data: await legacyResponse.json() };
+    if (error.response && error.response.data) {
+      return { ok: false, data: error.response.data };
+    }
+    try {
+      const legacyResponse = await fetch(`${LEGACY_API_BASE}/guardian-register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(userData),
+      });
+      return { ok: legacyResponse.ok, data: await legacyResponse.json() };
+    } catch (e) {
+      return { ok: false, data: { status: 'error', message: 'Backend connection failed' } };
+    }
   }
 }
 
@@ -286,8 +377,15 @@ export async function fetchLinkedElderly(guardianUsername) {
     const response = await api.get(`/guardian-elderly/${guardianUsername}`);
     return { ok: true, data: response.data };
   } catch (error) {
-    const legacyResponse = await fetch(`${LEGACY_API_BASE}/guardian-elderly/${guardianUsername}`);
-    return { ok: legacyResponse.ok, data: await legacyResponse.json() };
+    if (error.response && error.response.data) {
+      return { ok: false, data: error.response.data };
+    }
+    try {
+      const legacyResponse = await fetch(`${LEGACY_API_BASE}/guardian-elderly/${guardianUsername}`);
+      return { ok: legacyResponse.ok, data: await legacyResponse.json() };
+    } catch (e) {
+      return { ok: false, data: { status: 'error', message: 'Backend connection failed' } };
+    }
   }
 }
 
@@ -296,8 +394,15 @@ export async function fetchMedicines(elderlyId) {
     const response = await api.get(`/medicines/${elderlyId}`);
     return { ok: true, data: response.data };
   } catch (error) {
-    const legacyResponse = await fetch(`${LEGACY_API_BASE}/medicines/${elderlyId}`);
-    return { ok: legacyResponse.ok, data: await legacyResponse.json() };
+    if (error.response && error.response.data) {
+      return { ok: false, data: error.response.data };
+    }
+    try {
+      const legacyResponse = await fetch(`${LEGACY_API_BASE}/medicines/${elderlyId}`);
+      return { ok: legacyResponse.ok, data: await legacyResponse.json() };
+    } catch (e) {
+      return { ok: false, data: { status: 'error', message: 'Backend connection failed' } };
+    }
   }
 }
 
@@ -306,8 +411,15 @@ export async function fetchElderlyInfo(elderlyId) {
     const response = await api.get(`/elderly-info/${elderlyId}`);
     return { ok: true, data: response.data };
   } catch (error) {
-    const legacyResponse = await fetch(`${LEGACY_API_BASE}/elderly-info/${elderlyId}`);
-    return { ok: legacyResponse.ok, data: await legacyResponse.json() };
+    if (error.response && error.response.data) {
+      return { ok: false, data: error.response.data };
+    }
+    try {
+      const legacyResponse = await fetch(`${LEGACY_API_BASE}/elderly-info/${elderlyId}`);
+      return { ok: legacyResponse.ok, data: await legacyResponse.json() };
+    } catch (e) {
+      return { ok: false, data: { status: 'error', message: 'Backend connection failed' } };
+    }
   }
 }
 
@@ -316,8 +428,15 @@ export async function fetchHardwareData(elderlyId) {
     const response = await api.get(`/hardware-data/${elderlyId}`);
     return { ok: true, data: response.data };
   } catch (error) {
-    const legacyResponse = await fetch(`${LEGACY_API_BASE}/hardware-data/${elderlyId}`);
-    return { ok: legacyResponse.ok, data: await legacyResponse.json() };
+    if (error.response && error.response.data) {
+      return { ok: false, data: error.response.data };
+    }
+    try {
+      const legacyResponse = await fetch(`${LEGACY_API_BASE}/hardware-data/${elderlyId}`);
+      return { ok: legacyResponse.ok, data: await legacyResponse.json() };
+    } catch (e) {
+      return { ok: false, data: { status: 'error', message: 'Backend connection failed' } };
+    }
   }
 }
 
@@ -337,12 +456,19 @@ export async function addMedicine(medicineData) {
     const response = await api.post('/medicine/add', payload);
     return { ok: true, data: response.data };
   } catch (error) {
-    const legacyResponse = await fetch(`${LEGACY_API_BASE}/medicine/add`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    return { ok: legacyResponse.ok, data: await legacyResponse.json() };
+    if (error.response && error.response.data) {
+      return { ok: false, data: error.response.data };
+    }
+    try {
+      const legacyResponse = await fetch(`${LEGACY_API_BASE}/medicine/add`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      return { ok: legacyResponse.ok, data: await legacyResponse.json() };
+    } catch (e) {
+      return { ok: false, data: { status: 'error', message: 'Backend connection failed' } };
+    }
   }
 }
 
@@ -351,12 +477,19 @@ export async function deleteMedicine(medicineId, elderlyId) {
     const response = await api.post(`/medicine/delete/${medicineId}`, { elderly_id: elderlyId });
     return { ok: true, data: response.data };
   } catch (error) {
-    const legacyResponse = await fetch(`${LEGACY_API_BASE}/medicine/delete/${medicineId}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ elderly_id: elderlyId }),
-    });
-    return { ok: legacyResponse.ok, data: await legacyResponse.json() };
+    if (error.response && error.response.data) {
+      return { ok: false, data: error.response.data };
+    }
+    try {
+      const legacyResponse = await fetch(`${LEGACY_API_BASE}/medicine/delete/${medicineId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ elderly_id: elderlyId }),
+      });
+      return { ok: legacyResponse.ok, data: await legacyResponse.json() };
+    } catch (e) {
+      return { ok: false, data: { status: 'error', message: 'Backend connection failed' } };
+    }
   }
 }
 
@@ -365,14 +498,21 @@ export async function fetchSuggestions(elderlyId) {
     const response = await api.get(`/medicine/suggestions/${elderlyId}`);
     return { ok: true, data: response.data };
   } catch (error) {
-    const legacyResponse = await fetch(`${LEGACY_API_BASE}/medicine/suggestions/${elderlyId}`);
-    return { ok: legacyResponse.ok, data: await legacyResponse.json() };
+    if (error.response && error.response.data) {
+      return { ok: false, data: error.response.data };
+    }
+    try {
+      const legacyResponse = await fetch(`${LEGACY_API_BASE}/medicine/suggestions/${elderlyId}`);
+      return { ok: legacyResponse.ok, data: await legacyResponse.json() };
+    } catch (e) {
+      return { ok: false, data: { status: 'error', message: 'Backend connection failed' } };
+    }
   }
 }
 
 export async function saveSuggestions(elderlyId, notes) {
   const payload = {
-    guardian_username: localStorage.getItem('guardian_username') || 'john_guardian',
+    guardian_username: localStorage.getItem('guardian_username') || '',
     suggestion: notes,
     notes: notes
   };
@@ -380,12 +520,50 @@ export async function saveSuggestions(elderlyId, notes) {
     const response = await api.post(`/medicine/suggestions/${elderlyId}`, payload);
     return { ok: true, data: response.data };
   } catch (error) {
-    const legacyResponse = await fetch(`${LEGACY_API_BASE}/medicine/suggestions/${elderlyId}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    return { ok: legacyResponse.ok, data: await legacyResponse.json() };
+    if (error.response && error.response.data) {
+      return { ok: false, data: error.response.data };
+    }
+    try {
+      const legacyResponse = await fetch(`${LEGACY_API_BASE}/medicine/suggestions/${elderlyId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      return { ok: legacyResponse.ok, data: await legacyResponse.json() };
+    } catch (e) {
+      return { ok: false, data: { status: 'error', message: 'Backend connection failed' } };
+    }
+  }
+}
+
+export async function sendChatMessage(userMessage, elderlyId, elderlyName, history = []) {
+  const payload = {
+    message: userMessage,
+    prompt: userMessage,
+    text: userMessage,
+    elderly_id: elderlyId || 'default_senior',
+    elderly_name: elderlyName || '',
+    name: elderlyName || '',
+    history: Array.isArray(history) ? history : []
+  };
+
+  try {
+    const response = await api.post('/chat', payload);
+    return response.data;
+  } catch (error) {
+    try {
+      const legacyResponse = await fetch(`${LEGACY_API_BASE}/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (legacyResponse.ok) {
+        return await legacyResponse.json();
+      }
+    } catch (e) {
+      console.warn('Legacy chat API failed:', e);
+    }
+    throw error;
   }
 }
 

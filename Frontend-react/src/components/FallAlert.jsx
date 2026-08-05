@@ -1,16 +1,32 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { notifyGuardianFall, triggerEmergency, confirmSafe } from '../services/api';
+import { useLanguage } from '../context/LanguageContext';
 
 const FallAlert = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { t } = useLanguage();
+
+  const alertType = location.state?.alertType || 'FALL';
+  const alertTitle = location.state?.title || 'FALL DETECTED!';
+
   const [timeLeft, setTimeLeft] = useState(10);
   const [timerInterval, setTimerInterval] = useState(null);
   const [timerDisplay, setTimerDisplay] = useState('10');
   const [alertMessage, setAlertMessage] = useState('');
 
   useEffect(() => {
-    // Notify guardian immediately when fall is detected
+    // Speak voice alert announcement
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      const text = `Warning! ${alertTitle}. Please confirm your status.`;
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 0.9;
+      window.speechSynthesis.speak(utterance);
+    }
+
+    // Notify guardian immediately when detection occurs
     notifyGuardianOfFall();
 
     // Start countdown timer
@@ -36,36 +52,42 @@ const FallAlert = () => {
 
   const notifyGuardianOfFall = async () => {
     try {
+      const elderlyId = localStorage.getItem('elderly_id') || 'isha_amit';
+      const elderlyName = localStorage.getItem('elderly_name') || 'Senior Citizen';
+
       const payload = {
-        elderly_name: "User",
-        device_id: "belt_001",
-        location: "Home"
+        elderly_name: elderlyName,
+        elderly_id: elderlyId,
+        alert_type: alertType,
+        device_id: 'belt_001',
+        location: 'Home'
       };
       const response = await notifyGuardianFall(payload);
-      console.log("[GUARDIAN NOTIFICATION] Fall detected - Guardian notified:", response);
+      console.log('[GUARDIAN NOTIFICATION] Alert detected - Guardian notified:', response);
     } catch (error) {
-      console.log("[GUARDIAN NOTIFICATION] Error notifying guardian:", error);
+      console.log('[GUARDIAN NOTIFICATION] Error notifying guardian:', error);
     }
   };
 
   const requestHelpNow = async () => {
     console.log('🚨 [FALL ALERT] User requested immediate help!');
     
-    // Clear the countdown timer
     if (timerInterval) clearInterval(timerInterval);
     
-    // Show immediate help message
     setTimerDisplay('HELP!');
     setAlertMessage('Emergency help requested! Contacting guardian now...');
     
-    // Trigger emergency call immediately
     try {
-      const response = await triggerEmergency({ emergency: true, user_requested: true });
+      const response = await triggerEmergency({
+        emergency: true,
+        user_requested: true,
+        alert_type: alertType,
+        elderly_id: localStorage.getItem('elderly_id') || ''
+      });
       console.log('🚨 [FALL ALERT] Emergency triggered:', response);
       
       setAlertMessage('Emergency services contacted! Guardian is being notified immediately.');
       
-      // Play emergency sound if available
       if ('vibrate' in navigator) {
         navigator.vibrate([200, 100, 200, 100, 200]);
       }
@@ -78,24 +100,24 @@ const FallAlert = () => {
   const confirmSafeStatus = async () => {
     console.log('✅ [FALL ALERT] User confirmed they are safe!');
     
-    // Clear the countdown timer
     if (timerInterval) clearInterval(timerInterval);
     
-    // Show safe message
     setAlertMessage('Great! You confirmed you are safe. Redirecting to home...');
     
-    // Notify backend that user is safe
     try {
-      const response = await confirmSafe({ response: 'safe', user_confirmed: true });
+      const response = await confirmSafe({
+        response: 'safe',
+        user_confirmed: true,
+        alert_type: alertType,
+        elderly_id: localStorage.getItem('elderly_id') || ''
+      });
       console.log('✅ [FALL ALERT] Safe confirmation sent:', response);
       
-      // Redirect back to main portal after 2 seconds
       setTimeout(() => {
         navigate('/home');
       }, 2000);
     } catch (error) {
       console.error('❌ [FALL ALERT] Error confirming safe:', error);
-      // Still redirect even if API fails
       setTimeout(() => {
         navigate('/home');
       }, 2000);
@@ -105,18 +127,20 @@ const FallAlert = () => {
   const contactGuardian = async () => {
     console.log('🚨 [FALL ALERT] Timer expired - Auto-contacting guardian!');
     
-    // Show emergency message
     setAlertMessage('No response received! Contacting guardian automatically...');
     setTimerDisplay('EMERGENCY');
     
-    // Trigger emergency call
     try {
-      const response = await triggerEmergency({ emergency: true, auto_triggered: true });
+      const response = await triggerEmergency({
+        emergency: true,
+        auto_triggered: true,
+        alert_type: alertType,
+        elderly_id: localStorage.getItem('elderly_id') || ''
+      });
       console.log('🚨 [FALL ALERT] Auto-emergency triggered:', response);
       
       setAlertMessage('Emergency services contacted! Guardian is being notified automatically.');
       
-      // Keep showing emergency alert
       document.body.style.backgroundColor = '#ff4444';
     } catch (error) {
       console.error('❌ [FALL ALERT] Error in auto-emergency:', error);
@@ -132,7 +156,7 @@ const FallAlert = () => {
           <path d="M20 4L4 36h32L20 4z" fill="white" opacity="0.9"/>
           <text x="20" y="28" textAnchor="middle" fill="#DC2626" fontSize="20" fontWeight="bold">!</text>
         </svg>
-        <h1 className="alert-title">FALL DETECTED!</h1>
+        <h1 className="alert-title">{alertTitle}</h1>
       </div>
 
       {/* Main Content */}
@@ -169,7 +193,7 @@ const FallAlert = () => {
           <svg width="28" height="28" viewBox="0 0 28 28" fill="white">
             <path d="M14 2v10M14 16v10M4 14h10M18 14h10M6 6l7 7M22 6l-7 7M6 22l7-7M22 22l-7-7" stroke="white" strokeWidth="3" strokeLinecap="round"/>
           </svg>
-          <span>Need Help Now</span>
+          <span>{t('fallalert.need_help_now') || 'Need Help Now'}</span>
         </button>
         
         <button className="alert-button safe-alert" onClick={confirmSafeStatus}>
@@ -177,7 +201,7 @@ const FallAlert = () => {
             <circle cx="14" cy="14" r="14" fill="currentColor"/>
             <path d="M8 14l4 4 8-8" stroke="white" strokeWidth="3" fill="none" strokeLinecap="round"/>
           </svg>
-          <span>I am Safe</span>
+          <span>{t('fallalert.i_am_safe') || 'I am Safe'}</span>
         </button>
       </div>
     </div>

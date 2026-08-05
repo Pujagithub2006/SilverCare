@@ -49,20 +49,28 @@ const ElderlyAuth = () => {
         location: formData.location,
         medical_history: formData.medicalHistory,
         guardian_username: formData.guardianUsername,
-        guardian_password: formData.guardianPassword
+        guardian_password: formData.guardianPassword,
+        preferred_language: formData.preferredLanguage || 'en'
       });
 
       if (response.status === 'success') {
         showAlert('Registration successful! Redirecting to login...', 'success');
         
-        const elderlyKey = formData.name.toLowerCase().trim();
-        const preferredLang = formData.preferredLanguage || 'en';
+        const elderlyKey = response.elderly_id || formData.name.toLowerCase().trim().replaceAll(/\s+/, '_');
+        const preferredLang = formData.preferredLanguage || response.preferred_language || 'en';
         localStorage.setItem(`elderly_language_${elderlyKey}`, preferredLang);
         localStorage.setItem('app_lang', preferredLang);
 
         if (rememberMe) {
           localStorage.setItem('elderly_name', formData.name);
           localStorage.setItem('elderly_phone', formData.phone);
+        }
+
+        if (response.guardian_name) {
+          localStorage.setItem('guardian_name', response.guardian_name);
+        }
+        if (response.guardian_phone) {
+          localStorage.setItem('guardian_phone', response.guardian_phone);
         }
 
         setTimeout(() => {

@@ -51,7 +51,7 @@ public class MedicineService {
         String elderlyId = request.getElderlyId().trim();
 
         Elderly elderly = elderlyRepository.findByElderlyId(elderlyId)
-                .orElseThrow(() -> new IllegalArgumentException("Elderly person not found"));
+                .orElseThrow(() -> new IllegalArgumentException("Elderly person '" + elderlyId + "' is not registered in database. Please register the elderly person first."));
 
         Medicine medicine = Medicine.builder()
                 .elderlyId(elderlyId)
@@ -88,7 +88,12 @@ public class MedicineService {
     }
 
     public List<Medicine> getAllMedicines(String elderlyId) {
-        return medicineRepository.findByElderlyId(elderlyId);
+        if (elderlyId == null || elderlyId.trim().isEmpty()) return Collections.emptyList();
+        List<Medicine> list = medicineRepository.findByElderlyId(elderlyId.trim());
+        if (list.isEmpty()) {
+            list = medicineRepository.findByElderlyIdIgnoreCase(elderlyId.trim());
+        }
+        return list;
     }
 
     public String confirmMedicineTaken(MedicineConfirmRequest request) {
@@ -158,7 +163,12 @@ public class MedicineService {
     }
 
     public List<GuardianSuggestion> getSuggestions(String elderlyId) {
-        return suggestionRepository.findByElderlyId(elderlyId);
+        if (elderlyId == null || elderlyId.trim().isEmpty()) return Collections.emptyList();
+        List<GuardianSuggestion> list = suggestionRepository.findByElderlyId(elderlyId.trim());
+        if (list.isEmpty()) {
+            list = suggestionRepository.findByElderlyIdIgnoreCase(elderlyId.trim());
+        }
+        return list;
     }
 
     public GuardianSuggestion addSuggestion(String elderlyId, SuggestionRequest request) {

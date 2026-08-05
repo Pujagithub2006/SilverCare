@@ -30,6 +30,7 @@ public class ApiResponse<T> {
     private Object medicine;
     private Object suggestions;
     private String alert_type;
+    private String preferred_language;
 
     public ApiResponse() {}
 
@@ -152,6 +153,9 @@ public class ApiResponse<T> {
     public String getAlert_type() { return alert_type; }
     public void setAlert_type(String alert_type) { this.alert_type = alert_type; }
 
+    public String getPreferred_language() { return preferred_language; }
+    public void setPreferred_language(String preferred_language) { this.preferred_language = preferred_language; }
+
     public static <T> ApiResponseBuilder<T> builder() { return new ApiResponseBuilder<>(); }
 
     public static class ApiResponseBuilder<T> {
@@ -181,6 +185,7 @@ public class ApiResponse<T> {
         private Object medicine;
         private Object suggestions;
         private String alert_type;
+        private String preferred_language;
 
         public ApiResponseBuilder<T> status(String status) { this.status = status; return this; }
         public ApiResponseBuilder<T> message(String message) { this.message = message; return this; }
@@ -208,9 +213,12 @@ public class ApiResponse<T> {
         public ApiResponseBuilder<T> medicine(Object medicine) { this.medicine = medicine; return this; }
         public ApiResponseBuilder<T> suggestions(Object suggestions) { this.suggestions = suggestions; return this; }
         public ApiResponseBuilder<T> alert_type(String alert_type) { this.alert_type = alert_type; return this; }
+        public ApiResponseBuilder<T> preferred_language(String preferred_language) { this.preferred_language = preferred_language; return this; }
 
         public ApiResponse<T> build() {
-            return new ApiResponse<>(status, message, username, name, phone, email, elderly_id, guardian_username, guardian_name, guardian_phone, fall_detected, current_user, available_users, elderly_linked, notifications, devices, current_status, hardware_integration, endpoints, version, count, data, reply, medicine, suggestions, alert_type);
+            ApiResponse<T> res = new ApiResponse<>(status, message, username, name, phone, email, elderly_id, guardian_username, guardian_name, guardian_phone, fall_detected, current_user, available_users, elderly_linked, notifications, devices, current_status, hardware_integration, endpoints, version, count, data, reply, medicine, suggestions, alert_type);
+            res.setPreferred_language(preferred_language);
+            return res;
         }
     }
 }

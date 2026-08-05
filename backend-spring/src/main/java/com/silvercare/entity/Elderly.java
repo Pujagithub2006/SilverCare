@@ -35,6 +35,9 @@ public class Elderly {
     @Column(name = "primary_device_id")
     private String primaryDeviceId; // e.g. vois_belt / esp32c3_wrist
 
+    @Column(name = "preferred_language")
+    private String preferredLanguage = "en";
+
     private Double latitude;
     private Double longitude;
 
@@ -71,6 +74,9 @@ public class Elderly {
         if (primaryBeltType == null) {
             primaryBeltType = "Waist Belt";
         }
+        if (preferredLanguage == null || preferredLanguage.trim().isEmpty()) {
+            preferredLanguage = "en";
+        }
     }
 
     public String getElderlyId() { return elderlyId; }
@@ -106,6 +112,9 @@ public class Elderly {
     public String getPrimaryDeviceId() { return primaryDeviceId; }
     public void setPrimaryDeviceId(String primaryDeviceId) { this.primaryDeviceId = primaryDeviceId; }
 
+    public String getPreferredLanguage() { return preferredLanguage; }
+    public void setPreferredLanguage(String preferredLanguage) { this.preferredLanguage = preferredLanguage; }
+
     public Double getLatitude() { return latitude; }
     public void setLatitude(Double latitude) { this.latitude = latitude; }
 
@@ -129,6 +138,7 @@ public class Elderly {
         private String neighbourPhone;
         private String primaryBeltType;
         private String primaryDeviceId;
+        private String preferredLanguage = "en";
         private Double latitude;
         private Double longitude;
         private String createdAt;
@@ -144,6 +154,7 @@ public class Elderly {
         public ElderlyBuilder neighbourPhone(String neighbourPhone) { this.neighbourPhone = neighbourPhone; return this; }
         public ElderlyBuilder primaryBeltType(String primaryBeltType) { this.primaryBeltType = primaryBeltType; return this; }
         public ElderlyBuilder primaryDeviceId(String primaryDeviceId) { this.primaryDeviceId = primaryDeviceId; return this; }
+        public ElderlyBuilder preferredLanguage(String preferredLanguage) { this.preferredLanguage = preferredLanguage; return this; }
         public ElderlyBuilder latitude(Double latitude) { this.latitude = latitude; return this; }
         public ElderlyBuilder longitude(Double longitude) { this.longitude = longitude; return this; }
         public ElderlyBuilder createdAt(String createdAt) { this.createdAt = createdAt; return this; }
@@ -154,6 +165,7 @@ public class Elderly {
             e.setNeighbourPhone(neighbourPhone);
             e.setPrimaryBeltType(primaryBeltType);
             e.setPrimaryDeviceId(primaryDeviceId);
+            e.setPreferredLanguage(preferredLanguage != null ? preferredLanguage : "en");
             e.setLatitude(latitude);
             e.setLongitude(longitude);
             return e;

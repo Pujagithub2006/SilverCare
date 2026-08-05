@@ -9,4 +9,5 @@ import java.util.List;
 @Repository
 public interface GuardianSuggestionRepository extends JpaRepository<GuardianSuggestion, Long> {
     List<GuardianSuggestion> findByElderlyId(String elderlyId);
+    List<GuardianSuggestion> findByElderlyIdIgnoreCase(String elderlyId);
 }

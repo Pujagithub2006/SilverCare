@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 
 const PortalSelectionPage = () => {
   const navigate = useNavigate();
-  const elderlyLoggedIn = localStorage.getItem('elderlyLoggedIn') === 'true' || !!localStorage.getItem('elderly_id');
+  const isRemembered = localStorage.getItem('elderly_remember_me') === 'true';
+  const elderlyLoggedIn = isRemembered && localStorage.getItem('elderlyLoggedIn') === 'true' && !!localStorage.getItem('elderly_id');
 
   return (
     <div style={{

@@ -8,6 +8,6 @@ public class DataInitializer implements CommandLineRunner {
 
     @Override
     public void run(String... args) throws Exception {
-        System.out.println("🌱 [DATA INITIALIZER] Spring Boot standalone backend ready (independent from legacy backend).");
+        System.out.println("🌱 [DATA INITIALIZER] Spring Boot Java backend initialized successfully with persistent H2 storage.");
     }
 }

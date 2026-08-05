@@ -10,19 +10,39 @@ import '../styles.css';
 
 const HealthPage = () => {
   const navigate = useNavigate();
-  const { t } = useLanguage();
+  const { lang, t, translateDynamic } = useLanguage();
   const [elderlyId, setElderlyId] = useState('');
   const [medicines, setMedicines] = useState([]);
   const [suggestions, setSuggestions] = useState([]);
+  const [translatedSuggestions, setTranslatedSuggestions] = useState([]);
 
   useEffect(() => {
-    const id = localStorage.getItem('elderly_id') || 'gauri_shiv';
+    const id = localStorage.getItem('elderly_id') || '';
     setElderlyId(id);
 
     loadData(id);
     const interval = setInterval(() => loadData(id), 3000);
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (suggestions.length === 0) {
+      setTranslatedSuggestions([]);
+      return;
+    }
+    let isMounted = true;
+    Promise.all(
+      suggestions.map(async (sug) => {
+        const rawText = typeof sug === 'string' ? sug : (sug.suggestion || sug.notes || sug.text || sug.message || '');
+        if (!rawText) return '';
+        const translated = await translateDynamic(rawText, lang);
+        return translated;
+      })
+    ).then((results) => {
+      if (isMounted) setTranslatedSuggestions(results);
+    });
+    return () => { isMounted = false; };
+  }, [suggestions, lang, translateDynamic]);
 
   const loadData = async (id) => {
     try {
@@ -210,7 +230,7 @@ const HealthPage = () => {
               <p style={{ margin: 0, fontWeight: '600' }}>{t('no_notes')}</p>
             </div>
           ) : (
-            suggestions.map((sug, idx) => (
+            (translatedSuggestions.length > 0 ? translatedSuggestions : suggestions).map((sug, idx) => (
               <div key={idx} style={{
                 backgroundColor: '#f0fdf4',
                 borderRadius: '12px',

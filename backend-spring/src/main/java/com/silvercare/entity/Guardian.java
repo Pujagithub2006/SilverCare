@@ -25,10 +25,8 @@ public class Guardian {
 
     private String email;
 
-    @ElementCollection(fetch = FetchType.EAGER)
-    @CollectionTable(name = "guardian_elderly_links", joinColumns = @JoinColumn(name = "guardian_id"))
-    @Column(name = "elderly_id")
-    private List<String> elderlyLinked = new ArrayList<>();
+    @OneToMany(mappedBy = "guardian", fetch = FetchType.EAGER, cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<GuardianElderlyLink> elderlyLinks = new ArrayList<>();
 
     @Column(name = "created_at")
     private String createdAt;
@@ -42,7 +40,6 @@ public class Guardian {
         this.passwordHash = passwordHash;
         this.phone = phone;
         this.email = email;
-        this.elderlyLinked = elderlyLinked != null ? elderlyLinked : new ArrayList<>();
         this.createdAt = createdAt;
     }
 
@@ -71,11 +68,23 @@ public class Guardian {
     public String getEmail() { return email; }
     public void setEmail(String email) { this.email = email; }
 
-    public List<String> getElderlyLinked() {
-        if (elderlyLinked == null) elderlyLinked = new ArrayList<>();
-        return elderlyLinked;
+    public List<GuardianElderlyLink> getElderlyLinks() {
+        if (elderlyLinks == null) elderlyLinks = new ArrayList<>();
+        return elderlyLinks;
     }
-    public void setElderlyLinked(List<String> elderlyLinked) { this.elderlyLinked = elderlyLinked; }
+    public void setElderlyLinks(List<GuardianElderlyLink> elderlyLinks) { this.elderlyLinks = elderlyLinks; }
+
+    public List<String> getElderlyLinked() {
+        List<String> list = new ArrayList<>();
+        if (elderlyLinks != null) {
+            for (GuardianElderlyLink link : elderlyLinks) {
+                if (link.getElderlyId() != null && !list.contains(link.getElderlyId())) {
+                    list.add(link.getElderlyId());
+                }
+            }
+        }
+        return list;
+    }
 
     public String getCreatedAt() { return createdAt; }
     public void setCreatedAt(String createdAt) { this.createdAt = createdAt; }

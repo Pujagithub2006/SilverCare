@@ -158,7 +158,7 @@ const ElderlyHome = () => {
       try {
         await triggerEmergency({
           elderly_name: elderlyName,
-          guardian_username: localStorage.getItem('guardian_username') || 'john_guardian',
+          guardian_username: localStorage.getItem('guardian_username') || '',
           location: 'Home'
         });
       } catch (err) {}

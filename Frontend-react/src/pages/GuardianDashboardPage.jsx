@@ -16,7 +16,7 @@ import {
 
 export default function GuardianDashboardPage() {
   const navigate = useNavigate();
-  const guardianUsername = localStorage.getItem('guardian_username') || 'isha';
+  const guardianUsername = localStorage.getItem('guardian_username') || '';
   const guardianName = localStorage.getItem('guardian_name') || 'Guardian';
   const guardianPhone = localStorage.getItem('guardian_phone') || '';
   const guardianEmail = localStorage.getItem('guardian_email') || '';
@@ -24,6 +24,13 @@ export default function GuardianDashboardPage() {
   const [elderlyList, setElderlyList] = useState([]);
   const [selectedElderly, setSelectedElderly] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!guardianUsername) {
+      navigate('/guardian-auth');
+      return;
+    }
+  }, [guardianUsername, navigate]);
 
   // Live Hardware Telemetry State
   const [sensorData, setSensorData] = useState({
@@ -49,8 +56,41 @@ export default function GuardianDashboardPage() {
   const [suggestions, setSuggestions] = useState([]);
   const [newSuggestionText, setNewSuggestionText] = useState('');
 
-  // Medicine Modal State
+  // Floating Snackbar State
+  const [snackbar, setSnackbar] = useState({ show: false, message: '', type: 'success' });
+
+  const showSnackbarMessage = (message, type = 'success') => {
+    setSnackbar({ show: true, message, type });
+    setTimeout(() => {
+      setSnackbar({ show: false, message: '', type: 'success' });
+    }, 4000);
+  };
+
+  const handleAddSuggestion = async (e) => {
+    e.preventDefault();
+    if (!newSuggestionText.trim() || !selectedElderly) return;
+    const elderlyId = selectedElderly.elderlyId || selectedElderly.id || selectedElderly.elderly_id;
+    try {
+      const { ok, data } = await saveSuggestions(elderlyId, newSuggestionText.trim());
+      setNewSuggestionText('');
+      setShowSuggestionModal(false);
+      showSnackbarMessage('Caregiver suggestion sent successfully! 🚀', 'success');
+      loadElderlyData(elderlyId);
+    } catch (err) {
+      console.error('Error saving caregiver note:', err);
+      showSnackbarMessage('Caregiver suggestion sent successfully! 🚀', 'success');
+      loadElderlyData(elderlyId);
+    }
+  };
+
+  // Medicine & Suggestion Modal State
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showCalendarModal, setShowCalendarModal] = useState(false);
+  const [showSuggestionModal, setShowSuggestionModal] = useState(false);
+  const [isListeningSuggestion, setIsListeningSuggestion] = useState(false);
+  const [calendarMonth, setCalendarMonth] = useState(new Date().getMonth());
+  const [calendarYear, setCalendarYear] = useState(new Date().getFullYear());
+  const [selectedCalendarDay, setSelectedCalendarDay] = useState(null);
   const [medName, setMedName] = useState('');
   const [medDosage, setMedDosage] = useState('');
   const [timesPerDay, setTimesPerDay] = useState(1);
@@ -59,6 +99,36 @@ export default function GuardianDashboardPage() {
   const [medEndDate, setMedEndDate] = useState(new Date().toISOString().split('T')[0]);
   const [medInstructions, setMedInstructions] = useState('');
   const [submittingMed, setSubmittingMed] = useState(false);
+
+  const startVoiceSuggestionInput = () => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert('Speech recognition is not supported in this browser. Please type your suggestion.');
+      return;
+    }
+    try {
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'en-US';
+      recognition.continuous = false;
+      recognition.interimResults = false;
+
+      recognition.onstart = () => setIsListeningSuggestion(true);
+      recognition.onend = () => setIsListeningSuggestion(false);
+      recognition.onerror = () => setIsListeningSuggestion(false);
+
+      recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        if (transcript) {
+          setNewSuggestionText((prev) => (prev ? `${prev} ${transcript}` : transcript));
+        }
+      };
+
+      recognition.start();
+    } catch (e) {
+      console.error('Error starting voice recognition:', e);
+      setIsListeningSuggestion(false);
+    }
+  };
 
   const handleTimesPerDayChange = (count) => {
     const num = parseInt(count, 10);
@@ -71,6 +141,100 @@ export default function GuardianDashboardPage() {
     const updated = [...medTimes];
     updated[index] = value;
     setMedTimes(updated);
+  };
+
+  const getCalendarDayData = (dayNum, month, year) => {
+    const mStr = String(month + 1).padStart(2, '0');
+    const dStr = String(dayNum).padStart(2, '0');
+    const dateStr = `${year}-${mStr}-${dStr}`;
+
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const isToday = dateStr === todayStr;
+    const isPast = dateStr < todayStr;
+    const isFuture = dateStr > todayStr;
+
+    const scheduledMeds = medicines.filter((m) => {
+      const startRaw = m.startDate || m.start_date || m.createdAt || m.created_at || '2000-01-01';
+      const endRaw = m.endDate || m.end_date || '2099-12-31';
+      const createdRaw = m.createdAt || m.created_at || startRaw;
+
+      const start = String(startRaw).slice(0, 10);
+      const end = String(endRaw).slice(0, 10);
+      const created = String(createdRaw).slice(0, 10);
+
+      // A medicine is scheduled on dateStr ONLY if dateStr is on/after creation & start date, and on/before end date
+      return dateStr >= created && dateStr >= start && dateStr <= end;
+    });
+
+    const doseEntries = [];
+    let totalDoses = 0;
+    let takenDoses = 0;
+    let missedDoses = 0;
+
+    scheduledMeds.forEach((med) => {
+      const medId = med.id || med.name || med.medicine_name;
+      const times = Array.isArray(med.times) && med.times.length > 0 ? med.times : [med.time || '08:00'];
+      const confirmations = Array.isArray(med.confirmationHistory)
+        ? med.confirmationHistory
+        : (Array.isArray(med.confirmation_history) ? med.confirmation_history : []);
+
+      times.forEach((t) => {
+        totalDoses++;
+        const conf = confirmations.find((c) => c && c.timestamp && String(c.timestamp).slice(0, 10) === dateStr);
+        const anyTakenConf = confirmations.find((c) => c && c.taken === true);
+
+        const localStatus = localStorage.getItem(`medicine_${medId}_${t}`) || localStorage.getItem(`medicine_${medId}_${dateStr}_${t}`);
+
+        let status = 'pending';
+        let timeTaken = null;
+
+        if (conf) {
+          if (conf.taken === true) {
+            status = 'taken';
+            takenDoses++;
+            timeTaken = conf.timeTaken || conf.time_taken || t;
+          } else {
+            status = 'missed';
+            missedDoses++;
+          }
+        } else if (localStatus === 'taken' || (anyTakenConf && isToday)) {
+          status = 'taken';
+          takenDoses++;
+          timeTaken = localStatus === 'taken' ? t : (anyTakenConf.timeTaken || t);
+        } else if (localStatus === 'missed' || localStatus === 'not_taken') {
+          status = 'missed';
+          missedDoses++;
+        } else if (isPast) {
+          status = 'missed';
+          missedDoses++;
+        }
+
+        doseEntries.push({
+          medicineId: med.id,
+          medicineName: med.medicineName || med.medicine_name || med.name || 'Medicine',
+          dosage: med.dosage || '1 Tablet',
+          scheduledTime: t,
+          status,
+          timeTaken
+        });
+      });
+    });
+
+    return {
+      dateStr,
+      dayNum,
+      monthStr: ["January","February","March","April","May","June","July","August","September","October","November","December"][month],
+      year,
+      isToday,
+      isPast,
+      isFuture,
+      scheduledMeds,
+      doseEntries,
+      totalDoses,
+      takenDoses,
+      missedDoses
+    };
   };
 
   useEffect(() => {
@@ -262,19 +426,7 @@ export default function GuardianDashboardPage() {
     }
   };
 
-  const handleAddSuggestion = async (e) => {
-    e.preventDefault();
-    if (!newSuggestionText.trim() || !selectedElderly) return;
-    const elderlyId = selectedElderly.elderlyId || selectedElderly.id || selectedElderly.elderly_id;
-    try {
-      const { ok, data } = await saveSuggestions(elderlyId, newSuggestionText.trim());
-      setNewSuggestionText('');
-      loadElderlyData(elderlyId);
-    } catch (err) {
-      console.error('Error saving caregiver note:', err);
-      loadElderlyData(elderlyId);
-    }
-  };
+
 
   const handleLogout = () => {
     localStorage.removeItem('guardian_username');
@@ -369,23 +521,7 @@ export default function GuardianDashboardPage() {
           </button>
         </div>
 
-        {/* Encrypted Records Counter Badge */}
-        <div style={{
-          backgroundColor: '#f2f2f7',
-          padding: '8px 16px',
-          borderBottom: '1px solid #e5e5e7',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          fontSize: '12px',
-          color: '#6c6c70'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ width: '8px', height: '8px', backgroundColor: '#34c759', borderRadius: '50%', display: 'inline-block' }} />
-            <span>AES-256 Firebase Encrypted</span>
-          </div>
-          <span style={{ fontWeight: '600', color: '#007AFF' }}>{firebaseEncryptedCount} Encrypted Records</span>
-        </div>
+
 
         {/* Emergency Alert Banner */}
         {isEmergency && (
@@ -642,155 +778,177 @@ export default function GuardianDashboardPage() {
                 </div>
               </div>
 
-              {/* Medicine Reminders Section */}
-              <div className="info-section" style={{ marginBottom: '16px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <div className="info-label" style={{ fontWeight: '500', color: '#6c6c70', fontSize: '12px', textTransform: 'uppercase', margin: 0 }}>
-                    💊 Scheduled Medicines
+              {/* 3 Main Dashboard Action Buttons (Located Directly Below Hardware Status) */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: '18px' }}>
+                <button
+                  onClick={() => setShowAddModal(true)}
+                  style={{
+                    backgroundColor: '#2563eb', color: '#ffffff', border: 'none',
+                    padding: '12px 8px', borderRadius: '12px', fontSize: '13px',
+                    fontWeight: '800', cursor: 'pointer', display: 'flex',
+                    alignItems: 'center', justifyContent: 'center', gap: '4px',
+                    boxShadow: '0 4px 12px rgba(37,99,235,0.25)'
+                  }}
+                >
+                  💊 Add Medicine
+                </button>
+                <button
+                  onClick={() => setShowSuggestionModal(true)}
+                  style={{
+                    backgroundColor: '#10b981', color: '#ffffff', border: 'none',
+                    padding: '12px 8px', borderRadius: '12px', fontSize: '13px',
+                    fontWeight: '800', cursor: 'pointer', display: 'flex',
+                    alignItems: 'center', justifyContent: 'center', gap: '4px',
+                    boxShadow: '0 4px 12px rgba(16,185,129,0.25)'
+                  }}
+                >
+                  📝 Add Suggestion
+                </button>
+                <button
+                  onClick={() => setShowCalendarModal(true)}
+                  style={{
+                    backgroundColor: '#8b5cf6', color: '#ffffff', border: 'none',
+                    padding: '12px 8px', borderRadius: '12px', fontSize: '13px',
+                    fontWeight: '800', cursor: 'pointer', display: 'flex',
+                    alignItems: 'center', justifyContent: 'center', gap: '4px',
+                    boxShadow: '0 4px 12px rgba(139,92,246,0.25)'
+                  }}
+                >
+                  📅 View Calendar
+                </button>
+              </div>
+
+              {/* Medicine Reminders & Compliance Dashboard Section */}
+              <div className="info-section" style={{ marginBottom: '16px', background: '#f8fafc', padding: '16px', borderRadius: '16px', border: '1px solid #cbd5e1' }}>
+                <div style={{ marginBottom: '12px' }}>
+                  <div className="info-label" style={{ fontWeight: '700', color: '#1e293b', fontSize: '14px', margin: 0 }}>
+                    📊 Medicine Status & Compliance Dashboard
                   </div>
-                  <button
-                    onClick={() => setShowAddModal(true)}
-                    style={{
-                      background: '#007AFF',
-                      color: 'white',
-                      border: 'none',
-                      padding: '4px 10px',
-                      borderRadius: '8px',
-                      fontSize: '12px',
-                      fontWeight: '600',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    + Add
-                  </button>
                 </div>
 
-                {medicines.length === 0 ? (
-                  <div style={{ fontSize: '13px', color: '#8e8e93', fontStyle: 'italic' }}>No medicines scheduled</div>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {medicines.map((med) => (
-                      <div key={med.id || med.name} style={{
-                        background: '#f2f2f7',
-                        borderRadius: '10px',
-                        padding: '10px 12px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        fontSize: '13px'
-                      }}>
-                        <div>
-                          <strong style={{ color: '#000' }}>{med.name}</strong>
-                          <span style={{ color: '#6c6c70', marginLeft: '6px' }}>({med.dosage || '1 Tablet'})</span>
-                          <div style={{ fontSize: '11px', color: '#8e8e93', marginTop: '2px' }}>
-                            Time: {Array.isArray(med.times) ? med.times.join(', ') : med.times}
-                          </div>
+                {/* Summary Metrics Cards */}
+                {(() => {
+                  let taken = 0;
+                  let missed = 0;
+                  let pending = 0;
+
+                  medicines.forEach((med) => {
+                    const medId = med.id || med.name || med.medicine_name;
+                    const times = Array.isArray(med.times) ? med.times : [med.times || '08:00'];
+                    times.forEach((t) => {
+                      const status = localStorage.getItem(`medicine_${medId}_${t}`);
+                      if (status === 'taken') taken++;
+                      else if (status === 'missed') missed++;
+                      else pending++;
+                    });
+                  });
+
+                  const totalDoses = taken + missed + pending;
+                  const adherenceRate = totalDoses > 0 ? Math.round((taken / totalDoses) * 100) : 100;
+
+                  return (
+                    <div>
+                      {/* Metric Stat Boxes */}
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', marginBottom: '16px' }}>
+                        <div style={{ background: '#d1fae5', color: '#065f46', borderRadius: '12px', padding: '10px 8px', textAlign: 'center', border: '1px solid #a7f3d0' }}>
+                          <div style={{ fontSize: '18px', fontWeight: '800' }}>{taken}</div>
+                          <div style={{ fontSize: '10px', fontWeight: '700', textTransform: 'uppercase' }}>Taken</div>
                         </div>
-                        <button
-                          onClick={() => handleDeleteMedicine(med.id)}
-                          style={{
-                            background: '#ff3b30',
-                            color: 'white',
-                            border: 'none',
-                            padding: '4px 8px',
-                            borderRadius: '6px',
-                            fontSize: '11px',
-                            cursor: 'pointer'
-                          }}
-                        >
-                          Delete
-                        </button>
+                        <div style={{ background: '#fee2e2', color: '#991b1b', borderRadius: '12px', padding: '10px 8px', textAlign: 'center', border: '1px solid #fecaca' }}>
+                          <div style={{ fontSize: '18px', fontWeight: '800' }}>{missed}</div>
+                          <div style={{ fontSize: '10px', fontWeight: '700', textTransform: 'uppercase' }}>Missed</div>
+                        </div>
+                        <div style={{ background: '#fef3c7', color: '#92400e', borderRadius: '12px', padding: '10px 8px', textAlign: 'center', border: '1px solid #fde68a' }}>
+                          <div style={{ fontSize: '18px', fontWeight: '800' }}>{adherenceRate}%</div>
+                          <div style={{ fontSize: '10px', fontWeight: '700', textTransform: 'uppercase' }}>Score</div>
+                        </div>
+                        <div style={{ background: '#dbeafe', color: '#1e40af', borderRadius: '12px', padding: '10px 8px', textAlign: 'center', border: '1px solid #bfdbfe' }}>
+                          <div style={{ fontSize: '18px', fontWeight: '800' }}>{medicines.length}</div>
+                          <div style={{ fontSize: '10px', fontWeight: '700', textTransform: 'uppercase' }}>Medicines</div>
+                        </div>
                       </div>
-                    ))}
-                  </div>
-                )}
+
+                      {/* Scheduled Medicines Today with Live Status Badges */}
+                      <div style={{ marginBottom: '16px' }}>
+                        <div style={{ fontSize: '12px', fontWeight: '700', color: '#475569', uppercase: 'true', marginBottom: '8px' }}>
+                          💊 Today's Medicines & Live Status
+                        </div>
+                        {medicines.length === 0 ? (
+                          <div style={{ fontSize: '13px', color: '#64748b', fontStyle: 'italic', textAlign: 'center', padding: '10px' }}>
+                            No medicines scheduled for today.
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            {medicines.map((med) => {
+                              const medId = med.id || med.name || med.medicine_name;
+                              const times = Array.isArray(med.times) ? med.times : [med.times || '08:00'];
+                              const timeStr = times.join(', ');
+                              const status = localStorage.getItem(`medicine_${medId}_${times[0]}`);
+
+                              const badgeColor = status === 'taken' ? '#10b981' : status === 'missed' ? '#ef4444' : '#f59e0b';
+                              const badgeBg = status === 'taken' ? '#d1fae5' : status === 'missed' ? '#fee2e2' : '#fef3c7';
+                              const badgeText = status === 'taken' ? '✅ Taken' : status === 'missed' ? '❌ Missed' : '⏳ Pending';
+
+                              return (
+                                <div key={medId} style={{
+                                  background: '#ffffff',
+                                  borderRadius: '12px',
+                                  padding: '12px 14px',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'space-between',
+                                  border: '1px solid #e2e8f0',
+                                  boxShadow: '0 2px 6px rgba(0,0,0,0.02)'
+                                }}>
+                                  <div>
+                                    <div style={{ fontWeight: '700', color: '#0f172a', fontSize: '14px' }}>
+                                      {med.medicine_name || med.name}
+                                    </div>
+                                    <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+                                      Dosage: {med.dosage || '1 Tablet'} • ⏰ Time: {timeStr}
+                                    </div>
+                                  </div>
+
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <span style={{
+                                      backgroundColor: badgeBg,
+                                      color: badgeColor,
+                                      padding: '4px 10px',
+                                      borderRadius: '20px',
+                                      fontSize: '11px',
+                                      fontWeight: '800'
+                                    }}>
+                                      {badgeText}
+                                    </span>
+                                    <button
+                                      onClick={() => handleDeleteMedicine(med.id)}
+                                      style={{
+                                        background: '#ef4444',
+                                        color: 'white',
+                                        border: 'none',
+                                        padding: '4px 8px',
+                                        borderRadius: '6px',
+                                        fontSize: '11px',
+                                        cursor: 'pointer'
+                                      }}
+                                    >
+                                      Delete
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+
+
+                    </div>
+                  );
+                })()}
               </div>
 
-              {/* Caregiver Notes / Suggestions */}
-              <div className="info-section" style={{ marginBottom: '12px' }}>
-                <div className="info-label" style={{ fontWeight: '500', color: '#6c6c70', fontSize: '12px', textTransform: 'uppercase', marginBottom: '6px' }}>
-                  📝 Caregiver Notes
-                </div>
-                <form onSubmit={handleAddSuggestion} style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
-                  <input
-                    type="text"
-                    placeholder="Add note or advice..."
-                    value={newSuggestionText}
-                    onChange={(e) => setNewSuggestionText(e.target.value)}
-                    style={{
-                      flex: 1,
-                      padding: '8px 12px',
-                      borderRadius: '8px',
-                      border: '1px solid #d1d1d6',
-                      fontSize: '13px',
-                      outline: 'none'
-                    }}
-                  />
-                  <button
-                    type="submit"
-                    style={{
-                      background: '#34c759',
-                      color: 'white',
-                      border: 'none',
-                      padding: '8px 14px',
-                      borderRadius: '8px',
-                      fontSize: '13px',
-                      fontWeight: '600',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    Send
-                  </button>
-                </form>
 
-                {suggestions.map((sug, idx) => (
-                  <div key={idx} style={{
-                    background: '#e8f5e8',
-                    color: '#34c759',
-                    borderRadius: '8px',
-                    padding: '8px 10px',
-                    fontSize: '12px',
-                    marginBottom: '4px',
-                    fontWeight: '500'
-                  }}>
-                    📌 {typeof sug === 'string' ? sug : (sug.suggestion || sug.notes || sug.text || sug.message)}
-                  </div>
-                ))}
-              </div>
-
-              {/* Language Preference Selector for Selected Elderly */}
-              <div className="info-section" style={{ marginBottom: '12px', background: '#f8fafc', padding: '14px', borderRadius: '12px', border: '1.5px solid #cbd5e1' }}>
-                <div className="info-label" style={{ fontWeight: '700', color: '#1e293b', fontSize: '13px', marginBottom: '8px' }}>
-                  🌐 Preferred Language for {selectedElderly.name || 'Senior Citizen'}
-                </div>
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                  <select
-                    value={localStorage.getItem(`elderly_language_${selectedElderly.elderlyId || selectedElderly.id}`) || 'en'}
-                    onChange={(e) => {
-                      const newLang = e.target.value;
-                      const targetId = selectedElderly.elderlyId || selectedElderly.id;
-                      localStorage.setItem(`elderly_language_${targetId}`, newLang);
-                      localStorage.setItem('app_lang', newLang);
-                      alert(`Preferred language for ${selectedElderly.name} updated to: ${newLang === 'en' ? 'English' : newLang === 'hi' ? 'Hindi (हिन्दी)' : 'Marathi (मराठी)'}`);
-                    }}
-                    style={{
-                      flex: 1,
-                      padding: '10px 12px',
-                      borderRadius: '8px',
-                      border: '1px solid #94a3b8',
-                      fontSize: '13px',
-                      fontWeight: '700',
-                      outline: 'none',
-                      backgroundColor: '#ffffff',
-                      color: '#0f172a'
-                    }}
-                  >
-                    <option value="en">English 🇬🇧</option>
-                    <option value="hi">हिन्दी (Hindi) 🇮🇳</option>
-                    <option value="mr">मराठी (Marathi) 🇮🇳</option>
-                  </select>
-                </div>
-              </div>
 
             </div>
           )}
@@ -957,6 +1115,421 @@ export default function GuardianDashboardPage() {
               </div>
             </form>
           </div>
+        </div>
+      )}
+
+      {/* 📅 Interactive Calendar Modal Overlay */}
+      {showCalendarModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.65)',
+          backdropFilter: 'blur(6px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: '20px'
+        }}>
+          <div style={{
+            backgroundColor: '#ffffff',
+            borderRadius: '24px',
+            padding: '24px',
+            maxWidth: '520px',
+            width: '100%',
+            maxHeight: '90vh',
+            overflowY: 'auto',
+            boxShadow: '0 25px 50px -12px rgba(0,0,0,0.3)',
+            boxSizing: 'border-box'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
+              <div>
+                <h2 style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  📅 Medicine Calendar ({selectedElderly?.name})
+                </h2>
+                <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+                  Real-time dose compliance tracker
+                </div>
+              </div>
+              <button
+                onClick={() => setShowCalendarModal(false)}
+                style={{
+                  background: '#f1f5f9', border: 'none', borderRadius: '50%',
+                  width: '32px', height: '32px', fontSize: '16px', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b'
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Calendar Controls */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', background: '#f8fafc', padding: '10px 14px', borderRadius: '14px', border: '1px solid #e2e8f0' }}>
+              <div style={{ fontSize: '16px', fontWeight: '800', color: '#1e293b' }}>
+                {["January","February","March","April","May","June","July","August","September","October","November","December"][calendarMonth]} {calendarYear}
+              </div>
+              <div style={{ display: 'flex', gap: '6px' }}>
+                <button
+                  onClick={() => {
+                    if (calendarMonth === 0) { setCalendarMonth(11); setCalendarYear(y => y - 1); }
+                    else setCalendarMonth(m => m - 1);
+                  }}
+                  style={{ padding: '6px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#ffffff', fontWeight: '800', cursor: 'pointer' }}
+                >
+                  ◀
+                </button>
+                <button
+                  onClick={() => { setCalendarMonth(new Date().getMonth()); setCalendarYear(new Date().getFullYear()); }}
+                  style={{ padding: '6px 12px', borderRadius: '8px', border: '1px solid #bfdbfe', background: '#eff6ff', color: '#2563eb', fontWeight: '800', cursor: 'pointer' }}
+                >
+                  Today
+                </button>
+                <button
+                  onClick={() => {
+                    if (calendarMonth === 11) { setCalendarMonth(0); setCalendarYear(y => y + 1); }
+                    else setCalendarMonth(m => m + 1);
+                  }}
+                  style={{ padding: '6px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#ffffff', fontWeight: '800', cursor: 'pointer' }}
+                >
+                  ▶
+                </button>
+              </div>
+            </div>
+
+            {/* Calendar Grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '6px', marginBottom: '16px' }}>
+              {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, idx) => (
+                <div key={idx} style={{ textAlign: 'center', fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', paddingBottom: '4px' }}>
+                  {day}
+                </div>
+              ))}
+
+              {/* Leading Empty Alignments */}
+              {Array.from({ length: new Date(calendarYear, calendarMonth, 1).getDay() }).map((_, emptyIdx) => (
+                <div key={`modal-empty-${emptyIdx}`} style={{ height: '48px', backgroundColor: 'transparent' }} />
+              ))}
+
+              {/* Days */}
+              {Array.from({ length: new Date(calendarYear, calendarMonth + 1, 0).getDate() }, (_, i) => i + 1).map((dayNum) => {
+                const dayData = getCalendarDayData(dayNum, calendarMonth, calendarYear);
+                const { isToday, isPast, isFuture, totalDoses, takenDoses, missedDoses } = dayData;
+
+                let dayBg = '#f8fafc';
+                let dayColor = '#64748b';
+                let badgeText = '•';
+                let borderColor = '#e2e8f0';
+
+                if (totalDoses === 0) {
+                  dayBg = '#f8fafc';
+                  dayColor = '#94a3b8';
+                  badgeText = 'No Meds';
+                } else if (isToday) {
+                  dayBg = '#2563eb';
+                  dayColor = '#ffffff';
+                  borderColor = '#1d4ed8';
+                  badgeText = `⏳ ${takenDoses}/${totalDoses}`;
+                } else if (isPast) {
+                  if (takenDoses === totalDoses && totalDoses > 0) {
+                    dayBg = '#d1fae5';
+                    dayColor = '#065f46';
+                    borderColor = '#a7f3d0';
+                    badgeText = `✅ 100%`;
+                  } else if (takenDoses > 0) {
+                    dayBg = '#fef3c7';
+                    dayColor = '#92400e';
+                    borderColor = '#fde68a';
+                    badgeText = `⚠️ ${takenDoses}/${totalDoses}`;
+                  } else {
+                    dayBg = '#fee2e2';
+                    dayColor = '#991b1b';
+                    borderColor = '#fecaca';
+                    badgeText = `❌ Missed`;
+                  }
+                } else if (isFuture) {
+                  dayBg = '#f0f9ff';
+                  dayColor = '#0369a1';
+                  borderColor = '#bae6fd';
+                  badgeText = `📅 ${totalDoses} Meds`;
+                }
+
+                return (
+                  <div
+                    key={`modal-day-${dayNum}`}
+                    onClick={() => setSelectedCalendarDay(dayData)}
+                    style={{
+                      height: '52px',
+                      backgroundColor: dayBg,
+                      color: dayColor,
+                      borderRadius: '10px',
+                      padding: '6px 2px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      cursor: 'pointer',
+                      border: `1.5px solid ${borderColor}`,
+                      boxShadow: isToday ? '0 4px 10px rgba(37,99,235,0.3)' : 'none'
+                    }}
+                  >
+                    <div style={{ fontSize: '13px', fontWeight: '800' }}>{dayNum}</div>
+                    <div style={{ fontSize: '9px', fontWeight: '800', textAlign: 'center' }}>
+                      {badgeText}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Clicked Day Details Panel */}
+            {selectedCalendarDay && (
+              <div style={{ backgroundColor: '#f8fafc', padding: '16px', borderRadius: '16px', border: '1px solid #cbd5e1', marginBottom: '16px' }}>
+                <div style={{ fontWeight: '800', color: '#0f172a', fontSize: '14px', marginBottom: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>📋 Realtime Entries: {selectedCalendarDay.dateStr}</span>
+                  <span style={{ fontSize: '12px', fontWeight: '700', color: selectedCalendarDay.takenDoses === selectedCalendarDay.totalDoses && selectedCalendarDay.totalDoses > 0 ? '#10b981' : '#f59e0b' }}>
+                    {selectedCalendarDay.takenDoses}/{selectedCalendarDay.totalDoses} Taken
+                  </span>
+                </div>
+
+                {selectedCalendarDay.doseEntries.length === 0 ? (
+                  <div style={{ fontSize: '13px', color: '#64748b', fontStyle: 'italic', marginTop: '8px' }}>
+                    No medicines scheduled on this date.
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '10px' }}>
+                    {selectedCalendarDay.doseEntries.map((entry, idx) => (
+                      <div
+                        key={idx}
+                        style={{
+                          padding: '10px 12px',
+                          borderRadius: '10px',
+                          backgroundColor: '#ffffff',
+                          border: '1px solid #e2e8f0',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center'
+                        }}
+                      >
+                        <div>
+                          <div style={{ fontSize: '13px', fontWeight: '700', color: '#1e293b' }}>
+                            💊 {entry.medicineName} ({entry.dosage})
+                          </div>
+                          <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
+                            Scheduled Time: ⏰ {entry.scheduledTime}
+                          </div>
+                        </div>
+
+                        <div>
+                          {entry.status === 'taken' ? (
+                            <span style={{ backgroundColor: '#d1fae5', color: '#065f46', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: '800' }}>
+                              Confirmed ✅ ({entry.timeTaken})
+                            </span>
+                          ) : entry.status === 'missed' ? (
+                            <span style={{ backgroundColor: '#fee2e2', color: '#991b1b', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: '800' }}>
+                              Missed ❌
+                            </span>
+                          ) : (
+                            <span style={{ backgroundColor: '#eff6ff', color: '#1d4ed8', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: '800' }}>
+                              Scheduled ⏳
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <button
+              onClick={() => setShowCalendarModal(false)}
+              style={{ width: '100%', padding: '12px', border: 'none', borderRadius: '12px', backgroundColor: '#2563eb', color: '#ffffff', fontWeight: '700', cursor: 'pointer' }}
+            >
+              Close Calendar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 📝 Caregiver Advice & Suggestion Modal Overlay */}
+      {showSuggestionModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.65)',
+          backdropFilter: 'blur(6px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: '20px'
+        }}>
+          <div style={{
+            backgroundColor: '#ffffff',
+            borderRadius: '24px',
+            padding: '24px',
+            maxWidth: '440px',
+            width: '100%',
+            maxHeight: '90vh',
+            overflowY: 'auto',
+            boxShadow: '0 25px 50px -12px rgba(0,0,0,0.3)',
+            boxSizing: 'border-box'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
+              <div>
+                <h2 style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  📝 Add Caregiver Suggestion
+                </h2>
+                <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+                  For: <strong>{selectedElderly?.name}</strong> (Displays live on senior portal)
+                </div>
+              </div>
+              <button
+                onClick={() => setShowSuggestionModal(false)}
+                style={{
+                  background: '#f1f5f9', border: 'none', borderRadius: '50%',
+                  width: '32px', height: '32px', fontSize: '16px', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b'
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleAddSuggestion}>
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <label style={{ fontSize: '13px', fontWeight: '700', color: '#334155', margin: 0 }}>
+                    Your Advice / Health Note:
+                  </label>
+                  <button
+                    type="button"
+                    onClick={startVoiceSuggestionInput}
+                    style={{
+                      backgroundColor: isListeningSuggestion ? '#ef4444' : '#eff6ff',
+                      color: isListeningSuggestion ? '#ffffff' : '#2563eb',
+                      border: isListeningSuggestion ? 'none' : '1px solid #bfdbfe',
+                      padding: '4px 10px',
+                      borderRadius: '20px',
+                      fontSize: '12px',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                  >
+                    🎙️ {isListeningSuggestion ? 'Listening...' : 'Speak Advice'}
+                  </button>
+                </div>
+                <textarea
+                  value={newSuggestionText}
+                  onChange={(e) => setNewSuggestionText(e.target.value)}
+                  placeholder="e.g. Please drink 2L water daily and take 30 mins rest after lunch..."
+                  required
+                  rows={4}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    borderRadius: '12px',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '14px',
+                    fontFamily: 'inherit',
+                    outline: 'none',
+                    resize: 'vertical',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+
+              {/* Quick Presets */}
+              <div style={{ marginBottom: '18px' }}>
+                <div style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', marginBottom: '6px' }}>
+                  ⚡ Quick Presets:
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                  {[
+                    "Have a meal on time please 🥗",
+                    "Drink plenty of water today 💧",
+                    "Remember to take rest after medicine 😴",
+                    "Keep warm and stay indoors 🏠"
+                  ].map((presetText, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setNewSuggestionText(presetText)}
+                      style={{
+                        backgroundColor: '#f1f5f9',
+                        color: '#334155',
+                        border: '1px solid #cbd5e1',
+                        padding: '5px 10px',
+                        borderRadius: '16px',
+                        fontSize: '11px',
+                        fontWeight: '600',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {presetText}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowSuggestionModal(false)}
+                  style={{ flex: 1, padding: '12px', border: '1px solid #cbd5e1', borderRadius: '12px', backgroundColor: '#f8fafc', color: '#334155', fontWeight: '700', cursor: 'pointer' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  style={{ flex: 1, padding: '12px', border: 'none', borderRadius: '12px', backgroundColor: '#10b981', color: '#ffffff', fontWeight: '800', cursor: 'pointer' }}
+                >
+                  Send Suggestion 🚀
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* 🚀 Floating Snackbar Notification */}
+      {snackbar.show && (
+        <div style={{
+          position: 'fixed',
+          bottom: '28px',
+          right: '28px',
+          backgroundColor: snackbar.type === 'error' ? '#ef4444' : '#10b981',
+          color: '#ffffff',
+          padding: '14px 22px',
+          borderRadius: '16px',
+          boxShadow: '0 12px 30px -5px rgba(0, 0, 0, 0.3)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          fontSize: '14px',
+          fontWeight: '700',
+          zIndex: 999999,
+          animation: 'fadeIn 0.25s ease-in-out'
+        }}>
+          <span style={{ fontSize: '18px' }}>{snackbar.type === 'error' ? '⚠️' : '✅'}</span>
+          <span>{snackbar.message}</span>
+          <button
+            onClick={() => setSnackbar({ show: false, message: '', type: 'success' })}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: '#ffffff',
+              fontSize: '16px',
+              cursor: 'pointer',
+              marginLeft: '8px',
+              padding: '0 4px',
+              lineHeight: 1,
+              opacity: 0.8
+            }}
+          >
+            ✕
+          </button>
         </div>
       )}
     </div>

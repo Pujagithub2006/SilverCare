@@ -98,6 +98,7 @@ public class ElderlyManagementService {
                 .phone(request.getPhone() != null ? request.getPhone() : "")
                 .location(request.getLocation() != null ? request.getLocation() : "Home")
                 .guardianUsername(guardianUsername)
+                .preferredLanguage(request.getPreferredLanguage() != null ? request.getPreferredLanguage() : "en")
                 .createdAt(LocalDateTime.now().toString())
                 .build();
 
@@ -107,14 +108,6 @@ public class ElderlyManagementService {
         if (!linkExists) {
             GuardianElderlyLink link = new GuardianElderlyLink(guardian, elderlyId, "Primary");
             guardianElderlyLinkRepository.save(link);
-        }
-
-        if (guardian.getElderlyLinked() == null) {
-            guardian.setElderlyLinked(new ArrayList<>());
-        }
-        if (!guardian.getElderlyLinked().contains(elderlyId)) {
-            guardian.getElderlyLinked().add(elderlyId);
-            guardianRepository.save(guardian);
         }
 
         try {
@@ -145,22 +138,21 @@ public class ElderlyManagementService {
             if (!matches.isEmpty()) {
                 return matches.get(0);
             }
+            List<Elderly> byPhone = elderlyRepository.findByPhone(phone.trim());
+            if (!byPhone.isEmpty()) {
+                return byPhone.get(0);
+            }
         }
         if (name != null && !name.trim().isEmpty()) {
             String derivedId = name.toLowerCase().trim().replaceAll("\\s+", "_");
             Optional<Elderly> byId = elderlyRepository.findByElderlyId(derivedId);
             if (byId.isPresent()) return byId.get();
+
+            List<Elderly> byName = elderlyRepository.findByNameIgnoreCase(name.trim());
+            if (!byName.isEmpty()) return byName.get(0);
         }
 
-        String searchId = (name != null && !name.trim().isEmpty()) ? name.toLowerCase().trim().replaceAll("\\s+", "_") : "elderly_unknown";
-        return Elderly.builder()
-                .elderlyId(searchId)
-                .name(name != null ? name : "Senior Citizen")
-                .phone(phone != null ? phone : "")
-                .guardianUsername("john_guardian")
-                .location("Home")
-                .age(70)
-                .build();
+        throw new IllegalArgumentException("Elderly person is not registered in the database. Please ask your guardian to register you first.");
     }
 
     @Transactional

@@ -18,6 +18,9 @@ public class ElderlyRegisterRequest {
     @JsonProperty("guardian_password")
     private String guardianPassword;
 
+    @JsonProperty("preferred_language")
+    private String preferredLanguage;
+
     public ElderlyRegisterRequest() {}
 
     public ElderlyRegisterRequest(String name, Integer age, String medicalHistory, String phone, String location, String guardianUsername, String guardianPassword) {
@@ -50,4 +53,7 @@ public class ElderlyRegisterRequest {
 
     public String getGuardianPassword() { return guardianPassword; }
     public void setGuardianPassword(String guardianPassword) { this.guardianPassword = guardianPassword; }
+
+    public String getPreferredLanguage() { return preferredLanguage; }
+    public void setPreferredLanguage(String preferredLanguage) { this.preferredLanguage = preferredLanguage; }
 }

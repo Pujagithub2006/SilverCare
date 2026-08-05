@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
+import { fetchElderlyInfo } from '../services/api';
 import '../styles.css';
 
 const ElderlyProfilePage = () => {
   const navigate = useNavigate();
-  const { t } = useLanguage();
+  const { lang, changeLanguage, t } = useLanguage();
 
   const [elderlyName, setElderlyName] = useState('');
   const [elderlyPhone, setElderlyPhone] = useState('');
@@ -13,16 +14,58 @@ const ElderlyProfilePage = () => {
   const [guardianPhone, setGuardianPhone] = useState('');
 
   useEffect(() => {
+    let storedGName = localStorage.getItem('guardian_name') || '';
+    let storedGPhone = localStorage.getItem('guardian_phone') || '';
+
+    if (storedGName.includes('Isha (Guardian)')) {
+      localStorage.removeItem('guardian_name');
+      storedGName = '';
+    }
+    if (storedGPhone.includes('98765 43210') || storedGPhone.includes('9876543210')) {
+      localStorage.removeItem('guardian_phone');
+      storedGPhone = '';
+    }
+
+    const id = localStorage.getItem('elderly_id');
     const name = localStorage.getItem('elderly_name') || 'Senior Citizen';
-    const phone = localStorage.getItem('elderly_phone') || '+91 93229 76718';
-    const gName = localStorage.getItem('guardian_name') || 'Isha (Guardian)';
-    const gPhone = localStorage.getItem('guardian_phone') || '+91 98765 43210';
+    const phone = localStorage.getItem('elderly_phone') || '';
 
     setElderlyName(name);
     setElderlyPhone(phone);
-    setGuardianName(gName);
-    setGuardianPhone(gPhone);
-  }, []);
+    setGuardianName(storedGName);
+    setGuardianPhone(storedGPhone);
+
+    if (id) {
+      fetchElderlyInfo(id).then((res) => {
+        if (res.ok && res.data && res.data.status === 'success') {
+          const profile = res.data.data;
+          if (profile) {
+            if (profile.name) {
+              setElderlyName(profile.name);
+              localStorage.setItem('elderly_name', profile.name);
+            }
+            if (profile.phone !== undefined) {
+              setElderlyPhone(profile.phone || '');
+              localStorage.setItem('elderly_phone', profile.phone || '');
+            }
+
+            const realGName = profile.guardian_name || profile.guardian_username || res.data.guardian_name || res.data.guardian_username || '';
+            const realGPhone = profile.guardian_phone || res.data.guardian_phone || '';
+
+            setGuardianName(realGName);
+            setGuardianPhone(realGPhone);
+            if (realGName) localStorage.setItem('guardian_name', realGName);
+            if (realGPhone) localStorage.setItem('guardian_phone', realGPhone);
+
+            const prefLang = profile.preferred_language || res.data.preferred_language;
+            if (prefLang) {
+              changeLanguage(prefLang, id);
+            }
+          }
+        }
+      }).catch((err) => console.error('Failed to fetch profile:', err));
+    }
+  }, [changeLanguage]);
 
   const handleLogout = () => {
     if (window.confirm(t('confirm_logout') || 'Are you sure you want to logout?')) {
@@ -30,6 +73,9 @@ const ElderlyProfilePage = () => {
       localStorage.removeItem('elderly_id');
       localStorage.removeItem('elderly_name');
       localStorage.removeItem('elderly_phone');
+      localStorage.removeItem('guardian_name');
+      localStorage.removeItem('guardian_phone');
+      localStorage.removeItem('elderly_remember_me');
       navigate('/login');
     }
   };
@@ -44,7 +90,7 @@ const ElderlyProfilePage = () => {
           </svg>
         </button>
         <h1 style={{ fontSize: '18px', fontWeight: '800', margin: 0, color: '#1f2937', textAlign: 'center', flex: 1 }}>
-          👤 Profile & Account
+          👤 {t('profile_title')}
         </h1>
         <div style={{ width: '38px', flexShrink: 0 }}></div>
       </header>
@@ -92,7 +138,7 @@ const ElderlyProfilePage = () => {
             marginTop: '4px'
           }}>
             <span style={{ width: '6px', height: '6px', backgroundColor: '#10b981', borderRadius: '50%' }}></span>
-            Active Senior Member
+            {t('active_member')}
           </div>
         </div>
 
@@ -107,16 +153,16 @@ const ElderlyProfilePage = () => {
           textAlign: 'left'
         }}>
           <h3 style={{ margin: '0 0 14px 0', fontSize: '15px', fontWeight: '800', color: '#1e293b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            👤 Senior Information
+            👤 {t('senior_info')}
           </h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', backgroundColor: '#f8fafc', borderRadius: '12px' }}>
-              <span style={{ fontSize: '13px', color: '#64748b', fontWeight: '600' }}>Full Name</span>
+              <span style={{ fontSize: '13px', color: '#64748b', fontWeight: '600' }}>{t('full_name')}</span>
               <span style={{ fontSize: '14px', color: '#0f172a', fontWeight: '700' }}>{elderlyName}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', backgroundColor: '#f8fafc', borderRadius: '12px' }}>
-              <span style={{ fontSize: '13px', color: '#64748b', fontWeight: '600' }}>Phone Number</span>
-              <span style={{ fontSize: '14px', color: '#2563eb', fontWeight: '700' }}>{elderlyPhone}</span>
+              <span style={{ fontSize: '13px', color: '#64748b', fontWeight: '600' }}>{t('phone_number')}</span>
+              <span style={{ fontSize: '14px', color: '#2563eb', fontWeight: '700' }}>{elderlyPhone || '—'}</span>
             </div>
           </div>
         </div>
@@ -132,18 +178,22 @@ const ElderlyProfilePage = () => {
           textAlign: 'left'
         }}>
           <h3 style={{ margin: '0 0 14px 0', fontSize: '15px', fontWeight: '800', color: '#1e293b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            🛡️ Linked Guardian Information
+            🛡️ {t('linked_guardian')}
           </h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', backgroundColor: '#f0fdf4', borderRadius: '12px', border: '1px solid #dcfce7' }}>
-              <span style={{ fontSize: '13px', color: '#166534', fontWeight: '600' }}>Guardian Name</span>
-              <span style={{ fontSize: '14px', color: '#14532d', fontWeight: '700' }}>{guardianName}</span>
+              <span style={{ fontSize: '13px', color: '#166534', fontWeight: '600' }}>{t('guardian_name_label')}</span>
+              <span style={{ fontSize: '14px', color: '#14532d', fontWeight: '700' }}>{guardianName || '—'}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', backgroundColor: '#f0fdf4', borderRadius: '12px', border: '1px solid #dcfce7' }}>
-              <span style={{ fontSize: '13px', color: '#166534', fontWeight: '600' }}>Guardian Phone</span>
-              <a href={`tel:${guardianPhone}`} style={{ fontSize: '14px', color: '#16a34a', fontWeight: '700', textDecoration: 'none' }}>
-                📞 {guardianPhone}
-              </a>
+              <span style={{ fontSize: '13px', color: '#166534', fontWeight: '600' }}>{t('guardian_phone_label')}</span>
+              {guardianPhone ? (
+                <a href={`tel:${guardianPhone}`} style={{ fontSize: '14px', color: '#16a34a', fontWeight: '700', textDecoration: 'none' }}>
+                  📞 {guardianPhone}
+                </a>
+              ) : (
+                <span style={{ fontSize: '14px', color: '#16532d', fontWeight: '700' }}>—</span>
+              )}
             </div>
           </div>
         </div>

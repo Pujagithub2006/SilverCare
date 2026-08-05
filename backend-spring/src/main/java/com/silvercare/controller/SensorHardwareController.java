@@ -66,7 +66,7 @@ public class SensorHardwareController {
                 "oxygenLevel", 0,
                 "temperature", 0,
                 "beltConnected", false,
-                "beltLastSeen", null,
+                "beltLastSeen", "",
                 "lastUpdate", LocalDateTime.now().toString(),
                 "message", "No hardware connected"
         );

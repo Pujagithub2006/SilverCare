@@ -18,14 +18,32 @@ const ElderlyLogin = () => {
     const rememberMeStored = localStorage.getItem('elderly_remember_me');
 
     if (elderlyName && elderlyPhone && rememberMeStored === 'true') {
-      localStorage.setItem('elderlyLoggedIn', 'true');
-      navigate('/home');
-      return;
-    }
-
-    if (elderlyName && elderlyPhone) {
-      setFormData({ name: elderlyName, phone: elderlyPhone });
-      setRememberMe(true);
+      // Validate credentials against DB before auto-logging in
+      elderlyLogin(elderlyName, elderlyPhone)
+        .then((response) => {
+          if (response && response.status === 'success') {
+            const loggedInId = response.elderly_id || response.id || elderlyName.toLowerCase().trim().replaceAll(/\s+/, '_');
+            localStorage.setItem('elderly_id', loggedInId);
+            localStorage.setItem('elderly_name', response.name || elderlyName);
+            localStorage.setItem('elderly_phone', response.phone || elderlyPhone);
+            localStorage.setItem('elderlyLoggedIn', 'true');
+            navigate('/home');
+          } else {
+            // Credentials not in DB - clear session
+            localStorage.removeItem('elderly_remember_me');
+            localStorage.removeItem('elderlyLoggedIn');
+            localStorage.removeItem('elderly_id');
+            localStorage.removeItem('elderly_name');
+            localStorage.removeItem('elderly_phone');
+            setRememberMe(false);
+          }
+        })
+        .catch(() => {
+          localStorage.removeItem('elderly_remember_me');
+          localStorage.removeItem('elderlyLoggedIn');
+        });
+    } else {
+      setRememberMe(false);
     }
   }, [navigate]);
 
@@ -66,16 +84,22 @@ const ElderlyLogin = () => {
         }
 
         const loggedInName = response.name || formData.name;
-        const loggedInId = response.elderly_id || response.id || formData.name.toLowerCase().trim();
-        const loggedInPhone = response.phone || formData.phone || '+91 93229 76718';
-        const guardianName = response.guardian_name || response.guardianName || 'Isha (Guardian)';
-        const guardianPhone = response.guardian_phone || response.guardianPhone || '+91 98765 43210';
+        const loggedInId = response.elderly_id || response.id || formData.name.toLowerCase().trim().replaceAll(/\s+/, '_');
+        const loggedInPhone = response.phone || formData.phone || '';
+        let guardianName = response.guardian_name || response.guardianName || response.guardian_username || '';
+        let guardianPhone = response.guardian_phone || response.guardianPhone || '';
+        const preferredLang = response.preferred_language || response.preferredLanguage || 'en';
+
+        if (guardianName.includes('Isha (Guardian)')) guardianName = response.guardian_username || '';
+        if (guardianPhone.includes('98765 43210') || guardianPhone.includes('9876543210')) guardianPhone = '';
 
         localStorage.setItem('elderly_id', loggedInId);
         localStorage.setItem('elderly_name', loggedInName);
         localStorage.setItem('elderly_phone', loggedInPhone);
         localStorage.setItem('guardian_name', guardianName);
         localStorage.setItem('guardian_phone', guardianPhone);
+        localStorage.setItem(`elderly_language_${loggedInId}`, preferredLang);
+        localStorage.setItem('app_lang', preferredLang);
         localStorage.setItem('elderlyLoggedIn', 'true');
 
         setTimeout(() => {

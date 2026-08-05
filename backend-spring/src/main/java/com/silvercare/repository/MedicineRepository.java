@@ -9,5 +9,6 @@ import java.util.List;
 @Repository
 public interface MedicineRepository extends JpaRepository<Medicine, Long> {
     List<Medicine> findByElderlyId(String elderlyId);
+    List<Medicine> findByElderlyIdIgnoreCase(String elderlyId);
     List<Medicine> findByElderlyIdAndActiveTrue(String elderlyId);
 }

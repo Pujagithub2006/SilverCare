@@ -254,10 +254,10 @@ public class FallDetectionService {
     public String getGuardianPhoneForElderly(String deviceId) {
         String elderlyId = resolveElderlyIdForDevice(deviceId);
         List<Guardian> guardians = getAllGuardiansForElderly(elderlyId);
-        if (!guardians.isEmpty() && guardians.get(0).getPhone() != null) {
+        if (!guardians.isEmpty() && guardians.get(0).getPhone() != null && !guardians.get(0).getPhone().isEmpty()) {
             return guardians.get(0).getPhone();
         }
-        return "+919322757538";
+        return "";
     }
 
     public void notifyGuardianNoResponse(String elderlyName,

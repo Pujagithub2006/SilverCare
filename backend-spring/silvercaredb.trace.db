@@ -1,0 +1,3 @@
+2026-08-04 19:16:28.239603+05:30 jdbc[13]: exception
+org.h2.jdbc.JdbcSQLSyntaxErrorException: Syntax error in SQL statement "SELECT * [*]FROMALERT_RECORDS"; SQL statement:
+SELECT * FROMALERT_RECORDS [42000-224]

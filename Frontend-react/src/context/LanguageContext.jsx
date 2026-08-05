@@ -44,7 +44,16 @@ const en = {
   smart_belt: "Smart Belt",
   wrist_band: "Wrist Band",
   worn: "Worn",
-  not_worn: "Not Worn"
+  not_worn: "Not Worn",
+  profile_title: "Profile & Account",
+  active_member: "Active Senior Member",
+  senior_info: "Senior Information",
+  full_name: "Full Name",
+  phone_number: "Phone Number",
+  linked_guardian: "Linked Guardian Information",
+  guardian_name_label: "Guardian Name",
+  guardian_phone_label: "Guardian Phone",
+  preferred_lang_label: "Selected Language"
 };
 
 const hi = {
@@ -90,7 +99,16 @@ const hi = {
   smart_belt: "स्मार्ट बेल्ट",
   wrist_band: "रिस्ट बैंड",
   worn: "पहना हुआ",
-  not_worn: "नहीं पहना"
+  not_worn: "नहीं पहना",
+  profile_title: "प्रोफ़ाइल और खाता",
+  active_member: "सक्रिय वरिष्ठ सदस्य",
+  senior_info: "वरिष्ठ नागरिक जानकारी",
+  full_name: "पूरा नाम",
+  phone_number: "फ़ोन नंबर",
+  linked_guardian: "जुड़े हुए अभिभावक की जानकारी",
+  guardian_name_label: "अभिभावक का नाम",
+  guardian_phone_label: "अभिभावक का फ़ोन",
+  preferred_lang_label: "चुनी गई भाषा"
 };
 
 const mr = {
@@ -136,7 +154,16 @@ const mr = {
   smart_belt: "स्मार्ट बेल्ट",
   wrist_band: "रिस्ट बँड",
   worn: "परिधान केले आहे",
-  not_worn: "परिधान केलेले नाही"
+  not_worn: "परिधान केलेले नाही",
+  profile_title: "प्रोफाइल आणि खाते",
+  active_member: "सक्रिय ज्येष्ठ नागरिक सदस्य",
+  senior_info: "ज्येष्ठ नागरिक माहिती",
+  full_name: "पूर्ण नाव",
+  phone_number: "फोन नंबर",
+  linked_guardian: "जोडलेल्या पालकांची माहिती",
+  guardian_name_label: "पालकांचे नाव",
+  guardian_phone_label: "पालकांचा फोन",
+  preferred_lang_label: "निवडलेली भाषा"
 };
 
 const dictionaries = { en, hi, mr };
