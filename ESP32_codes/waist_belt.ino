@@ -4,6 +4,16 @@
 #include <algorithm>
 #include <mbedtls/aes.h>
 #include <mbedtls/gcm.h>
+#include <Wire.h>
+#include <Adafruit_MPU6050.h>
+#include <Adafruit_Sensor.h>
+#include <OneWire.h>
+#include <DallasTemperature.h>
+#include <WiFi.h>
+#include <WiFiManager.h>
+#include <HTTPClient.h>
+#include <ArduinoJson.h>
+#include <SoftwareSerial.h>
 
 // ===== EXISTING CONFIGURATION (PRESERVED) =====
 #define SERVICE_UUID "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
@@ -29,6 +39,56 @@ const unsigned long CONNECTION_TIMEOUT = 60000;  // 1 MINUTE
 const unsigned long DATA_RETRY_TIMEOUT = 60000;  // 1 MINUTE
 const unsigned long SCAN_INTERVAL = 30;          // 30 seconds continuous scan
 const unsigned long RECONNECT_DELAY = 30000;     // 30 seconds between reconnects
+
+// ===== GSM CONFIGURATION =====
+#define GSM_TX 16
+#define GSM_RX 17
+#define GSM_BAUD 9600
+SoftwareSerial gsmSerial(GSM_RX, GSM_TX);
+
+// ===== WiFi & BACKEND SERVER CONFIGURATION =====
+String serverURL = "https://api.silvercare-app.com/api/sensor-data";
+String twilioURL = "https://api.silvercare-app.com/api/twilio-sms";
+
+// ===== PINS =====
+#define TEMP_PIN 4
+#define BUZZER_PIN 18
+#define BUTTON_PIN 19
+#define MIC_BUTTON_PIN 23
+#define MAX30102_INT_PIN 34
+
+// ===== HARDWARE IDENTIFICATION =====
+String deviceId = "vois_waist";
+String beltType = "Waist Belt";
+double gpsLat = 18.5204;
+double gpsLng = 73.8567;
+
+// ===== OBJECTS =====
+Adafruit_MPU6050 mpu;
+OneWire oneWire(TEMP_PIN);
+DallasTemperature tempSensor(&oneWire);
+
+// ===== THRESHOLDS =====
+#define INSTABILITY_THRESHOLD 1.15
+#define SUDDEN_THRESHOLD 1.4
+#define FALL_THRESHOLD 1.9
+
+#define TEMP_WORN_THRESHOLD 26.0
+
+#define HR_LOW 50
+#define HR_HIGH 135
+#define SPO2_LOW 90
+
+// ===== STATES =====
+enum SystemState {
+  NORMAL,
+  PREFALL,
+  SUDDEN_MOVEMENT,
+  FALL_DETECTED
+};
+
+SystemState currentState = NORMAL;
+String lastAlertType = "";
 
 // ===== DEVICE STRUCTURE =====
 struct PairedDevice {
@@ -193,7 +253,7 @@ public:
     void init() {
         preferences.begin("device_db", false);
         loadDevices();
-        Serial.println("📚 Loaded " + String(devices.size()) + " paired devices");
+        Serial.println("Loaded " + String(devices.size()) + " paired devices");
     }
     
     void loadDevices() {
@@ -226,7 +286,7 @@ public:
             if (d.address == device.address || d.uniqueID == device.uniqueID) {
                 d = device;
                 saveDevices();
-                Serial.println("🔄 Updated device: " + device.name);
+                Serial.println("Updated device: " + device.name);
                 return;
             }
         }
@@ -234,7 +294,7 @@ public:
         if (devices.size() < MAX_DEVICES) {
             devices.push_back(device);
             saveDevices();
-            Serial.println("✅ Added new device: " + device.name);
+            Serial.println("Added new device: " + device.name);
         }
     }
     
@@ -245,7 +305,7 @@ public:
         if (it != devices.end()) {
             devices.erase(it, devices.end());
             saveDevices();
-            Serial.println("🗑️ Removed device: " + address);
+            Serial.println("Removed device: " + address);
         }
     }
     
@@ -307,7 +367,7 @@ public:
     
     void printAllDevices() {
         Serial.println("========================================");
-        Serial.println("📚 PAIRED DEVICES (" + String(devices.size()) + ")");
+        Serial.println("PAIRED DEVICES (" + String(devices.size()) + ")");
         Serial.println("========================================");
         for (size_t i = 0; i < devices.size(); i++) {
             auto& d = devices[i];
@@ -340,6 +400,21 @@ int successfulConnects = 0;
 int dataReceptionAttempts = 0;
 int successfulDataReceptions = 0;
 
+// ===== CORE LOGIC VARIABLES =====
+bool beltWorn = false;
+unsigned long fallTime = 0;
+unsigned long lastSendTime = 0;
+const unsigned long SEND_INTERVAL = 1000;
+String micMessage = "";
+bool sensorInitialized = false;
+
+// Heart rate data received from wrist
+float heartRate = 0;
+float spo2 = 0;
+long irValue = 0;
+long redValue = 0;
+float bodyTemp = 0;
+
 // ===== DEVICE DATABASE INSTANCE =====
 DeviceDatabase deviceDB;
 
@@ -347,6 +422,11 @@ DeviceDatabase deviceDB;
 void connectToDevice(String address);
 void processReceivedData(String encryptedData);
 void continuousScan();
+void sendDataToServer(SystemState state, float hr, float oxygen, float temp, bool worn, float acc, String micAudio);
+String getStateName(SystemState state);
+void sendSmartSMSAlert(String alertType, String message);
+bool sendTwilioSMS(String alertType, String message);
+bool sendGSMAlert(String alertType, String message);
 
 // ===== CLIENT CALLBACKS =====
 class ClientCallbacks : public NimBLEClientCallbacks {
@@ -356,8 +436,8 @@ class ClientCallbacks : public NimBLEClientCallbacks {
         successfulConnects++;
         
         Serial.println("========================================");
-        Serial.println("✅ [BLE] Connected to Wrist!");
-        Serial.print("📱 Connected to: ");
+        Serial.println("[BLE] Connected to Wrist!");
+        Serial.print("Connected to: ");
         Serial.println(pClient->getPeerAddress().toString().c_str());
         Serial.println("========================================");
         
@@ -375,8 +455,8 @@ class ClientCallbacks : public NimBLEClientCallbacks {
         connected = false;
         connecting = false;
         
-        Serial.println("❌ [BLE] Disconnected");
-        Serial.println("🔄 Will try to reconnect...");
+        Serial.println("[BLE] Disconnected");
+        Serial.println("Will try to reconnect...");
         
         if (pClient) {
             NimBLEDevice::deleteClient(pClient);
@@ -392,7 +472,7 @@ class ClientCallbacks : public NimBLEClientCallbacks {
     }
     
     void onAuthenticationComplete(NimBLEClient* pClient) {
-        Serial.println("✅ [BLE] Authentication complete");
+        Serial.println("[BLE] Authentication complete");
     }
 };
 
@@ -403,35 +483,35 @@ void notifyCallback(NimBLERemoteCharacteristic* pChar, uint8_t* data, size_t len
     dataReceptionAttempts++;
     
     String encryptedData = String((char*)data).substring(0, len);
-    Serial.print("📥 [BLE] Encrypted received: ");
+    Serial.print("[BLE] Encrypted received: ");
     Serial.println(encryptedData);
     
     processReceivedData(encryptedData);
 }
 
-// ===== PROCESS RECEIVED DATA =====
+// ===== PROCESS RECEIVED DATA FROM WRIST =====
 void processReceivedData(String encryptedData) {
     // DECRYPT DATA
     String decryptedData = EncryptionManager::decrypt(encryptedData);
     
     if (decryptedData.length() == 0) {
-        Serial.println("❌ Decryption failed!");
+        Serial.println("Decryption failed!");
         return;
     }
     
-    Serial.print("🔓 Decrypted: ");
+    Serial.print("Decrypted: ");
     Serial.println(decryptedData);
     
-    // Parse decrypted data
+    // Parse decrypted data (HR:SPO2:IR:TEMP)
     int firstColon = decryptedData.indexOf(':');
     int secondColon = decryptedData.indexOf(':', firstColon + 1);
     int thirdColon = decryptedData.indexOf(':', secondColon + 1);
     
     if (firstColon > 0 && secondColon > 0 && thirdColon > 0) {
-        float hr = decryptedData.substring(0, firstColon).toFloat();
-        float spo2 = decryptedData.substring(firstColon + 1, secondColon).toFloat();
-        long ir = decryptedData.substring(secondColon + 1, thirdColon).toFloat();
-        float temp = decryptedData.substring(thirdColon + 1).toFloat();
+        heartRate = decryptedData.substring(0, firstColon).toFloat();
+        spo2 = decryptedData.substring(firstColon + 1, secondColon).toFloat();
+        irValue = decryptedData.substring(secondColon + 1, thirdColon).toFloat();
+        bodyTemp = decryptedData.substring(thirdColon + 1).toFloat();
         
         successfulDataReceptions++;
         dataReceived = true;
@@ -439,29 +519,21 @@ void processReceivedData(String encryptedData) {
         lastDataTime = millis();
         
         Serial.println("========================================");
-        Serial.println("✅ DATA RECEIVED SUCCESSFULLY!");
-        Serial.print("❤️ HR: ");
-        Serial.print(hr);
+        Serial.println("DATA RECEIVED FROM WRIST");
+        Serial.print("HR: ");
+        Serial.print(heartRate);
         Serial.print(" | SpO2: ");
         Serial.print(spo2);
         Serial.print(" | IR: ");
-        Serial.print(ir);
+        Serial.print(irValue);
         Serial.print(" | Temp: ");
-        Serial.println(temp);
+        Serial.println(bodyTemp);
         Serial.println("========================================");
         
         // Reset data retry timer
         dataRetryStartTime = millis();
-        
-        // ===== PRESERVE EXISTING FUNCTIONALITY =====
-        // Call your existing functions here (fall detection, speaker, GPS, etc.)
-        // Example:
-        // processHealthData(hr, spo2, ir, temp);
-        // checkFallDetection(hr, spo2, ir, temp);
-        // updateDisplay(hr, spo2, ir, temp);
-        // sendToCloud(hr, spo2, ir, temp);
     } else {
-        Serial.println("❌ Invalid data format!");
+        Serial.println("Invalid data format!");
     }
 }
 
@@ -473,7 +545,7 @@ class ScanCallbacks : public NimBLEScanCallbacks {
         int rssi = advertisedDevice->getRSSI();
         
         if (deviceName.length() > 0) {
-            Serial.print("📱 Found: ");
+            Serial.print("Found: ");
             Serial.print(deviceName);
             Serial.print(" @ ");
             Serial.print(deviceAddress);
@@ -488,15 +560,15 @@ class ScanCallbacks : public NimBLEScanCallbacks {
             
             if (paired) {
                 // Found a paired device - connect!
-                Serial.println("✅ Found paired device: " + paired->name);
-                Serial.print("📱 Address: ");
+                Serial.println("Found paired device: " + paired->name);
+                Serial.print("Address: ");
                 Serial.println(deviceAddress);
                 
                 NimBLEDevice::getScan()->stop();
                 connectToDevice(deviceAddress);
             } else {
                 // New device found - check if we should auto-add
-                Serial.println("🆕 Found new device: " + deviceAddress);
+                Serial.println("Found new device: " + deviceAddress);
                 // Optionally auto-add based on policy
                 // For security, we'll require manual addition
             }
@@ -504,7 +576,7 @@ class ScanCallbacks : public NimBLEScanCallbacks {
     }
     
     void onScanEnd(const NimBLEScanResults& results) {
-        Serial.println("📡 Scan cycle completed, restarting...");
+        Serial.println("Scan cycle completed, restarting...");
         // Continuous scanning - will restart in loop
     }
 };
@@ -512,13 +584,13 @@ class ScanCallbacks : public NimBLEScanCallbacks {
 // ===== CONNECT TO DEVICE =====
 void connectToDevice(String address) {
     if (connecting || connected) {
-        Serial.println("⚠️ Already connecting or connected");
+        Serial.println("Already connecting or connected");
         return;
     }
     
     PairedDevice* device = deviceDB.getDeviceByAddress(address);
     if (!device) {
-        Serial.println("❌ Device not in database!");
+        Serial.println("Device not in database!");
         return;
     }
     
@@ -529,12 +601,12 @@ void connectToDevice(String address) {
     currentDeviceUID = device->uniqueID;
     
     Serial.println("========================================");
-    Serial.println("🔗 Connecting to: " + device->name);
-    Serial.print("📱 MAC: ");
+    Serial.println("Connecting to: " + device->name);
+    Serial.print("MAC: ");
     Serial.println(address);
-    Serial.print("🆔 UID: ");
+    Serial.print("UID: ");
     Serial.println(device->uniqueID);
-    Serial.print("🔢 Attempt #");
+    Serial.print("Attempt #");
     Serial.println(connectAttempts);
     Serial.println("========================================");
     
@@ -550,12 +622,12 @@ void connectToDevice(String address) {
     
     NimBLEAddress bleAddress(address.c_str());
     if (pClient->connect(bleAddress)) {
-        Serial.println("✅ Connected! Discovering services...");
+        Serial.println("Connected! Discovering services...");
         delay(200);
         
         NimBLERemoteService* pService = pClient->getService(SERVICE_UUID);
         if (pService) {
-            Serial.println("✅ Service found");
+            Serial.println("Service found");
             
             // Get identity characteristic
             pIdentityChar = pService->getCharacteristic(IDENTITY_UUID);
@@ -565,9 +637,9 @@ void connectToDevice(String address) {
                 String deviceUID = String(idStr.c_str());
                 
                 if (deviceUID == currentDeviceUID) {
-                    Serial.println("✅ Device identity verified!");
+                    Serial.println("Device identity verified!");
                 } else {
-                    Serial.println("❌ Device identity mismatch!");
+                    Serial.println("Device identity mismatch!");
                     Serial.println("Expected: " + currentDeviceUID);
                     Serial.println("Got: " + deviceUID);
                     pClient->disconnect();
@@ -579,11 +651,11 @@ void connectToDevice(String address) {
             // Get data characteristic
             pChar = pService->getCharacteristic(CHARACTERISTIC_UUID);
             if (pChar) {
-                Serial.println("✅ Characteristic found");
+                Serial.println("Characteristic found");
                 
                 if (pChar->canNotify()) {
                     pChar->subscribe(true, notifyCallback);
-                    Serial.println("✅ Subscribed to notifications");
+                    Serial.println("Subscribed to notifications");
                     
                     // Try to read initial data
                     std::string value = pChar->readValue();
@@ -596,20 +668,20 @@ void connectToDevice(String address) {
                     deviceDB.updateConnection(address, 0);
                     
                     Serial.println("========================================");
-                    Serial.println("✅ SUCCESSFULLY CONNECTED!");
+                    Serial.println("SUCCESSFULLY CONNECTED!");
                     Serial.println("========================================");
                     return;
                 }
             }
         }
         
-        Serial.println("❌ Failed to discover services");
+        Serial.println("Failed to discover services");
         pClient->disconnect();
         NimBLEDevice::deleteClient(pClient);
         pClient = NULL;
         connecting = false;
     } else {
-        Serial.println("❌ Connection failed");
+        Serial.println("Connection failed");
         NimBLEDevice::deleteClient(pClient);
         pClient = NULL;
         connecting = false;
@@ -636,8 +708,8 @@ void manageDataReception() {
         unsigned long elapsed = millis() - dataRetryStartTime;
         
         if (elapsed > DATA_RETRY_TIMEOUT) {
-            Serial.println("⏰ DATA RECEPTION TIMEOUT (1 minute)");
-            Serial.println("🔄 Re-requesting data...");
+            Serial.println("DATA RECEPTION TIMEOUT (1 minute)");
+            Serial.println("Re-requesting data...");
             
             if (pChar) {
                 pChar->unsubscribe();
@@ -651,7 +723,7 @@ void manageDataReception() {
                 
                 dataRetryStartTime = millis();
             } else {
-                Serial.println("❌ Characteristic lost! Reconnecting...");
+                Serial.println("Characteristic lost! Reconnecting...");
                 if (pClient) {
                     pClient->disconnect();
                 }
@@ -660,7 +732,7 @@ void manageDataReception() {
             }
         } else {
             if (elapsed % 5000 < 100) {
-                Serial.print("⏳ Waiting for data... ");
+                Serial.print("Waiting for data... ");
                 Serial.print(elapsed / 1000);
                 Serial.println("s elapsed");
             }
@@ -675,10 +747,10 @@ void manageConnectionTimeout() {
         
         if (elapsed > CONNECTION_TIMEOUT) {
             Serial.println("========================================");
-            Serial.println("⏰ CONNECTION TIMEOUT (1 minute)");
-            Serial.print("📊 Attempts: ");
+            Serial.println("CONNECTION TIMEOUT (1 minute)");
+            Serial.print("Attempts: ");
             Serial.println(connectAttempts);
-            Serial.println("🔄 Retrying...");
+            Serial.println("Retrying...");
             Serial.println("========================================");
             
             if (pClient) {
@@ -699,7 +771,7 @@ void autoReconnect() {
         unsigned long now = millis();
         
         if (now - lastReconnectAttempt > RECONNECT_DELAY) {
-            Serial.println("🔄 Attempting to reconnect...");
+            Serial.println("Attempting to reconnect...");
             
             // Get all auto-connect devices
             std::vector<PairedDevice> autoDevices = deviceDB.getAutoConnectDevices();
@@ -731,26 +803,28 @@ void printStatus() {
     
     if (millis() - lastStatusTime > 10000) {
         Serial.println("========================================");
-        Serial.println("📊 SYSTEM STATUS");
-        Serial.print("🔗 Connected: ");
+        Serial.println("SYSTEM STATUS");
+        Serial.print("Connected: ");
         Serial.println(connected ? "YES" : "NO");
-        Serial.print("🔄 Connecting: ");
+        Serial.print("Connecting: ");
         Serial.println(connecting ? "YES" : "NO");
-        Serial.print("📊 Data Received: ");
+        Serial.print("Data Received: ");
         Serial.println(dataReceived ? "YES" : "NO");
-        Serial.print("📱 Paired Devices: ");
+        Serial.print("Paired Devices: ");
         Serial.println(deviceDB.getAllDevices().size());
-        Serial.print("🔢 Connect Attempts: ");
+        Serial.print("Connect Attempts: ");
         Serial.println(connectAttempts);
-        Serial.print("✅ Successful Connects: ");
+        Serial.print("Successful Connects: ");
         Serial.println(successfulConnects);
-        Serial.print("📥 Data Attempts: ");
+        Serial.print("Data Attempts: ");
         Serial.println(dataReceptionAttempts);
-        Serial.print("📤 Successful Data: ");
+        Serial.print("Successful Data: ");
         Serial.println(successfulDataReceptions);
+        Serial.print("Current State: ");
+        Serial.println(getStateName(currentState));
         
         if (connected && pClient) {
-            Serial.print("📱 Connected to: ");
+            Serial.print("Connected to: ");
             Serial.println(pClient->getPeerAddress().toString().c_str());
         }
         Serial.println("========================================");
@@ -760,7 +834,7 @@ void printStatus() {
 
 // ===== ADD DEMO DEVICES (For testing) =====
 void addDemoDevices() {
-    Serial.println("📝 Adding demo devices...");
+    Serial.println("Adding demo devices...");
     
     // Senior Citizen 1's wristband
     PairedDevice device1;
@@ -808,7 +882,7 @@ void processSerialCommand() {
         }
         connected = false;
         connecting = false;
-        Serial.println("🔌 Disconnected");
+        Serial.println("Disconnected");
     }
     else if (command.startsWith("add ")) {
         // Format: add MAC:AA:BB:CC:DD:EE,Name:Device,UID:1234,Priority:5
@@ -841,7 +915,7 @@ void processSerialCommand() {
         device.password = "SC2024_" + device.uniqueID;
         
         deviceDB.addDevice(device);
-        Serial.println("✅ Device added successfully!");
+        Serial.println("Device added successfully!");
     }
     else if (command.startsWith("remove ")) {
         String address = command.substring(7);
@@ -856,7 +930,7 @@ void processSerialCommand() {
     }
     else if (command == "help") {
         Serial.println("========================================");
-        Serial.println("📖 COMMANDS");
+        Serial.println("COMMANDS");
         Serial.println("========================================");
         Serial.println("list                    - List all paired devices");
         Serial.println("connect                 - Auto-connect to best device");
@@ -867,6 +941,200 @@ void processSerialCommand() {
         Serial.println("help                    - Show this help");
         Serial.println("========================================");
     }
+}
+
+// ===== CORE LOGIC FUNCTIONS (MOVED FROM WRIST) =====
+
+void initSensors() {
+    // Initialize MPU6050
+    if (!mpu.begin()) {
+        Serial.println("MPU6050 NOT FOUND");
+        while (1);
+    }
+    Serial.println("MPU6050 Initialized");
+
+    // Initialize DS18B20
+    tempSensor.begin();
+    Serial.println("DS18B20 Initialized");
+    
+    sensorInitialized = true;
+}
+
+void initGSM() {
+    gsmSerial.begin(GSM_BAUD);
+    Serial.println("Initializing GSM Module...");
+    delay(1000);
+    
+    gsmSerial.println("AT");
+    delay(1000);
+    if (gsmSerial.available()) {
+        Serial.println("GSM Module Responding");
+    } else {
+        Serial.println("GSM Module Not Responding");
+    }
+    
+    gsmSerial.println("AT+CMGF=1");
+    delay(1000);
+}
+
+void initWiFi() {
+    Serial.println("Initializing WiFiManager...");
+    WiFiManager wifiManager;
+    
+    // Set timeout for captive portal (3 minutes)
+    wifiManager.setConfigPortalTimeout(180);
+    
+    if (!wifiManager.autoConnect("SilverCare_Waist_AP")) {
+        Serial.println("Failed to connect to WiFi and hit timeout");
+        Serial.println("Local Operation Active");
+    } else {
+        Serial.println("WiFi Connected!");
+        Serial.print("IP Address: ");
+        Serial.println(WiFi.localIP());
+    }
+}
+
+void sendDataToServer(SystemState state, float hr, float oxygen, float temp, bool worn, float acc, String micAudio) {
+    if (WiFi.status() != WL_CONNECTED) {
+        Serial.println("WiFi not connected - skipping send");
+        return;
+    }
+
+    HTTPClient http;
+    http.begin(serverURL);
+    http.addHeader("Content-Type", "application/json");
+
+    StaticJsonDocument<384> doc;
+    doc["deviceId"] = deviceId;
+    doc["beltType"] = beltType;
+    doc["state"] = (int)state;
+    doc["stateName"] = getStateName(state);
+    doc["heartRate"] = hr;
+    doc["spo2"] = oxygen;
+    doc["temperature"] = temp;
+    doc["beltWorn"] = worn;
+    doc["acceleration"] = acc;
+    doc["latitude"] = gpsLat;
+    doc["longitude"] = gpsLng;
+    doc["micMessageAudio"] = micAudio;
+    doc["timestamp"] = millis();
+
+    String payload;
+    serializeJson(doc, payload);
+
+    Serial.print("[WAIST BELT TELEMETRY SENT]: ");
+    Serial.println(payload);
+
+    int httpResponseCode = http.POST(payload);
+
+    if (httpResponseCode > 0) {
+        String response = http.getString();
+        Serial.print("Server Response Code: ");
+        Serial.println(httpResponseCode);
+
+        if (response.indexOf("ACKNOWLEDGED") != -1 || response.indexOf("I am Fine") != -1) {
+            Serial.println("[GUARDIAN ACKNOWLEDGED]: Clearing local buzzer and state!");
+            digitalWrite(BUZZER_PIN, LOW);
+            currentState = NORMAL;
+        }
+    } else {
+        Serial.print("HTTP POST Error: ");
+        Serial.println(httpResponseCode);
+    }
+
+    http.end();
+}
+
+String getStateName(SystemState state) {
+    switch(state) {
+        case NORMAL: return "NORMAL";
+        case PREFALL: return "PREFALL";
+        case SUDDEN_MOVEMENT: return "SUDDEN_MOVEMENT";
+        case FALL_DETECTED: return "FALL_DETECTED";
+        default: return "UNKNOWN";
+    }
+}
+
+void sendSmartSMSAlert(String alertType, String message) {
+    static unsigned long lastSMSTime = 0;
+    static bool twilioSMSSent = false;
+    static bool gsmSMSSent = false;
+    const unsigned long SMS_RETRY_INTERVAL = 30000;
+    
+    unsigned long currentTime = millis();
+    
+    if (currentTime - lastSMSTime < SMS_RETRY_INTERVAL) {
+        return;
+    }
+    
+    if (alertType != lastAlertType) {
+        twilioSMSSent = false;
+        gsmSMSSent = false;
+        lastAlertType = alertType;
+    }
+    
+    Serial.println("[SMS] Smart SMS System Activated");
+    
+    if (WiFi.status() == WL_CONNECTED && !twilioSMSSent) {
+        Serial.println("[TWILIO] Attempting SMS via WiFi...");
+        bool twilioSuccess = sendTwilioSMS(alertType, message);
+        if (twilioSuccess) {
+            twilioSMSSent = true;
+            lastSMSTime = currentTime;
+            return;
+        }
+    }
+    
+    if (!gsmSMSSent) {
+        Serial.println("[GSM] Sending backup SMS...");
+        bool gsmSuccess = sendGSMAlert(alertType, message);
+        if (gsmSuccess) {
+            gsmSMSSent = true;
+            lastSMSTime = currentTime;
+        }
+    }
+}
+
+bool sendTwilioSMS(String alertType, String message) {
+    StaticJsonDocument<256> doc;
+    doc["alert_type"] = alertType;
+    doc["message"] = message;
+    doc["device_id"] = deviceId;
+    doc["belt_type"] = beltType;
+    doc["timestamp"] = millis();
+    
+    String payload;
+    serializeJson(doc, payload);
+    
+    HTTPClient http;
+    http.begin(twilioURL);
+    http.addHeader("Content-Type", "application/json");
+    
+    int httpResponseCode = http.POST(payload);
+    http.end();
+    return (httpResponseCode == 200);
+}
+
+bool sendGSMAlert(String alertType, String message) {
+    String guardianPhone = "+919322757538";
+    
+    gsmSerial.println("AT+CMGS=\"" + guardianPhone + "\"");
+    delay(1000);
+    
+    String smsMessage = "SILVERCARE ALERT - " + alertType + "\n" + 
+                        message + "\n" + 
+                        "Device: " + deviceId + " (" + beltType + ")";
+    gsmSerial.println(smsMessage);
+    delay(1000);
+    
+    gsmSerial.write(26);
+    delay(3000);
+    
+    while(gsmSerial.available()) {
+        String response = gsmSerial.readString();
+        if (response.indexOf("OK") != -1) return true;
+    }
+    return false;
 }
 
 // ================================================================
@@ -882,13 +1150,27 @@ void setup() {
     Serial.println("=== (Enhanced with Multi-Device Support) ===");
     Serial.println("========================================");
     
+    // Initialize pins
+    pinMode(BUZZER_PIN, OUTPUT);
+    pinMode(BUTTON_PIN, INPUT_PULLUP);
+    pinMode(MIC_BUTTON_PIN, INPUT_PULLUP);
+    
+    // Initialize GSM
+    initGSM();
+    
+    // Initialize WiFi
+    initWiFi();
+    
+    // Initialize sensors (MPU6050, DS18B20)
+    initSensors();
+    
     // Initialize BLE
     NimBLEDevice::setSecurityAuth(false, false, false);
     NimBLEDevice::init("");
     NimBLEDevice::setOwnAddrType(BLE_OWN_ADDR_PUBLIC);
     NimBLEDevice::setPower(ESP_PWR_LVL_P9);
     
-    Serial.print("📱 Waist MAC: ");
+    Serial.print("Waist MAC: ");
     Serial.println(NimBLEDevice::getAddress().toString().c_str());
     
     // Initialize device database
@@ -902,15 +1184,17 @@ void setup() {
     deviceDB.printAllDevices();
     
     Serial.println("========================================");
-    Serial.println("🔐 AES-256 Encryption: ENABLED");
-    Serial.println("⏱️ Connection Timeout: 1 MINUTE");
-    Serial.println("⏱️ Data Reception Timeout: 1 MINUTE");
-    Serial.println("🔄 Continuous Scanning: ENABLED");
-    Serial.println("📚 Multi-Device Support: ENABLED");
-    Serial.println("🆔 Device Verification: ENABLED");
+    Serial.println("AES-256 Encryption: ENABLED");
+    Serial.println("Connection Timeout: 1 MINUTE");
+    Serial.println("Data Reception Timeout: 1 MINUTE");
+    Serial.println("Continuous Scanning: ENABLED");
+    Serial.println("Multi-Device Support: ENABLED");
+    Serial.println("Device Verification: ENABLED");
+    Serial.println("Fall Detection: ENABLED");
+    Serial.println("GPS/GSM: ENABLED");
     Serial.println("========================================");
-    Serial.println("💡 Type 'help' for commands");
-    Serial.println("🔄 Starting continuous scan...");
+    Serial.println("Type 'help' for commands");
+    Serial.println("Starting continuous scan...");
     Serial.println("========================================");
     
     // Start scanning immediately
@@ -943,13 +1227,88 @@ void loop() {
     // ===== 6. STATUS REPORTING =====
     printStatus();
     
-    // ===== 7. PRESERVE EXISTING FUNCTIONALITY =====
-    // Your existing loop code goes here
-    // For example:
-    // checkFallDetection();
-    // updateGPS();
-    // manageSpeaker();
-    // etc.
+    // ===== 7. CORE LOGIC (MOVED FROM WRIST) =====
+    
+    // MPU6050 READING
+    sensors_event_t acc, gyro, temp;
+    mpu.getEvent(&acc, &gyro, &temp);
+
+    float ax = acc.acceleration.x;
+    float ay = acc.acceleration.y;
+    float az = acc.acceleration.z;
+    float accMag = sqrt(ax * ax + ay * ay + az * az);
+    float accMagG = accMag / 9.8;
+
+    // TEMPERATURE READING (Local DS18B20)
+    tempSensor.requestTemperatures();
+    float bodyTempLocal = tempSensor.getTempCByIndex(0);
+
+    // BELT WORN CHECK (Using IR value from wrist)
+    #define IR_WORN_THRESHOLD 4500
+    beltWorn = (irValue > IR_WORN_THRESHOLD && bodyTempLocal > TEMP_WORN_THRESHOLD);
+    bool vitalsAbnormal = (heartRate < HR_LOW || heartRate > HR_HIGH || spo2 < SPO2_LOW);
+
+    // MICROPHONE TRIGGER CHECK
+    if (digitalRead(MIC_BUTTON_PIN) == LOW) {
+        micMessage = "Senior citizen pressed Waist Mic button: 'Help needed!'";
+        Serial.println("[MIC TRIGGERED]: " + micMessage);
+    } else if (micMessage.length() > 0 && currentState == NORMAL) {
+        micMessage = "";
+    }
+
+    // STATE MACHINE
+    if (currentState == FALL_DETECTED) {
+        goto STATE_OUTPUT;
+    }
+
+    if (accMagG > INSTABILITY_THRESHOLD && accMagG <= SUDDEN_THRESHOLD && beltWorn && vitalsAbnormal) {
+        currentState = PREFALL;
+        micMessage = "Pre-fall instability detected on Waist Belt. Asking: 'Are you okay?'";
+    } else if (accMagG > SUDDEN_THRESHOLD && accMagG <= FALL_THRESHOLD) {
+        currentState = SUDDEN_MOVEMENT;
+    } else if (accMagG > FALL_THRESHOLD && beltWorn) {
+        currentState = FALL_DETECTED;
+        fallTime = millis();
+        micMessage = "EMERGENCY: Fall impact detected on Waist Belt! Urgent help requested.";
+    } else {
+        currentState = NORMAL;
+    }
+
+    STATE_OUTPUT:
+    switch (currentState) {
+        case NORMAL:
+            digitalWrite(BUZZER_PIN, LOW);
+            break;
+
+        case PREFALL:
+            digitalWrite(BUZZER_PIN, LOW);
+            sendSmartSMSAlert("PRE-FALL", "Pre-fall detected on Waist Belt! Please check senior ward.");
+            break;
+
+        case SUDDEN_MOVEMENT:
+            digitalWrite(BUZZER_PIN, LOW);
+            break;
+
+        case FALL_DETECTED:
+            digitalWrite(BUZZER_PIN, HIGH);
+            sendSmartSMSAlert("FALL", "EMERGENCY: Fall detected on Waist Belt! Immediate assistance required!");
+            break;
+    }
+
+    // USER MANUAL OK OVERRIDE
+    if (digitalRead(BUTTON_PIN) == LOW) {
+        Serial.println("USER RESPONSE: I'M OK");
+        digitalWrite(BUZZER_PIN, LOW);
+        currentState = NORMAL;
+        micMessage = "Senior pressed 'I AM OK' button on waist belt.";
+    }
+
+    // SEND TELEMETRY TO SPRING BOOT SERVER
+    unsigned long currentTime = millis();
+    if (currentTime - lastSendTime >= SEND_INTERVAL) {
+        sendDataToServer(currentState, heartRate, spo2, bodyTempLocal, beltWorn, accMagG, micMessage);
+        lastSendTime = currentTime;
+    }
     
     delay(10); // Small delay to prevent watchdog reset
 }
