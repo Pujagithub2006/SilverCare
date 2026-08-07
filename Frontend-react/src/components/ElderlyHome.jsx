@@ -4,7 +4,7 @@ import {
   confirmMedicineTaken,
   getElderlyNotifications,
   clearElderlyNotification,
-  fetchSensorData,
+  fetchHardwareData,
   triggerEmergency
 } from '../services/api';
 import { useLanguage } from '../context/LanguageContext';
@@ -78,10 +78,12 @@ const ElderlyHome = () => {
 
   const pollDeviceStatus = async () => {
     try {
-      const data = await fetchSensorData();
-      if (data && data.status === 'success' && data.data) {
-        setBeltWornRealtime(data.data.beltWorn !== false);
-        setWristBandWornRealtime(data.data.wristBandWorn !== false);
+      const id = elderlyId || localStorage.getItem('elderly_id');
+      if (!id) return;
+      const response = await fetchHardwareData(id);
+      if (response && response.ok && response.data && response.data.status === 'success' && response.data.data) {
+        setBeltWornRealtime(response.data.data.beltConnected !== false);
+        setWristBandWornRealtime(response.data.data.beltConnected !== false);
       } else {
         setBeltWornRealtime(true);
         setWristBandWornRealtime(true);

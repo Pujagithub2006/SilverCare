@@ -37,14 +37,14 @@ const normalizeEmergencyPayload = (payload = {}) => {
 
 // ==================== SENSOR & ALERT HARDWARE API SERVICES ====================
 
-export const fetchSensorData = async () => {
+export const fetchSensorData = async (deviceId) => {
   try {
-    const response = await api.get('/api/sensor-data');
+    const response = await api.get('/api/sensor-data', { params: { deviceId } });
     return response.data;
   } catch (error) {
     if (error.response && error.response.data) return error.response.data;
     try {
-      const legacy = await axios.get(`${LEGACY_API_BASE}/api/sensor-data`);
+      const legacy = await axios.get(`${LEGACY_API_BASE}/api/sensor-data`, { params: { deviceId } });
       return legacy.data;
     } catch (e) {
       return { status: 'error', message: 'Sensor data unavailable' };

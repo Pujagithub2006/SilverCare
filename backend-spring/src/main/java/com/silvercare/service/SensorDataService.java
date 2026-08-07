@@ -46,7 +46,7 @@ public class SensorDataService {
         public void setBeltWorn(Boolean beltWorn) { this.beltWorn = beltWorn; }
     }
 
-    private final Map<String, Object> latestSensorDataContainer = new ConcurrentHashMap<>();
+    private final Map<String, Map<String, Object>> latestSensorDataContainer = new ConcurrentHashMap<>();
     private final Map<String, DeviceStatus> connectedDevices = new ConcurrentHashMap<>();
 
     public Map<String, Object> receiveSensorData(SensorDataRequest request) {
@@ -82,10 +82,13 @@ public class SensorDataService {
         sensorData.put("timestamp", request.getTimestamp() != null ? request.getTimestamp() : System.currentTimeMillis());
         sensorData.put("received_at", LocalDateTime.now().toString());
 
-        latestSensorDataContainer.put("status", "success");
-        latestSensorDataContainer.put("data", sensorData);
-        latestSensorDataContainer.put("last_update", LocalDateTime.now().toString());
-        latestSensorDataContainer.put("device_connected", true);
+        Map<String, Object> container = new ConcurrentHashMap<>();
+        container.put("status", "success");
+        container.put("data", sensorData);
+        container.put("last_update", LocalDateTime.now().toString());
+        container.put("device_connected", true);
+        
+        latestSensorDataContainer.put(deviceId, container);
 
         connectedDevices.put(deviceId, new DeviceStatus(deviceId, beltType, stateName, request.getBeltWorn()));
 
@@ -119,15 +122,23 @@ public class SensorDataService {
         return response;
     }
 
-    public Map<String, Object> getLatestSensorData() {
-        if (latestSensorDataContainer.containsKey("last_update")) {
-            String lastUpdateStr = (String) latestSensorDataContainer.get("last_update");
+    public Map<String, Object> getLatestSensorData(String deviceId) {
+        if (deviceId == null || !latestSensorDataContainer.containsKey(deviceId)) {
+             return Map.of(
+                "status", "success",
+                "device_connected", false,
+                "message", "No hardware connected for device: " + (deviceId != null ? deviceId : "unknown")
+            );
+        }
+        Map<String, Object> container = latestSensorDataContainer.get(deviceId);
+        if (container.containsKey("last_update")) {
+            String lastUpdateStr = (String) container.get("last_update");
             LocalDateTime lastUpdate = LocalDateTime.parse(lastUpdateStr);
             if (java.time.Duration.between(lastUpdate, LocalDateTime.now()).getSeconds() > 15) {
-                latestSensorDataContainer.put("device_connected", false);
+                container.put("device_connected", false);
             }
         }
-        return new LinkedHashMap<>(latestSensorDataContainer);
+        return new LinkedHashMap<>(container);
     }
 
     public Map<String, Object> getDeviceStatus() {

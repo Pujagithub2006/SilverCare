@@ -245,9 +245,10 @@ export default function GuardianDashboardPage() {
   // Poll real-time sensor hardware telemetry, active emergency alerts, and medicine data every 2 seconds
   useEffect(() => {
     const pollInterval = setInterval(() => {
-      pollLiveTelemetry();
       if (selectedElderly) {
         const elderlyId = selectedElderly.elderlyId || selectedElderly.id || selectedElderly.elderly_id;
+        const deviceId = selectedElderly.primaryDeviceId || selectedElderly.deviceId;
+        pollLiveTelemetry(deviceId);
         pollAlertsForElderly(elderlyId);
         loadElderlyData(elderlyId);
       }
@@ -310,9 +311,9 @@ export default function GuardianDashboardPage() {
     }
   };
 
-  const pollLiveTelemetry = async () => {
+  const pollLiveTelemetry = async (deviceId) => {
     try {
-      const data = await fetchSensorData();
+      const data = await fetchSensorData(deviceId);
       if (data && data.status === 'success' && data.data) {
         const d = data.data;
         setSensorData({

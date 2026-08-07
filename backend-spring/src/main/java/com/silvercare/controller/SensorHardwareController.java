@@ -6,6 +6,8 @@ import com.silvercare.dto.TwilioSmsRequest;
 import com.silvercare.service.FallDetectionService;
 import com.silvercare.service.SensorDataService;
 import com.silvercare.service.TwilioService;
+import com.silvercare.repository.ElderlyRepository;
+import com.silvercare.entity.Elderly;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -26,6 +28,9 @@ public class SensorHardwareController {
     @Autowired
     private TwilioService twilioService;
 
+    @Autowired
+    private ElderlyRepository elderlyRepository;
+
     @PostMapping("/api/sensor-data")
     public ResponseEntity<Map<String, Object>> receiveSensorData(@RequestBody SensorDataRequest request) {
         if (request == null) {
@@ -37,8 +42,11 @@ public class SensorHardwareController {
     }
 
     @GetMapping("/api/sensor-data")
-    public ResponseEntity<Map<String, Object>> getSensorData() {
-        return ResponseEntity.ok(sensorDataService.getLatestSensorData());
+    public ResponseEntity<Map<String, Object>> getSensorData(@RequestParam(required = false) String deviceId) {
+        if (deviceId == null) {
+            return ResponseEntity.ok(Map.of("status", "error", "message", "deviceId is required"));
+        }
+        return ResponseEntity.ok(sensorDataService.getLatestSensorData(deviceId));
     }
 
     @GetMapping("/sensor-data")
@@ -61,15 +69,34 @@ public class SensorHardwareController {
 
     @GetMapping("/hardware-data/{elderlyId}")
     public ResponseEntity<ApiResponse<Object>> getHardwareData(@PathVariable String elderlyId) {
+        String deviceId = elderlyRepository.findById(elderlyId)
+                .map(Elderly::getPrimaryDeviceId)
+                .orElse(null);
+
+        if (deviceId == null) {
+            Map<String, Object> data = Map.of(
+                    "heartRate", 0,
+                    "oxygenLevel", 0,
+                    "temperature", 0,
+                    "beltConnected", false,
+                    "beltLastSeen", "",
+                    "lastUpdate", LocalDateTime.now().toString(),
+                    "message", "No hardware connected"
+            );
+            return ResponseEntity.ok(ApiResponse.builder().status("success").data(data).build());
+        }
+
+        Map<String, Object> sensorData = sensorDataService.getLatestSensorData(deviceId);
         Map<String, Object> data = Map.of(
-                "heartRate", 0,
-                "oxygenLevel", 0,
-                "temperature", 0,
-                "beltConnected", false,
-                "beltLastSeen", "",
-                "lastUpdate", LocalDateTime.now().toString(),
-                "message", "No hardware connected"
+                "heartRate", sensorData.getOrDefault("heartRate", 0),
+                "oxygenLevel", sensorData.getOrDefault("spo2", 0),
+                "temperature", sensorData.getOrDefault("temperature", 0),
+                "beltConnected", sensorData.getOrDefault("device_connected", false),
+                "beltLastSeen", sensorData.getOrDefault("last_update", ""),
+                "lastUpdate", sensorData.getOrDefault("last_update", LocalDateTime.now().toString()),
+                "message", sensorData.getOrDefault("message", "Hardware connected")
         );
+
         ApiResponse<Object> response = ApiResponse.builder()
                 .status("success")
                 .data(data)
