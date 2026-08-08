@@ -18,6 +18,7 @@ const ElderlyHome = () => {
   const [elderlyName, setElderlyName] = useState('');
   const [sosPressed, setSosPressed] = useState(false);
   const [notifications, setNotifications] = useState({});
+  const [isCalibrated, setIsCalibrated] = useState(false);
 
   // Device Status Realtime State
   const [beltWornRealtime, setBeltWornRealtime] = useState(true);
@@ -45,6 +46,7 @@ const ElderlyHome = () => {
     setElderlyName(formattedName);
 
     pollDeviceStatus();
+    checkCalibrationStatus(id);
 
     // Realtime polling interval every 3 seconds
     const interval = setInterval(() => {
@@ -91,6 +93,18 @@ const ElderlyHome = () => {
     } catch (err) {
       setBeltWornRealtime(false);
       setWristBandWornRealtime(false);
+    }
+  };
+
+  const checkCalibrationStatus = async (id) => {
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081'}/api/elderly/${id}/health-history`);
+      if (response.ok) {
+        const data = await response.json();
+        setIsCalibrated(data.data?.isCalibrated || false);
+      }
+    } catch (err) {
+      console.error('Error checking calibration status:', err);
     }
   };
 
@@ -266,6 +280,41 @@ const ElderlyHome = () => {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Calibration Prompt Banner */}
+      {!isCalibrated && (
+        <div style={{ padding: '0 20px 20px 20px' }}>
+          <div style={{
+            backgroundColor: '#eff6ff',
+            border: '2px solid #3b82f6',
+            borderRadius: '16px',
+            padding: '16px',
+            textAlign: 'left'
+          }}>
+            <h3 style={{ margin: '0 0 8px 0', color: '#1e40af', fontSize: '16px', fontWeight: '700' }}>
+              🎯 Improve Fall Detection
+            </h3>
+            <p style={{ margin: '0 0 12px 0', color: '#1e3a8a', fontSize: '14px', lineHeight: '1.5' }}>
+              Complete a 10-minute calibration to personalize your fall detection for better accuracy.
+            </p>
+            <button
+              onClick={() => navigate('/calibration')}
+              style={{
+                backgroundColor: '#3b82f6',
+                color: 'white',
+                border: 'none',
+                padding: '10px 20px',
+                borderRadius: '8px',
+                fontWeight: '700',
+                cursor: 'pointer',
+                fontSize: '14px'
+              }}
+            >
+              Start Calibration
+            </button>
           </div>
         </div>
       )}

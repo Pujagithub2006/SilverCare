@@ -12,6 +12,19 @@ const ElderlyProfilePage = () => {
   const [elderlyPhone, setElderlyPhone] = useState('');
   const [guardianName, setGuardianName] = useState('');
   const [guardianPhone, setGuardianPhone] = useState('');
+  
+  // Health history state
+  const [showHealthForm, setShowHealthForm] = useState(false);
+  const [healthData, setHealthData] = useState({
+    age: '',
+    weight: '',
+    height: '',
+    conditions: [],
+    mobility: 'independent',
+    fallCount: 0,
+    lastFallDays: 365,
+    medications: ''
+  });
 
   useEffect(() => {
     let storedGName = localStorage.getItem('guardian_name') || '';
@@ -78,6 +91,48 @@ const ElderlyProfilePage = () => {
       localStorage.removeItem('elderly_remember_me');
       navigate('/login');
     }
+  };
+
+  const handleHealthSubmit = async (e) => {
+    e.preventDefault();
+    const elderlyId = localStorage.getItem('elderly_id');
+    
+    // Save health data to backend (API call to be implemented)
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081'}/api/elderly/${elderlyId}/health-history`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          age: parseInt(healthData.age),
+          weight: parseFloat(healthData.weight),
+          height: parseFloat(healthData.height),
+          conditions: healthData.conditions,
+          mobility: healthData.mobility,
+          fallCount: parseInt(healthData.fallCount),
+          lastFallDays: parseInt(healthData.lastFallDays),
+          medications: healthData.medications
+        })
+      });
+      
+      if (response.ok) {
+        alert('Health history saved successfully!');
+        setShowHealthForm(false);
+      } else {
+        alert('Failed to save health history');
+      }
+    } catch (err) {
+      console.error('Error saving health history:', err);
+      alert('Error saving health history');
+    }
+  };
+
+  const toggleCondition = (condition) => {
+    setHealthData(prev => ({
+      ...prev,
+      conditions: prev.conditions.includes(condition)
+        ? prev.conditions.filter(c => c !== condition)
+        : [...prev.conditions, condition]
+    }));
   };
 
   return (
@@ -174,7 +229,7 @@ const ElderlyProfilePage = () => {
           padding: '20px',
           boxShadow: '0 4px 16px rgba(0,0,0,0.04)',
           border: '1px solid #e2e8f0',
-          marginBottom: '24px',
+          marginBottom: '16px',
           textAlign: 'left'
         }}>
           <h3 style={{ margin: '0 0 14px 0', fontSize: '15px', fontWeight: '800', color: '#1e293b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
@@ -192,10 +247,48 @@ const ElderlyProfilePage = () => {
                   📞 {guardianPhone}
                 </a>
               ) : (
-                <span style={{ fontSize: '14px', color: '#16532d', fontWeight: '700' }}>—</span>
+                <span style={{ fontSize: '14px', color: '#14532d', fontWeight: '700' }}>—</span>
               )}
             </div>
           </div>
+        </div>
+
+        {/* Health History Card */}
+        <div style={{
+          backgroundColor: '#ffffff',
+          borderRadius: '20px',
+          padding: '20px',
+          boxShadow: '0 4px 16px rgba(0,0,0,0.04)',
+          border: '1px solid #e2e8f0',
+          marginBottom: '24px',
+          textAlign: 'left'
+        }}>
+          <h3 style={{ margin: '0 0 14px 0', fontSize: '15px', fontWeight: '800', color: '#1e293b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            🏥 Health History
+          </h3>
+          <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '12px' }}>
+            Help us personalize your fall detection by providing your health information
+          </p>
+          <button
+            onClick={() => setShowHealthForm(true)}
+            style={{
+              width: '100%',
+              backgroundColor: '#3b82f6',
+              color: '#ffffff',
+              border: 'none',
+              padding: '12px',
+              borderRadius: '12px',
+              fontSize: '14px',
+              fontWeight: '700',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px'
+            }}
+          >
+            📝 Update Health History
+          </button>
         </div>
 
         {/* Logout Section */}
@@ -225,6 +318,211 @@ const ElderlyProfilePage = () => {
         </button>
 
       </div>
+
+      {/* Health History Modal */}
+      {showHealthForm && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.65)',
+          backdropFilter: 'blur(6px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: '20px'
+        }}>
+          <div style={{
+            backgroundColor: '#ffffff',
+            borderRadius: '24px',
+            padding: '24px',
+            maxWidth: '500px',
+            width: '100%',
+            maxHeight: '90vh',
+            overflowY: 'auto',
+            boxShadow: '0 25px 50px -12px rgba(0,0,0,0.3)',
+            boxSizing: 'border-box'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
+              <div>
+                <h2 style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  🏥 Health History
+                </h2>
+                <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+                  Personalize your fall detection model
+                </div>
+              </div>
+              <button
+                onClick={() => setShowHealthForm(false)}
+                style={{
+                  background: '#f1f5f9', border: 'none', borderRadius: '50%',
+                  width: '32px', height: '32px', fontSize: '16px', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b'
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleHealthSubmit}>
+              {/* Basic Info */}
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+                  Age *
+                </label>
+                <input
+                  type="number"
+                  value={healthData.age}
+                  onChange={(e) => setHealthData({...healthData, age: e.target.value})}
+                  required
+                  min="50"
+                  max="120"
+                  style={{ width: '100%', padding: '10px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px' }}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+                    Weight (kg) *
+                  </label>
+                  <input
+                    type="number"
+                    value={healthData.weight}
+                    onChange={(e) => setHealthData({...healthData, weight: e.target.value})}
+                    required
+                    min="30"
+                    max="200"
+                    style={{ width: '100%', padding: '10px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+                    Height (cm) *
+                  </label>
+                  <input
+                    type="number"
+                    value={healthData.height}
+                    onChange={(e) => setHealthData({...healthData, height: e.target.value})}
+                    required
+                    min="100"
+                    max="250"
+                    style={{ width: '100%', padding: '10px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px' }}
+                  />
+                </div>
+              </div>
+
+              {/* Health Conditions */}
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#334155', marginBottom: '8px' }}>
+                  Health Conditions (select all that apply)
+                </label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                  {['Hypertension', 'Diabetes', 'Heart Disease', 'Arthritis', 'Osteoporosis', 'Stroke', 'Parkinson\'s', 'Dementia'].map(condition => (
+                    <button
+                      key={condition}
+                      type="button"
+                      onClick={() => toggleCondition(condition)}
+                      style={{
+                        padding: '8px 14px',
+                        borderRadius: '20px',
+                        fontSize: '12px',
+                        fontWeight: '600',
+                        border: healthData.conditions.includes(condition) ? '2px solid #3b82f6' : '1px solid #d1d5db',
+                        backgroundColor: healthData.conditions.includes(condition) ? '#eff6ff' : '#ffffff',
+                        color: healthData.conditions.includes(condition) ? '#1d4ed8' : '#64748b',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {healthData.conditions.includes(condition) ? '✓ ' : ''}{condition}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Mobility Level */}
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+                  Mobility Level *
+                </label>
+                <select
+                  value={healthData.mobility}
+                  onChange={(e) => setHealthData({...healthData, mobility: e.target.value})}
+                  required
+                  style={{ width: '100%', padding: '10px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px' }}
+                >
+                  <option value="independent">Independent (no assistance needed)</option>
+                  <option value="cane">Uses cane</option>
+                  <option value="walker">Uses walker</option>
+                  <option value="wheelchair">Wheelchair</option>
+                  <option value="bedridden">Bedridden</option>
+                </select>
+              </div>
+
+              {/* Fall History */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+                    Falls in past year
+                  </label>
+                  <input
+                    type="number"
+                    value={healthData.fallCount}
+                    onChange={(e) => setHealthData({...healthData, fallCount: e.target.value})}
+                    min="0"
+                    max="20"
+                    style={{ width: '100%', padding: '10px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+                    Days since last fall
+                  </label>
+                  <input
+                    type="number"
+                    value={healthData.lastFallDays}
+                    onChange={(e) => setHealthData({...healthData, lastFallDays: e.target.value})}
+                    min="0"
+                    max="365"
+                    style={{ width: '100%', padding: '10px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px' }}
+                  />
+                </div>
+              </div>
+
+              {/* Medications */}
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+                  Current Medications (optional)
+                </label>
+                <textarea
+                  value={healthData.medications}
+                  onChange={(e) => setHealthData({...healthData, medications: e.target.value})}
+                  placeholder="List any medications you're currently taking..."
+                  rows="3"
+                  style={{ width: '100%', padding: '10px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px', resize: 'vertical' }}
+                />
+              </div>
+
+              <button
+                type="submit"
+                style={{
+                  width: '100%',
+                  backgroundColor: '#3b82f6',
+                  color: '#ffffff',
+                  border: 'none',
+                  padding: '14px',
+                  borderRadius: '12px',
+                  fontSize: '15px',
+                  fontWeight: '700',
+                  cursor: 'pointer'
+                }}
+              >
+                Save Health History
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Bottom Taskbar */}
       <nav className="bottom-nav">

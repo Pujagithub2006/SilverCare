@@ -186,4 +186,15 @@ public class ElderlyManagementService {
 
         return updated;
     }
+
+    @Transactional
+    public Elderly updateElderlyEntity(Elderly elderly) {
+        Elderly updated = elderlyRepository.save(elderly);
+        
+        try {
+            firebaseEncryptionService.saveToFirebaseEncrypted("elderly_profiles", elderly.getElderlyId(), objectMapper.writeValueAsString(updated));
+        } catch (Exception ignored) {}
+        
+        return updated;
+    }
 }

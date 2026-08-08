@@ -17,6 +17,34 @@ public class Elderly {
     @Column(name = "medical_history", length = 2000)
     private String medicalHistory;
 
+    // Health history fields for ML personalization
+    @Column(name = "weight")
+    private Double weight;
+
+    @Column(name = "height")
+    private Double height;
+
+    @Column(name = "health_conditions", length = 1000)
+    private String healthConditions; // JSON array of conditions
+
+    @Column(name = "mobility_level")
+    private String mobilityLevel; // independent, cane, walker, wheelchair, bedridden
+
+    @Column(name = "fall_count")
+    private Integer fallCount;
+
+    @Column(name = "last_fall_days")
+    private Integer lastFallDays;
+
+    @Column(name = "medications", length = 2000)
+    private String medications;
+
+    @Column(name = "is_calibrated")
+    private Boolean isCalibrated = false;
+
+    @Column(name = "calibrated_at")
+    private String calibratedAt;
+
     private String phone;
     private String location;
 
@@ -84,6 +112,33 @@ public class Elderly {
 
     public String getMedicalHistory() { return medicalHistory; }
     public void setMedicalHistory(String medicalHistory) { this.medicalHistory = medicalHistory; }
+
+    public Double getWeight() { return weight; }
+    public void setWeight(Double weight) { this.weight = weight; }
+
+    public Double getHeight() { return height; }
+    public void setHeight(Double height) { this.height = height; }
+
+    public String getHealthConditions() { return healthConditions; }
+    public void setHealthConditions(String healthConditions) { this.healthConditions = healthConditions; }
+
+    public String getMobilityLevel() { return mobilityLevel; }
+    public void setMobilityLevel(String mobilityLevel) { this.mobilityLevel = mobilityLevel; }
+
+    public Integer getFallCount() { return fallCount; }
+    public void setFallCount(Integer fallCount) { this.fallCount = fallCount; }
+
+    public Integer getLastFallDays() { return lastFallDays; }
+    public void setLastFallDays(Integer lastFallDays) { this.lastFallDays = lastFallDays; }
+
+    public String getMedications() { return medications; }
+    public void setMedications(String medications) { this.medications = medications; }
+
+    public Boolean getIsCalibrated() { return isCalibrated; }
+    public void setIsCalibrated(Boolean isCalibrated) { this.isCalibrated = isCalibrated; }
+
+    public String getCalibratedAt() { return calibratedAt; }
+    public void setCalibratedAt(String calibratedAt) { this.calibratedAt = calibratedAt; }
 
     public String getPhone() { return phone; }
     public void setPhone(String phone) { this.phone = phone; }

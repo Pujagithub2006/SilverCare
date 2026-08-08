@@ -190,6 +190,79 @@ public class ElderlyManagementController {
         }
     }
 
+    @PostMapping("/api/elderly/{elderlyId}/health-history")
+    public ResponseEntity<ApiResponse<Object>> updateHealthHistory(
+            @PathVariable String elderlyId,
+            @RequestBody Map<String, Object> healthData) {
+        try {
+            Elderly elderly = elderlyManagementService.getElderly(elderlyId);
+            if (elderly == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error("Elderly not found"));
+            }
+
+            // Update health history fields
+            if (healthData.containsKey("age")) {
+                elderly.setAge(((Number) healthData.get("age")).intValue());
+            }
+            if (healthData.containsKey("weight")) {
+                elderly.setWeight(((Number) healthData.get("weight")).doubleValue());
+            }
+            if (healthData.containsKey("height")) {
+                elderly.setHeight(((Number) healthData.get("height")).doubleValue());
+            }
+            if (healthData.containsKey("conditions")) {
+                elderly.setHealthConditions(healthData.get("conditions").toString());
+            }
+            if (healthData.containsKey("mobility")) {
+                elderly.setMobilityLevel(healthData.get("mobility").toString());
+            }
+            if (healthData.containsKey("fallCount")) {
+                elderly.setFallCount(((Number) healthData.get("fallCount")).intValue());
+            }
+            if (healthData.containsKey("lastFallDays")) {
+                elderly.setLastFallDays(((Number) healthData.get("lastFallDays")).intValue());
+            }
+            if (healthData.containsKey("medications")) {
+                elderly.setMedications(healthData.get("medications").toString());
+            }
+
+            elderlyManagementService.updateElderlyEntity(elderly);
+
+            return ResponseEntity.ok(ApiResponse.success("Health history updated successfully"));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
+    @GetMapping("/api/elderly/{elderlyId}/health-history")
+    public ResponseEntity<ApiResponse<Object>> getHealthHistory(@PathVariable String elderlyId) {
+        try {
+            Elderly elderly = elderlyManagementService.getElderly(elderlyId);
+            if (elderly == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error("Elderly not found"));
+            }
+
+            Map<String, Object> healthData = new LinkedHashMap<>();
+            healthData.put("age", elderly.getAge());
+            healthData.put("weight", elderly.getWeight());
+            healthData.put("height", elderly.getHeight());
+            healthData.put("conditions", elderly.getHealthConditions());
+            healthData.put("mobility", elderly.getMobilityLevel());
+            healthData.put("fallCount", elderly.getFallCount());
+            healthData.put("lastFallDays", elderly.getLastFallDays());
+            healthData.put("medications", elderly.getMedications());
+            healthData.put("isCalibrated", elderly.getIsCalibrated());
+            healthData.put("calibratedAt", elderly.getCalibratedAt());
+
+            return ResponseEntity.ok(ApiResponse.builder()
+                    .status("success")
+                    .data(healthData)
+                    .build());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
     @GetMapping("/guardian-elderly/{guardianUsername}")
     public ResponseEntity<ApiResponse<Object>> getGuardianElderly(@PathVariable String guardianUsername) {
         List<Elderly> list = elderlyManagementService.getElderlyByGuardian(guardianUsername);

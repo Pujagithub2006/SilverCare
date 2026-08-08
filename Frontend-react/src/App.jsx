@@ -10,6 +10,7 @@ import FallAlert from './components/FallAlert';
 import HealthPage from './pages/HealthPage';
 import AssistantPage from './pages/AssistantPage';
 import ElderlyProfilePage from './pages/ElderlyProfilePage';
+import CalibrationPage from './pages/CalibrationPage';
 import GuardianAuthPage from './pages/GuardianAuthPage';
 import GuardianDashboardPage from './pages/GuardianDashboardPage';
 import PortalSelectionPage from './pages/PortalSelectionPage';
@@ -32,6 +33,7 @@ function App() {
           <Route path="/assistant" element={<AssistantPage />} />
           <Route path="/profile" element={<ElderlyProfilePage />} />
           <Route path="/elderly-profile" element={<ElderlyProfilePage />} />
+          <Route path="/calibration" element={<CalibrationPage />} />
           <Route path="/fall-alert" element={<FallAlert />} />
 
           {/* Guardian Routes */}
