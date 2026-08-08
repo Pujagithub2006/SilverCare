@@ -567,5 +567,67 @@ export async function sendChatMessage(userMessage, elderlyId, elderlyName, histo
   }
 }
 
+// ==================== DEVICE MANAGEMENT API SERVICES ====================
+
+export const fetchAllDevices = async () => {
+  try {
+    const response = await api.get('/api/devices');
+    return response.data;
+  } catch (error) {
+    if (error.response && error.response.data) return error.response.data;
+    return { status: 'error', message: 'Failed to fetch devices' };
+  }
+};
+
+export const fetchUnassignedDevices = async () => {
+  try {
+    const response = await api.get('/api/devices/unassigned');
+    return response.data;
+  } catch (error) {
+    if (error.response && error.response.data) return error.response.data;
+    return { status: 'error', message: 'Failed to fetch unassigned devices' };
+  }
+};
+
+export const fetchPotentiallyBrokenDevices = async () => {
+  try {
+    const response = await api.get('/api/devices/potentially-broken');
+    return response.data;
+  } catch (error) {
+    if (error.response && error.response.data) return error.response.data;
+    return { status: 'error', message: 'Failed to check device status' };
+  }
+};
+
+export const assignDeviceToElderly = async (deviceId, elderlyId) => {
+  try {
+    const response = await api.post(`/api/devices/${deviceId}/assign`, { elderlyId });
+    return response.data;
+  } catch (error) {
+    if (error.response && error.response.data) return error.response.data;
+    return { status: 'error', message: 'Failed to assign device' };
+  }
+};
+
+export const replaceDevice = async (oldDeviceId, newDeviceId) => {
+  try {
+    const response = await api.post('/api/devices/replace', { oldDeviceId, newDeviceId });
+    return response.data;
+  } catch (error) {
+    if (error.response && error.response.data) return error.response.data;
+    return { status: 'error', message: 'Failed to replace device' };
+  }
+};
+
+export const markDeviceBroken = async (deviceId, notes) => {
+  try {
+    const response = await api.post(`/api/devices/${deviceId}/mark-broken`, { notes });
+    return response.data;
+  } catch (error) {
+    if (error.response && error.response.data) return error.response.data;
+    return { status: 'error', message: 'Failed to mark device as broken' };
+  }
+};
+
 export { API_BASE, LEGACY_API_BASE };
 export default api;

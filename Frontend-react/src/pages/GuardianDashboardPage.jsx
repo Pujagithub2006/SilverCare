@@ -11,7 +11,13 @@ import {
   deleteMedicine,
   fetchSuggestions,
   saveSuggestions,
-  fetchFirebaseRecords
+  fetchFirebaseRecords,
+  fetchAllDevices,
+  fetchUnassignedDevices,
+  fetchPotentiallyBrokenDevices,
+  assignDeviceToElderly,
+  replaceDevice,
+  markDeviceBroken
 } from '../services/api';
 
 export default function GuardianDashboardPage() {
@@ -87,7 +93,13 @@ export default function GuardianDashboardPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showCalendarModal, setShowCalendarModal] = useState(false);
   const [showSuggestionModal, setShowSuggestionModal] = useState(false);
+  const [showDeviceModal, setShowDeviceModal] = useState(false);
   const [isListeningSuggestion, setIsListeningSuggestion] = useState(false);
+  
+  // Device Management State
+  const [allDevices, setAllDevices] = useState([]);
+  const [unassignedDevices, setUnassignedDevices] = useState([]);
+  const [potentiallyBrokenDevices, setPotentiallyBrokenDevices] = useState([]);
   const [calendarMonth, setCalendarMonth] = useState(new Date().getMonth());
   const [calendarYear, setCalendarYear] = useState(new Date().getFullYear());
   const [selectedCalendarDay, setSelectedCalendarDay] = useState(null);
@@ -240,6 +252,7 @@ export default function GuardianDashboardPage() {
   useEffect(() => {
     loadLinkedElderly();
     loadEncryptedFirebaseStats();
+    loadDeviceData();
   }, []);
 
   // Poll real-time sensor hardware telemetry, active emergency alerts, and medicine data every 2 seconds
@@ -308,6 +321,27 @@ export default function GuardianDashboardPage() {
       }
     } catch (err) {
       setFirebaseEncryptedCount(14);
+    }
+  };
+
+  const loadDeviceData = async () => {
+    try {
+      const allData = await fetchAllDevices();
+      if (allData.status === 'success') {
+        setAllDevices(allData.data || []);
+      }
+      
+      const unassignedData = await fetchUnassignedDevices();
+      if (unassignedData.status === 'success') {
+        setUnassignedDevices(unassignedData.data || []);
+      }
+      
+      const brokenData = await fetchPotentiallyBrokenDevices();
+      if (brokenData.status === 'success') {
+        setPotentiallyBrokenDevices(brokenData.data || []);
+      }
+    } catch (err) {
+      console.error('Error loading device data:', err);
     }
   };
 
@@ -815,8 +849,56 @@ export default function GuardianDashboardPage() {
                     boxShadow: '0 4px 12px rgba(139,92,246,0.25)'
                   }}
                 >
-                  📅 View Calendar
+                  📅 Calendar
                 </button>
+              </div>
+
+              {/* Device Management Section */}
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <div className="info-label" style={{ fontWeight: '500', color: '#6c6c70', fontSize: '12px', textTransform: 'uppercase' }}>
+                    🔧 Device Management
+                  </div>
+                  <button
+                    onClick={() => {
+                      setShowDeviceModal(true);
+                      loadDeviceData();
+                    }}
+                    style={{
+                      backgroundColor: potentiallyBrokenDevices.length > 0 ? '#ff3b30' : '#007AFF',
+                      color: '#ffffff',
+                      border: 'none',
+                      padding: '6px 12px',
+                      borderRadius: '8px',
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {potentiallyBrokenDevices.length > 0 ? `⚠️ ${potentiallyBrokenDevices.length} Issues` : 'Manage Devices'}
+                  </button>
+                </div>
+                
+                <div style={{ 
+                  background: '#f2f2f7', 
+                  borderRadius: '12px', 
+                  padding: '12px',
+                  fontSize: '13px',
+                  color: '#6c6c70'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                    <span>📱 Total Devices:</span>
+                    <strong>{allDevices.length}</strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                    <span>✅ Active:</span>
+                    <strong style={{ color: '#34c759' }}>{allDevices.filter(d => d.status === 'ACTIVE').length}</strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span>🔓 Unassigned:</span>
+                    <strong style={{ color: '#ff9500' }}>{unassignedDevices.length}</strong>
+                  </div>
+                </div>
               </div>
 
               {/* Medicine Reminders & Compliance Dashboard Section */}
@@ -1351,7 +1433,200 @@ export default function GuardianDashboardPage() {
         </div>
       )}
 
-      {/* 📝 Caregiver Advice & Suggestion Modal Overlay */}
+      {/* � Device Management Modal Overlay */}
+      {showDeviceModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.65)',
+          backdropFilter: 'blur(6px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: '20px'
+        }}>
+          <div style={{
+            backgroundColor: '#ffffff',
+            borderRadius: '24px',
+            padding: '24px',
+            maxWidth: '500px',
+            width: '100%',
+            maxHeight: '90vh',
+            overflowY: 'auto',
+            boxShadow: '0 25px 50px -12px rgba(0,0,0,0.3)',
+            boxSizing: 'border-box'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
+              <div>
+                <h2 style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  🔧 Device Management
+                </h2>
+                <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+                  Manage and monitor belt devices
+                </div>
+              </div>
+              <button
+                onClick={() => setShowDeviceModal(false)}
+                style={{
+                  background: '#f1f5f9', border: 'none', borderRadius: '50%',
+                  width: '32px', height: '32px', fontSize: '16px', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b'
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Potentially Broken Devices Alert */}
+            {potentiallyBrokenDevices.length > 0 && (
+              <div style={{
+                background: '#fee2e2',
+                border: '1px solid #fecaca',
+                borderRadius: '12px',
+                padding: '12px',
+                marginBottom: '16px'
+              }}>
+                <div style={{ fontSize: '13px', fontWeight: '700', color: '#991b1b', marginBottom: '8px' }}>
+                  ⚠️ {potentiallyBrokenDevices.length} Device(s) Not Responding
+                </div>
+                {potentiallyBrokenDevices.map(device => (
+                  <div key={device.deviceId} style={{
+                    background: '#ffffff',
+                    borderRadius: '8px',
+                    padding: '8px',
+                    marginBottom: '6px',
+                    fontSize: '12px',
+                    color: '#7f1d1d'
+                  }}>
+                    <strong>{device.deviceId}</strong> - Last seen: {device.lastSeen ? new Date(device.lastSeen).toLocaleString() : 'Unknown'}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* All Devices List */}
+            <div style={{ marginBottom: '16px' }}>
+              <div style={{ fontSize: '13px', fontWeight: '700', color: '#334155', marginBottom: '8px' }}>
+                All Devices ({allDevices.length})
+              </div>
+              {allDevices.length === 0 ? (
+                <div style={{ fontSize: '12px', color: '#64748b', textAlign: 'center', padding: '16px' }}>
+                  No devices registered yet
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {allDevices.map(device => (
+                    <div key={device.deviceId} style={{
+                      background: '#f8fafc',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '12px',
+                      padding: '12px'
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                        <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>
+                          {device.deviceId}
+                        </div>
+                        <span style={{
+                          padding: '4px 8px',
+                          borderRadius: '12px',
+                          fontSize: '11px',
+                          fontWeight: '700',
+                          background: device.status === 'ACTIVE' ? '#d1fae5' : device.status === 'BROKEN' ? '#fee2e2' : '#f1f5f9',
+                          color: device.status === 'ACTIVE' ? '#065f46' : device.status === 'BROKEN' ? '#991b1b' : '#64748b'
+                        }}>
+                          {device.status}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '4px' }}>
+                        Type: {device.deviceType} • MAC: {device.macAddress}
+                      </div>
+                      <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '8px' }}>
+                        Assigned: {device.assignedElderlyId || 'Unassigned'}
+                      </div>
+                      <div style={{ fontSize: '11px', color: '#64748b' }}>
+                        Last seen: {device.lastSeen ? new Date(device.lastSeen).toLocaleString() : 'Never'}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Unassigned Devices */}
+            <div style={{ marginBottom: '16px' }}>
+              <div style={{ fontSize: '13px', fontWeight: '700', color: '#334155', marginBottom: '8px' }}>
+                Unassigned Devices ({unassignedDevices.length})
+              </div>
+              {unassignedDevices.length === 0 ? (
+                <div style={{ fontSize: '12px', color: '#64748b', textAlign: 'center', padding: '16px' }}>
+                  All devices are assigned
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {unassignedDevices.map(device => (
+                    <div key={device.deviceId} style={{
+                      background: '#fffbeb',
+                      border: '1px solid #fde68a',
+                      borderRadius: '12px',
+                      padding: '12px',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center'
+                    }}>
+                      <div>
+                        <div style={{ fontSize: '13px', fontWeight: '700', color: '#92400e' }}>
+                          {device.deviceId}
+                        </div>
+                        <div style={{ fontSize: '11px', color: '#b45309' }}>
+                          {device.deviceType}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => {
+                          if (selectedElderly) {
+                            assignDeviceToElderly(device.deviceId, selectedElderly.elderlyId || selectedElderly.id)
+                              .then(() => {
+                                showSnackbarMessage('Device assigned successfully!', 'success');
+                                loadDeviceData();
+                              })
+                              .catch(err => {
+                                showSnackbarMessage('Failed to assign device', 'error');
+                              });
+                          } else {
+                            alert('Please select an elderly first');
+                          }
+                        }}
+                        style={{
+                          background: '#f59e0b',
+                          color: '#ffffff',
+                          border: 'none',
+                          padding: '6px 12px',
+                          borderRadius: '8px',
+                          fontSize: '11px',
+                          fontWeight: '700',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Assign to {selectedElderly?.name?.split(' ')[0] || 'Selected'}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <button
+              onClick={() => setShowDeviceModal(false)}
+              style={{ width: '100%', padding: '12px', border: 'none', borderRadius: '12px', backgroundColor: '#2563eb', color: '#ffffff', fontWeight: '700', cursor: 'pointer' }}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* �📝 Caregiver Advice & Suggestion Modal Overlay */}
       {showSuggestionModal && (
         <div style={{
           position: 'fixed',
