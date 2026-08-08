@@ -28,6 +28,9 @@ public class AlertController {
     @Autowired
     private FirebaseEncryptionService firebaseEncryptionService;
 
+    @Autowired
+    private com.silvercare.service.SensorDataService sensorDataService;
+
     @PostMapping("/acknowledge")
     public ResponseEntity<ApiResponse<Object>> acknowledgeAlert(@RequestBody AlertAcknowledgeRequest request) {
         try {
@@ -84,7 +87,10 @@ public class AlertController {
                 alert = active.get(0);
                 alert.setAudioMessage(audioData);
             } else {
-                alert = new AlertRecord("VOICE_" + System.currentTimeMillis(), elderlyId, request.getDeviceId(), "Microphone", "VOICE_TRIGGER", "PENDING_ACK", audioData, 18.5204, 73.8567);
+                double[] lastCoords = sensorDataService.getLastKnownCoordinates(request.getDeviceId());
+                Double lat = lastCoords != null ? lastCoords[0] : null;
+                Double lng = lastCoords != null ? lastCoords[1] : null;
+                alert = new AlertRecord("VOICE_" + System.currentTimeMillis(), elderlyId, request.getDeviceId(), "Microphone", "VOICE_TRIGGER", "PENDING_ACK", audioData, lat, lng);
             }
             alertRecordRepository.save(alert);
 

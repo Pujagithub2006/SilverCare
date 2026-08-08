@@ -48,6 +48,14 @@ public class SensorDataService {
 
     private final Map<String, Map<String, Object>> latestSensorDataContainer = new ConcurrentHashMap<>();
     private final Map<String, DeviceStatus> connectedDevices = new ConcurrentHashMap<>();
+    private final Map<String, double[]> lastKnownCoordinatesMap = new ConcurrentHashMap<>();
+
+    public double[] getLastKnownCoordinates(String deviceId) {
+        if (deviceId != null && lastKnownCoordinatesMap.containsKey(deviceId)) {
+            return lastKnownCoordinatesMap.get(deviceId);
+        }
+        return null;
+    }
 
     public Map<String, Object> receiveSensorData(SensorDataRequest request) {
         String deviceId = request.getDeviceId() != null ? request.getDeviceId() : "vois_belt";
@@ -63,8 +71,23 @@ public class SensorDataService {
             }
         }
 
-        Double lat = request.getLatitude() != null ? request.getLatitude() : 18.5204;
-        Double lng = request.getLongitude() != null ? request.getLongitude() : 73.8567;
+        Double lat = request.getLatitude();
+        Double lng = request.getLongitude();
+        boolean isLastLocationFetched = false;
+        String locationWarning = null;
+
+        if (lat != null && lng != null) {
+            lastKnownCoordinatesMap.put(deviceId, new double[]{lat, lng});
+        } else if (lastKnownCoordinatesMap.containsKey(deviceId)) {
+            double[] lastCoords = lastKnownCoordinatesMap.get(deviceId);
+            lat = lastCoords[0];
+            lng = lastCoords[1];
+            isLastLocationFetched = true;
+            locationWarning = "Unable to fetch current location, last location is fetched";
+        } else {
+            isLastLocationFetched = false;
+            locationWarning = "Unable to fetch location: No GPS data available";
+        }
 
         Map<String, Object> sensorData = new LinkedHashMap<>();
         sensorData.put("deviceId", deviceId);
@@ -78,6 +101,8 @@ public class SensorDataService {
         sensorData.put("acceleration", request.getAcceleration() != null ? request.getAcceleration() : 1.0);
         sensorData.put("latitude", lat);
         sensorData.put("longitude", lng);
+        sensorData.put("isLastLocationFetched", isLastLocationFetched);
+        sensorData.put("locationWarning", locationWarning);
         sensorData.put("micMessageAudio", request.getMicMessageAudio());
         sensorData.put("timestamp", request.getTimestamp() != null ? request.getTimestamp() : System.currentTimeMillis());
         sensorData.put("received_at", LocalDateTime.now().toString());

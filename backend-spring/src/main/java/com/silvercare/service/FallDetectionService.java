@@ -287,8 +287,7 @@ public class FallDetectionService {
 
     public void notifyGuardianFall(String elderlyName, String deviceId, String location) {
         // Use fall detection alert to notify guardians about a fall event
-        // Coordinates can be set to 0.0 if not available; modify as needed
-        handleFallAlert(deviceId, "Urgent Belt", 0.0, 0.0,
+        handleFallAlert(deviceId, "Urgent Belt", null, null,
                 "Fall detected for " + elderlyName + " at " + location);
     }
 

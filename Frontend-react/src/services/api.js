@@ -52,6 +52,21 @@ export const fetchSensorData = async (deviceId) => {
   }
 };
 
+export const sendSensorTelemetry = async (telemetryPayload) => {
+  try {
+    const response = await api.post('/api/sensor-data', telemetryPayload);
+    return response.data;
+  } catch (error) {
+    if (error.response && error.response.data) return error.response.data;
+    try {
+      const legacy = await axios.post(`${LEGACY_API_BASE}/api/sensor-data`, telemetryPayload);
+      return legacy.data;
+    } catch (e) {
+      return { status: 'error', message: 'Sensor data submission failed' };
+    }
+  }
+};
+
 export const fetchDeviceStatus = async () => {
   try {
     const response = await api.get('/api/device-status');
