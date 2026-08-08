@@ -19,6 +19,7 @@ import {
   replaceDevice,
   markDeviceBroken
 } from '../services/api';
+import ElderlyMapModal from '../components/ElderlyMapModal';
 
 export default function GuardianDashboardPage() {
   const navigate = useNavigate();
@@ -48,8 +49,10 @@ export default function GuardianDashboardPage() {
     temperature: 36.6,
     acceleration: 1.05,
     stateName: 'NORMAL',
-    latitude: 18.5204,
-    longitude: 73.8567,
+    latitude: null,
+    longitude: null,
+    isLastLocationFetched: false,
+    locationWarning: '',
     received_at: new Date().toLocaleTimeString()
   });
 
@@ -89,11 +92,12 @@ export default function GuardianDashboardPage() {
     }
   };
 
-  // Medicine & Suggestion Modal State
+  // Medicine & Suggestion & Map Modal State
   const [showAddModal, setShowAddModal] = useState(false);
   const [showCalendarModal, setShowCalendarModal] = useState(false);
   const [showSuggestionModal, setShowSuggestionModal] = useState(false);
   const [showDeviceModal, setShowDeviceModal] = useState(false);
+  const [showMapModal, setShowMapModal] = useState(false);
   const [isListeningSuggestion, setIsListeningSuggestion] = useState(false);
   
   // Device Management State
@@ -350,7 +354,7 @@ export default function GuardianDashboardPage() {
       const data = await fetchSensorData(deviceId);
       if (data && data.status === 'success' && data.data) {
         const d = data.data;
-        setSensorData({
+        setSensorData(prev => ({
           deviceId: d.deviceId || 'vois_belt',
           beltType: d.beltType || 'Waist Belt',
           beltWorn: d.beltWorn !== undefined ? d.beltWorn : true,
@@ -359,11 +363,13 @@ export default function GuardianDashboardPage() {
           temperature: d.temperature !== undefined ? Number(d.temperature).toFixed(1) : 0,
           acceleration: d.acceleration !== undefined ? Number(d.acceleration).toFixed(2) : 1.0,
           stateName: d.stateName || 'NORMAL',
-          latitude: d.latitude || 18.5204,
-          longitude: d.longitude || 73.8567,
+          latitude: d.latitude !== undefined && d.latitude !== null ? d.latitude : prev.latitude,
+          longitude: d.longitude !== undefined && d.longitude !== null ? d.longitude : prev.longitude,
+          isLastLocationFetched: d.isLastLocationFetched !== undefined ? d.isLastLocationFetched : false,
+          locationWarning: d.locationWarning || (d.latitude === null && prev.latitude === null ? 'Unable to fetch current location' : ''),
           received_at: d.received_at || new Date().toLocaleTimeString(),
           micMessageAudio: d.micMessageAudio
-        });
+        }));
       }
     } catch (err) {
       console.error('Error polling live sensor telemetry:', err);
@@ -690,32 +696,56 @@ export default function GuardianDashboardPage() {
               boxShadow: '0 2px 10px rgba(0, 0, 0, 0.05)',
               marginBottom: '16px'
             }}>
-              {/* Elderly Header */}
-              <div className="elderly-header" style={{ display: 'flex', alignItems: 'center', marginBottom: '16px' }}>
-                <div className="elderly-avatar" style={{
-                  width: '48px',
-                  height: '48px',
-                  background: '#007AFF',
-                  borderRadius: '24px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: 'white',
-                  fontSize: '18px',
-                  fontWeight: '600',
-                  marginRight: '12px',
-                  flexShrink: 0
-                }}>
-                  {getInitials(selectedElderly.name)}
+              {/* Elderly Header with Map Location Button */}
+              <div className="elderly-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', gap: '8px', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center' }}>
+                  <div className="elderly-avatar" style={{
+                    width: '48px',
+                    height: '48px',
+                    background: '#007AFF',
+                    borderRadius: '24px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'white',
+                    fontSize: '18px',
+                    fontWeight: '600',
+                    marginRight: '12px',
+                    flexShrink: 0
+                  }}>
+                    {getInitials(selectedElderly.name)}
+                  </div>
+                  <div>
+                    <h3 className="elderly-name" style={{ fontSize: '18px', fontWeight: '600', color: '#000000', margin: 0 }}>
+                      {selectedElderly.name}
+                    </h3>
+                    <p className="elderly-age" style={{ color: '#6c6c70', fontSize: '14px', margin: '2px 0 0 0' }}>
+                      Age: {selectedElderly.age || '75'} • {selectedElderly.location || 'Pune'}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="elderly-name" style={{ fontSize: '18px', fontWeight: '600', color: '#000000', margin: 0 }}>
-                    {selectedElderly.name}
-                  </h3>
-                  <p className="elderly-age" style={{ color: '#6c6c70', fontSize: '14px', margin: '2px 0 0 0' }}>
-                    Age: {selectedElderly.age || '75'} • {selectedElderly.location || 'Pune'}
-                  </p>
-                </div>
+
+                <button
+                  onClick={() => setShowMapModal(true)}
+                  style={{
+                    backgroundColor: '#007AFF',
+                    color: '#ffffff',
+                    border: 'none',
+                    padding: '8px 14px',
+                    borderRadius: '12px',
+                    fontSize: '13px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    boxShadow: '0 3px 10px rgba(0, 122, 255, 0.25)',
+                    transition: 'all 0.2s ease'
+                  }}
+                  title="View elderly person map location"
+                >
+                  📍 See Elderly Person
+                </button>
               </div>
 
               {/* Phone Info Section */}
@@ -810,11 +840,67 @@ export default function GuardianDashboardPage() {
                     </div>
                   </div>
 
+                  {/* Location Warning Alert Banner */}
+                  {(sensorData.locationWarning || sensorData.isLastLocationFetched) && (
+                    <div style={{
+                      gridColumn: '1 / -1',
+                      backgroundColor: '#fffbe6',
+                      border: '1px solid #ffe58f',
+                      borderRadius: '10px',
+                      padding: '10px 14px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '8px',
+                      fontSize: '12px',
+                      color: '#d46b08',
+                      fontWeight: '600'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span>⚠️</span>
+                        <span>{sensorData.locationWarning || 'Unable to fetch current location, last location is fetched'}</span>
+                        {sensorData.latitude && sensorData.longitude && (
+                          <span style={{ fontSize: '11px', color: '#8c8c8c' }}>
+                            (Last Known: {Number(sensorData.latitude).toFixed(4)}, {Number(sensorData.longitude).toFixed(4)})
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => setShowMapModal(true)}
+                        style={{
+                          backgroundColor: '#007AFF',
+                          color: '#ffffff',
+                          border: 'none',
+                          padding: '4px 10px',
+                          borderRadius: '8px',
+                          fontSize: '11px',
+                          fontWeight: '700',
+                          cursor: 'pointer',
+                          whiteSpace: 'nowrap'
+                        }}
+                      >
+                        📍 View Map
+                      </button>
+                    </div>
+                  )}
+
                 </div>
               </div>
 
-              {/* 3 Main Dashboard Action Buttons (Located Directly Below Hardware Status) */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: '18px' }}>
+              {/* 4 Main Dashboard Action Buttons (Located Directly Below Hardware Status) */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '8px', marginBottom: '18px' }}>
+                <button
+                  onClick={() => setShowMapModal(true)}
+                  style={{
+                    backgroundColor: '#007AFF', color: '#ffffff', border: 'none',
+                    padding: '12px 8px', borderRadius: '12px', fontSize: '13px',
+                    fontWeight: '800', cursor: 'pointer', display: 'flex',
+                    alignItems: 'center', justifyContent: 'center', gap: '4px',
+                    boxShadow: '0 4px 12px rgba(0,122,255,0.25)'
+                  }}
+                >
+                  📍 See Elderly Person
+                </button>
                 <button
                   onClick={() => setShowAddModal(true)}
                   style={{
@@ -1808,6 +1894,14 @@ export default function GuardianDashboardPage() {
           </button>
         </div>
       )}
+      {/* 📍 Elderly Location Map Modal Component */}
+      <ElderlyMapModal
+        isOpen={showMapModal}
+        onClose={() => setShowMapModal(false)}
+        elderly={selectedElderly}
+        sensorData={sensorData}
+      />
+
     </div>
   );
 }

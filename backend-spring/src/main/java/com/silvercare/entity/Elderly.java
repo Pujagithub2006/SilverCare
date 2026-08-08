@@ -65,12 +65,6 @@ public class Elderly {
         if (location == null) {
             location = "Home";
         }
-        if (latitude == null) {
-            latitude = 18.5204; // Default city coordinates (e.g. Pune/Mumbai)
-        }
-        if (longitude == null) {
-            longitude = 73.8567;
-        }
         if (primaryBeltType == null) {
             primaryBeltType = "Waist Belt";
         }

@@ -18,7 +18,7 @@ public class DeviceController {
     private DeviceService deviceService;
 
     @PostMapping("/register")
-    public ResponseEntity<ApiResponse<Device>> registerDevice(@RequestBody Device device) {
+    public ResponseEntity<ApiResponse<Object>> registerDevice(@RequestBody Device device) {
         try {
             Device registeredDevice = deviceService.registerDevice(device);
             return ResponseEntity.ok(ApiResponse.builder()
@@ -33,7 +33,7 @@ public class DeviceController {
     }
 
     @GetMapping("/{deviceId}")
-    public ResponseEntity<ApiResponse<Device>> getDevice(@PathVariable String deviceId) {
+    public ResponseEntity<ApiResponse<Object>> getDevice(@PathVariable String deviceId) {
         try {
             return deviceService.getDevice(deviceId)
                     .map(device -> ResponseEntity.ok(ApiResponse.builder()
@@ -48,7 +48,7 @@ public class DeviceController {
     }
 
     @GetMapping
-    public ResponseEntity<ApiResponse<List<Device>>> getAllDevices() {
+    public ResponseEntity<ApiResponse<Object>> getAllDevices() {
         try {
             List<Device> devices = deviceService.getAllDevices();
             return ResponseEntity.ok(ApiResponse.builder()
@@ -62,7 +62,7 @@ public class DeviceController {
     }
 
     @GetMapping("/unassigned")
-    public ResponseEntity<ApiResponse<List<Device>>> getUnassignedDevices() {
+    public ResponseEntity<ApiResponse<Object>> getUnassignedDevices() {
         try {
             List<Device> devices = deviceService.getUnassignedDevices();
             return ResponseEntity.ok(ApiResponse.builder()
@@ -76,7 +76,7 @@ public class DeviceController {
     }
 
     @GetMapping("/potentially-broken")
-    public ResponseEntity<ApiResponse<List<Device>>> getPotentiallyBrokenDevices() {
+    public ResponseEntity<ApiResponse<Object>> getPotentiallyBrokenDevices() {
         try {
             List<Device> devices = deviceService.getPotentiallyBrokenDevices();
             return ResponseEntity.ok(ApiResponse.builder()
@@ -91,7 +91,7 @@ public class DeviceController {
     }
 
     @GetMapping("/elderly/{elderlyId}")
-    public ResponseEntity<ApiResponse<List<Device>>> getDevicesByElderly(@PathVariable String elderlyId) {
+    public ResponseEntity<ApiResponse<Object>> getDevicesByElderly(@PathVariable String elderlyId) {
         try {
             List<Device> devices = deviceService.getDevicesByElderly(elderlyId);
             return ResponseEntity.ok(ApiResponse.builder()
@@ -105,7 +105,7 @@ public class DeviceController {
     }
 
     @PostMapping("/{deviceId}/assign")
-    public ResponseEntity<ApiResponse<Device>> assignDevice(
+    public ResponseEntity<ApiResponse<Object>> assignDevice(
             @PathVariable String deviceId,
             @RequestBody Map<String, String> request) {
         try {
@@ -123,7 +123,7 @@ public class DeviceController {
     }
 
     @PostMapping("/{deviceId}/unassign")
-    public ResponseEntity<ApiResponse<Device>> unassignDevice(@PathVariable String deviceId) {
+    public ResponseEntity<ApiResponse<Object>> unassignDevice(@PathVariable String deviceId) {
         try {
             Device device = deviceService.unassignDevice(deviceId);
             return ResponseEntity.ok(ApiResponse.builder()
@@ -138,7 +138,7 @@ public class DeviceController {
     }
 
     @PostMapping("/{deviceId}/mark-broken")
-    public ResponseEntity<ApiResponse<Device>> markDeviceBroken(
+    public ResponseEntity<ApiResponse<Object>> markDeviceBroken(
             @PathVariable String deviceId,
             @RequestBody Map<String, String> request) {
         try {
@@ -156,7 +156,7 @@ public class DeviceController {
     }
 
     @PostMapping("/replace")
-    public ResponseEntity<ApiResponse<Device>> replaceDevice(@RequestBody Map<String, String> request) {
+    public ResponseEntity<ApiResponse<Object>> replaceDevice(@RequestBody Map<String, String> request) {
         try {
             String oldDeviceId = request.get("oldDeviceId");
             String newDeviceId = request.get("newDeviceId");
@@ -173,7 +173,7 @@ public class DeviceController {
     }
 
     @PostMapping("/{deviceId}/heartbeat")
-    public ResponseEntity<ApiResponse<Device>> updateHeartbeat(@PathVariable String deviceId) {
+    public ResponseEntity<ApiResponse<Object>> updateHeartbeat(@PathVariable String deviceId) {
         try {
             Device device = deviceService.updateLastSeen(deviceId);
             return ResponseEntity.ok(ApiResponse.builder()
@@ -188,7 +188,7 @@ public class DeviceController {
     }
 
     @PutMapping("/{deviceId}")
-    public ResponseEntity<ApiResponse<Device>> updateDevice(
+    public ResponseEntity<ApiResponse<Object>> updateDevice(
             @PathVariable String deviceId,
             @RequestBody Device deviceUpdates) {
         try {
@@ -205,7 +205,7 @@ public class DeviceController {
     }
 
     @DeleteMapping("/{deviceId}")
-    public ResponseEntity<ApiResponse<Void>> deleteDevice(@PathVariable String deviceId) {
+    public ResponseEntity<ApiResponse<Object>> deleteDevice(@PathVariable String deviceId) {
         try {
             deviceService.deleteDevice(deviceId);
             return ResponseEntity.ok(ApiResponse.builder()
