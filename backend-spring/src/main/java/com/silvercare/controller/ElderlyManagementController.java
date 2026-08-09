@@ -341,6 +341,15 @@ public class ElderlyManagementController {
             if (contactData.containsKey("secondaryGuardianName")) {
                 elderly.setSecondaryGuardianName(contactData.get("secondaryGuardianName").toString());
             }
+            if (contactData.containsKey("hospitalPhone")) {
+                elderly.setHospitalPhone(contactData.get("hospitalPhone").toString());
+            }
+            if (contactData.containsKey("ambulancePhone")) {
+                elderly.setAmbulancePhone(contactData.get("ambulancePhone").toString());
+            }
+            if (contactData.containsKey("hospitalName")) {
+                elderly.setHospitalName(contactData.get("hospitalName").toString());
+            }
 
             elderlyManagementService.updateElderlyEntity(elderly);
 

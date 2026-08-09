@@ -13,6 +13,14 @@ const ElderlyProfilePage = () => {
   const [guardianName, setGuardianName] = useState('');
   const [guardianPhone, setGuardianPhone] = useState('');
   
+  // Emergency contacts state
+  const [emergencyContacts, setEmergencyContacts] = useState({
+    hospitalPhone: '',
+    ambulancePhone: '',
+    hospitalName: ''
+  });
+  const [showEmergencyForm, setShowEmergencyForm] = useState(false);
+  
   // Health history state
   const [showHealthForm, setShowHealthForm] = useState(false);
   const [healthData, setHealthData] = useState({
@@ -70,6 +78,13 @@ const ElderlyProfilePage = () => {
             if (realGName) localStorage.setItem('guardian_name', realGName);
             if (realGPhone) localStorage.setItem('guardian_phone', realGPhone);
 
+            // Load emergency contacts
+            setEmergencyContacts({
+              hospitalPhone: profile.hospitalPhone || '',
+              ambulancePhone: profile.ambulancePhone || '',
+              hospitalName: profile.hospitalName || ''
+            });
+
             const prefLang = profile.preferred_language || res.data.preferred_language;
             if (prefLang) {
               changeLanguage(prefLang, id);
@@ -90,6 +105,33 @@ const ElderlyProfilePage = () => {
       localStorage.removeItem('guardian_phone');
       localStorage.removeItem('elderly_remember_me');
       navigate('/login');
+    }
+  };
+
+  const handleEmergencyContactsSubmit = async (e) => {
+    e.preventDefault();
+    const elderlyId = localStorage.getItem('elderly_id');
+    
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081'}/api/elderly/${elderlyId}/contacts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          hospitalPhone: emergencyContacts.hospitalPhone,
+          ambulancePhone: emergencyContacts.ambulancePhone,
+          hospitalName: emergencyContacts.hospitalName
+        })
+      });
+      
+      if (response.ok) {
+        alert('Emergency contacts saved successfully!');
+        setShowEmergencyForm(false);
+      } else {
+        alert('Failed to save emergency contacts');
+      }
+    } catch (err) {
+      console.error('Error saving emergency contacts:', err);
+      alert('Error saving emergency contacts');
     }
   };
 
@@ -253,6 +295,52 @@ const ElderlyProfilePage = () => {
           </div>
         </div>
 
+        {/* Emergency Contacts Card */}
+        <div style={{
+          backgroundColor: '#ffffff',
+          borderRadius: '20px',
+          padding: '20px',
+          boxShadow: '0 4px 16px rgba(0,0,0,0.04)',
+          border: '1px solid #e2e8f0',
+          marginBottom: '16px',
+          textAlign: 'left'
+        }}>
+          <h3 style={{ margin: '0 0 14px 0', fontSize: '15px', fontWeight: '800', color: '#1e293b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            Emergency Contacts
+          </h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', backgroundColor: '#fef2f2', borderRadius: '12px', border: '1px solid #fecaca' }}>
+              <span style={{ fontSize: '13px', color: '#991b1b', fontWeight: '600' }}>Hospital</span>
+              <span style={{ fontSize: '14px', color: '#7f1d1d', fontWeight: '700' }}>{emergencyContacts.hospitalPhone || 'Not set'}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', backgroundColor: '#fef2f2', borderRadius: '12px', border: '1px solid #fecaca' }}>
+              <span style={{ fontSize: '13px', color: '#991b1b', fontWeight: '600' }}>Ambulance</span>
+              <span style={{ fontSize: '14px', color: '#7f1d1d', fontWeight: '700' }}>{emergencyContacts.ambulancePhone || 'Not set'}</span>
+            </div>
+          </div>
+          <button
+            onClick={() => setShowEmergencyForm(true)}
+            style={{
+              width: '100%',
+              backgroundColor: '#ef4444',
+              color: '#ffffff',
+              border: 'none',
+              padding: '12px',
+              borderRadius: '12px',
+              fontSize: '14px',
+              fontWeight: '700',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              marginTop: '12px'
+            }}
+          >
+            Update Emergency Contacts
+          </button>
+        </div>
+
         {/* Health History Card */}
         <div style={{
           backgroundColor: '#ffffff',
@@ -318,6 +406,114 @@ const ElderlyProfilePage = () => {
         </button>
 
       </div>
+
+      {/* Emergency Contacts Modal */}
+      {showEmergencyForm && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.65)',
+          backdropFilter: 'blur(6px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: '20px'
+        }}>
+          <div style={{
+            backgroundColor: '#ffffff',
+            borderRadius: '24px',
+            padding: '24px',
+            maxWidth: '500px',
+            width: '100%',
+            maxHeight: '90vh',
+            overflowY: 'auto',
+            boxShadow: '0 25px 50px -12px rgba(0,0,0,0.3)',
+            boxSizing: 'border-box'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
+              <div>
+                <h2 style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', margin: 0 }}>
+                  Emergency Contacts
+                </h2>
+                <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+                  Set hospital and ambulance phone numbers
+                </div>
+              </div>
+              <button
+                onClick={() => setShowEmergencyForm(false)}
+                style={{
+                  background: '#f1f5f9', border: 'none', borderRadius: '50%',
+                  width: '32px', height: '32px', fontSize: '16px', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b'
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleEmergencyContactsSubmit}>
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+                  Hospital Name
+                </label>
+                <input
+                  type="text"
+                  value={emergencyContacts.hospitalName}
+                  onChange={(e) => setEmergencyContacts({...emergencyContacts, hospitalName: e.target.value})}
+                  placeholder="Hospital name"
+                  style={{ width: '100%', padding: '10px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px' }}
+                />
+              </div>
+
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+                  Hospital Phone Number *
+                </label>
+                <input
+                  type="tel"
+                  value={emergencyContacts.hospitalPhone}
+                  onChange={(e) => setEmergencyContacts({...emergencyContacts, hospitalPhone: e.target.value})}
+                  placeholder="Hospital phone number"
+                  required
+                  style={{ width: '100%', padding: '10px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px' }}
+                />
+              </div>
+
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+                  Ambulance Phone Number *
+                </label>
+                <input
+                  type="tel"
+                  value={emergencyContacts.ambulancePhone}
+                  onChange={(e) => setEmergencyContacts({...emergencyContacts, ambulancePhone: e.target.value})}
+                  placeholder="Ambulance phone number"
+                  required
+                  style={{ width: '100%', padding: '10px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px' }}
+                />
+              </div>
+
+              <button
+                type="submit"
+                style={{
+                  width: '100%',
+                  backgroundColor: '#ef4444',
+                  color: '#ffffff',
+                  border: 'none',
+                  padding: '14px',
+                  borderRadius: '12px',
+                  fontSize: '15px',
+                  fontWeight: '700',
+                  cursor: 'pointer'
+                }}
+              >
+                Save Emergency Contacts
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Health History Modal */}
       {showHealthForm && (

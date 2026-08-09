@@ -1169,7 +1169,7 @@ export default function GuardianDashboardPage() {
                     opacity: locationRequestLoading ? 0.6 : 1
                   }}
                 >
-                  � Ask Location
+                  Ask Location
                 </button>
                 <button
                   onClick={() => setShowSuggestionModal(true)}
