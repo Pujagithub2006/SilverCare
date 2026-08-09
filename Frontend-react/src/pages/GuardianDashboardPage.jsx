@@ -150,6 +150,10 @@ export default function GuardianDashboardPage() {
   });
   const [showContactsModal, setShowContactsModal] = useState(false);
   const [editingContacts, setEditingContacts] = useState({});
+
+  // UI Expansion State
+  const [showAdvancedFeatures, setShowAdvancedFeatures] = useState(false);
+
   const [calendarMonth, setCalendarMonth] = useState(new Date().getMonth());
   const [calendarYear, setCalendarYear] = useState(new Date().getFullYear());
   const [selectedCalendarDay, setSelectedCalendarDay] = useState(null);
@@ -240,7 +244,72 @@ export default function GuardianDashboardPage() {
       return;
     }
     setShowDevicePairingModal(true);
-    loadElderlyDevices(selectedElderly.elderlyId || selectedElderly.id);
+    loadElderlyDevicesData(selectedElderly.elderlyId || selectedElderly.id);
+  };
+
+  const loadElderlyDevicesData = async (elderlyId) => {
+    console.log('[GuardianDashboard] Loading elderly devices for:', elderlyId);
+    try {
+      const { ok, data } = await getElderlyDevices(elderlyId);
+      console.log('[GuardianDashboard] Elderly devices response:', { ok, data });
+      if (ok && data) {
+        setElderlyDevices({
+          currentDevices: data.currentDevices || [],
+          previousDevices: data.previousDevices || []
+        });
+      }
+    } catch (error) {
+      console.error('[GuardianDashboard] Error loading elderly devices:', error);
+    }
+  };
+
+  const handlePairDevice = async () => {
+    if (!selectedElderly || !macAddressInput) {
+      showSnackbarMessage('Please select a senior and enter MAC address', 'error');
+      return;
+    }
+    
+    setPairingLoading(true);
+    const elderlyId = selectedElderly.elderlyId || selectedElderly.id;
+    
+    try {
+      const { ok, data } = await pairDeviceToElderly(elderlyId, macAddressInput, deviceTypeInput);
+      if (ok) {
+        showSnackbarMessage('Device paired successfully!', 'success');
+        setMacAddressInput('');
+        loadElderlyDevicesData(elderlyId);
+        loadDeviceData();
+      } else {
+        showSnackbarMessage(`Failed to pair device: ${data?.message || 'Unknown error'}`, 'error');
+      }
+    } catch (error) {
+      console.error('Error pairing device:', error);
+      showSnackbarMessage('Error pairing device', 'error');
+    } finally {
+      setPairingLoading(false);
+    }
+  };
+
+  const handleUnpairDevice = async (deviceId) => {
+    if (!selectedElderly) return;
+    
+    if (!window.confirm('Are you sure you want to unpair this device?')) return;
+    
+    const elderlyId = selectedElderly.elderlyId || selectedElderly.id;
+    
+    try {
+      const { ok } = await unpairDevice(elderlyId, deviceId);
+      if (ok) {
+        showSnackbarMessage('Device unpaired successfully', 'success');
+        loadElderlyDevicesData(elderlyId);
+        loadDeviceData();
+      } else {
+        showSnackbarMessage('Failed to unpair device', 'error');
+      }
+    } catch (error) {
+      console.error('Error unpairing device:', error);
+      showSnackbarMessage('Error unpairing device', 'error');
+    }
   };
 
   const handleRequestLocation = async () => {
@@ -250,14 +319,15 @@ export default function GuardianDashboardPage() {
     setLocationRequestLoading(true);
     try {
       const response = await requestLocation(elderlyId);
+      console.log('[GuardianDashboard] Location request response:', response);
       if (response.status === 'success') {
-        showSnackbarMessage('Location request sent to device', 'success');
+        showSnackbarMessage('Location request sent to device. Waiting for GPS data...', 'success');
       } else {
-        showSnackbarMessage('Failed to request location', 'error');
+        showSnackbarMessage(`Failed to request location: ${response.message || 'Device may not be connected'}`, 'error');
       }
     } catch (error) {
-      console.error('Error requesting location:', error);
-      showSnackbarMessage('Failed to request location', 'error');
+      console.error('[GuardianDashboard] Error requesting location:', error);
+      showSnackbarMessage('Error requesting location. Device may not be connected or offline.', 'error');
     } finally {
       setLocationRequestLoading(false);
     }
@@ -302,15 +372,16 @@ export default function GuardianDashboardPage() {
     setReportLoading(true);
     try {
       const response = await getDailyReport(elderlyId);
+      console.log('[GuardianDashboard] Daily report generation response:', response);
       if (response.status === 'success') {
         showSnackbarMessage('Daily report generated successfully', 'success');
         handleLoadHealthReports();
       } else {
-        showSnackbarMessage('Failed to generate daily report', 'error');
+        showSnackbarMessage(`Failed to generate daily report: ${response.message || 'Insufficient data'}`, 'error');
       }
     } catch (error) {
-      console.error('Error generating daily report:', error);
-      showSnackbarMessage('Failed to generate daily report', 'error');
+      console.error('[GuardianDashboard] Error generating daily report:', error);
+      showSnackbarMessage('Error generating daily report. Insufficient sensor data may be available.', 'error');
     } finally {
       setReportLoading(false);
     }
@@ -1339,53 +1410,155 @@ export default function GuardianDashboardPage() {
                 )}
               </div>
 
-              {/* Device Management Section */}
-              <div style={{ marginBottom: '16px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <div className="info-label" style={{ fontWeight: '500', color: '#6c6c70', fontSize: '12px', textTransform: 'uppercase' }}>
-                    🔧 Device Management
+              {/* Device Management Section - Advanced */}
+              {showAdvancedFeatures && (
+                <div style={{ marginBottom: '16px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <div className="info-label" style={{ fontWeight: '500', color: '#6c6c70', fontSize: '12px', textTransform: 'uppercase' }}>
+                      🔧 Device Management
+                    </div>
+                    <button
+                      onClick={() => {
+                        setShowDeviceModal(true);
+                        loadDeviceData();
+                      }}
+                      style={{
+                        backgroundColor: potentiallyBrokenDevices.length > 0 ? '#ff3b30' : '#007AFF',
+                        color: '#ffffff',
+                        border: 'none',
+                        padding: '6px 12px',
+                        borderRadius: '8px',
+                        fontSize: '12px',
+                        fontWeight: '600',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {potentiallyBrokenDevices.length > 0 ? `⚠️ ${potentiallyBrokenDevices.length} Issues` : 'Manage Devices'}
+                    </button>
                   </div>
-                  <button
-                    onClick={() => {
-                      setShowDeviceModal(true);
-                      loadDeviceData();
-                    }}
-                    style={{
-                      backgroundColor: potentiallyBrokenDevices.length > 0 ? '#ff3b30' : '#007AFF',
-                      color: '#ffffff',
-                      border: 'none',
-                      padding: '6px 12px',
-                      borderRadius: '8px',
-                      fontSize: '12px',
-                      fontWeight: '600',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    {potentiallyBrokenDevices.length > 0 ? `⚠️ ${potentiallyBrokenDevices.length} Issues` : 'Manage Devices'}
-                  </button>
+                  
+                  <div style={{ 
+                    background: '#f2f2f7', 
+                    borderRadius: '12px', 
+                    padding: '12px',
+                    fontSize: '13px',
+                    color: '#6c6c70'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                      <span>📱 Total Devices:</span>
+                      <strong>{allDevices.length}</strong>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                      <span>✅ Active:</span>
+                      <strong style={{ color: '#34c759' }}>{allDevices.filter(d => d.status === 'ACTIVE').length}</strong>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span>🔓 Unassigned:</span>
+                      <strong style={{ color: '#ff9500' }}>{unassignedDevices.length}</strong>
+                    </div>
+                  </div>
                 </div>
-                
-                <div style={{ 
-                  background: '#f2f2f7', 
-                  borderRadius: '12px', 
+              )}
+
+              {/* Health Reports Section - Advanced */}
+              {showAdvancedFeatures && (
+                <div style={{ marginBottom: '16px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <div className="info-label" style={{ fontWeight: '500', color: '#6c6c70', fontSize: '12px', textTransform: 'uppercase' }}>
+                      📋 Health Reports
+                    </div>
+                    <button
+                      onClick={handleLoadHealthReports}
+                      disabled={reportLoading}
+                      style={{
+                        backgroundColor: '#007AFF', color: '#ffffff',
+                        border: 'none', padding: '6px 12px', borderRadius: '8px',
+                        fontSize: '12px', fontWeight: '600', cursor: reportLoading ? 'not-allowed' : 'pointer',
+                        opacity: reportLoading ? 0.6 : 1
+                      }}
+                    >
+                      {reportLoading ? 'Loading...' : 'Refresh'}
+                    </button>
+                  </div>
+                  {healthReports.length > 0 ? (
+                    <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                      {healthReports.map((report) => (
+                        <div
+                          key={report.id}
+                          style={{
+                            backgroundColor: '#ffffff',
+                            padding: '12px',
+                            borderRadius: '12px',
+                            border: '1px solid #e5e5e7',
+                            marginBottom: '8px',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center'
+                          }}
+                        >
+                          <div>
+                            <div style={{ fontSize: '13px', fontWeight: '700', color: '#1f2937' }}>
+                              {report.reportType} Report
+                            </div>
+                            <div style={{ fontSize: '11px', color: '#6c6c70', marginTop: '2px' }}>
+                              {new Date(report.reportDate).toLocaleDateString()}
+                            </div>
+                            <div style={{ fontSize: '10px', color: '#9ca3af', marginTop: '2px' }}>
+                              Falls: {report.totalFalls} | HR: {report.avgHeartRate} BPM | SpO2: {report.avgSpo2}%
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => handleDownloadReport(report.id, report.reportType)}
+                            style={{
+                              backgroundColor: '#10b981', color: '#ffffff',
+                              border: 'none', padding: '8px 12px', borderRadius: '8px',
+                              fontSize: '11px', fontWeight: '700', cursor: 'pointer',
+                              display: 'flex', alignItems: 'center', gap: '4px'
+                            }}
+                          >
+                            📥 Download
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{
+                      backgroundColor: '#f9fafb',
+                      padding: '16px',
+                      borderRadius: '12px',
+                      border: '1px dashed #d1d5db',
+                      textAlign: 'center',
+                      color: '#6c6c70',
+                      fontSize: '12px'
+                    }}>
+                      No health reports generated yet. Click "Generate Report" to create one.
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* See More / See Less Toggle */}
+              <button
+                onClick={() => setShowAdvancedFeatures(!showAdvancedFeatures)}
+                style={{
+                  width: '100%',
+                  backgroundColor: '#f3f4f6',
+                  color: '#374151',
+                  border: '1px solid #d1d5db',
                   padding: '12px',
-                  fontSize: '13px',
-                  color: '#6c6c70'
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                    <span>📱 Total Devices:</span>
-                    <strong>{allDevices.length}</strong>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                    <span>✅ Active:</span>
-                    <strong style={{ color: '#34c759' }}>{allDevices.filter(d => d.status === 'ACTIVE').length}</strong>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span>🔓 Unassigned:</span>
-                    <strong style={{ color: '#ff9500' }}>{unassignedDevices.length}</strong>
-                  </div>
-                </div>
-              </div>
+                  borderRadius: '12px',
+                  fontSize: '14px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  marginBottom: '16px'
+                }}
+              >
+                {showAdvancedFeatures ? '▲ See Less' : '▼ See More Features'}
+              </button>
 
               {/* Medicine Reminders & Compliance Dashboard Section */}
               <div className="info-section" style={{ marginBottom: '16px', background: '#f8fafc', padding: '16px', borderRadius: '16px', border: '1px solid #cbd5e1' }}>
@@ -2392,6 +2565,165 @@ export default function GuardianDashboardPage() {
                 Save Contacts ✅
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Device Pairing Modal */}
+      {showDevicePairingModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.65)',
+          backdropFilter: 'blur(6px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: '20px'
+        }}>
+          <div style={{
+            backgroundColor: '#ffffff',
+            borderRadius: '24px',
+            padding: '24px',
+            maxWidth: '500px',
+            width: '100%',
+            maxHeight: '90vh',
+            overflowY: 'auto',
+            boxShadow: '0 25px 50px -12px rgba(0,0,0,0.3)',
+            boxSizing: 'border-box'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
+              <div>
+                <h2 style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', margin: 0 }}>
+                  Device Pairing
+                </h2>
+                <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+                  Pair a device to {selectedElderly?.name || 'senior'}
+                </div>
+              </div>
+              <button
+                onClick={() => setShowDevicePairingModal(false)}
+                style={{
+                  background: '#f1f5f9', border: 'none', borderRadius: '50%',
+                  width: '32px', height: '32px', fontSize: '16px', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b'
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+                Device Type
+              </label>
+              <select
+                value={deviceTypeInput}
+                onChange={(e) => setDeviceTypeInput(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '10px 12px',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '8px',
+                  fontSize: '14px'
+                }}
+              >
+                <option value="Waist Belt">Waist Belt</option>
+                <option value="Wrist Watch">Wrist Watch</option>
+              </select>
+            </div>
+
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+                MAC Address *
+              </label>
+              <input
+                type="text"
+                value={macAddressInput}
+                onChange={(e) => setMacAddressInput(e.target.value)}
+                placeholder="e.g., AA:BB:CC:DD:EE:FF"
+                required
+                style={{
+                  width: '100%',
+                  padding: '10px 12px',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '8px',
+                  fontSize: '14px'
+                }}
+              />
+            </div>
+
+            <div style={{ marginBottom: '20px' }}>
+              <div style={{ fontSize: '13px', fontWeight: '700', color: '#334155', marginBottom: '8px' }}>
+                Current Devices
+              </div>
+              {elderlyDevices.currentDevices.length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {elderlyDevices.currentDevices.map((device) => (
+                    <div
+                      key={device.id}
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        padding: '10px 14px',
+                        backgroundColor: '#f0fdf4',
+                        borderRadius: '8px',
+                        border: '1px solid #bbf7d0'
+                      }}
+                    >
+                      <div>
+                        <div style={{ fontSize: '13px', fontWeight: '700', color: '#166534' }}>
+                          {device.deviceType || 'Device'}
+                        </div>
+                        <div style={{ fontSize: '11px', color: '#15803d' }}>
+                          {device.macAddress || device.deviceId}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleUnpairDevice(device.id || device.deviceId)}
+                        style={{
+                          backgroundColor: '#dc2626',
+                          color: 'white',
+                          border: 'none',
+                          padding: '6px 12px',
+                          borderRadius: '6px',
+                          fontSize: '11px',
+                          fontWeight: '700',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Unpair
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ fontSize: '12px', color: '#64748b', fontStyle: 'italic' }}>
+                  No devices paired yet
+                </div>
+              )}
+            </div>
+
+            <button
+              onClick={handlePairDevice}
+              disabled={pairingLoading}
+              style={{
+                width: '100%',
+                backgroundColor: '#8b5cf6',
+                color: '#ffffff',
+                border: 'none',
+                padding: '14px',
+                borderRadius: '12px',
+                fontSize: '15px',
+                fontWeight: '700',
+                cursor: pairingLoading ? 'not-allowed' : 'pointer',
+                opacity: pairingLoading ? 0.6 : 1
+              }}
+            >
+              {pairingLoading ? 'Pairing...' : 'Pair Device'}
+            </button>
           </div>
         </div>
       )}

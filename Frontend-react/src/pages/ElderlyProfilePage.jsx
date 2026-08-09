@@ -112,6 +112,14 @@ const ElderlyProfilePage = () => {
     e.preventDefault();
     const elderlyId = localStorage.getItem('elderly_id');
     
+    if (!elderlyId) {
+      alert('Error: No elderly ID found. Please log in again.');
+      return;
+    }
+    
+    console.log('[ElderlyProfile] Saving emergency contacts for elderlyId:', elderlyId);
+    console.log('[ElderlyProfile] Emergency contacts data:', emergencyContacts);
+    
     try {
       const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081'}/api/elderly/${elderlyId}/contacts`, {
         method: 'POST',
@@ -123,15 +131,18 @@ const ElderlyProfilePage = () => {
         })
       });
       
+      const responseData = await response.json();
+      console.log('[ElderlyProfile] Save response:', responseData);
+      
       if (response.ok) {
         alert('Emergency contacts saved successfully!');
         setShowEmergencyForm(false);
       } else {
-        alert('Failed to save emergency contacts');
+        alert(`Failed to save emergency contacts: ${responseData.message || responseData.error || 'Unknown error'}`);
       }
     } catch (err) {
-      console.error('Error saving emergency contacts:', err);
-      alert('Error saving emergency contacts');
+      console.error('[ElderlyProfile] Error saving emergency contacts:', err);
+      alert(`Error saving emergency contacts: ${err.message}`);
     }
   };
 
@@ -311,11 +322,57 @@ const ElderlyProfilePage = () => {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', backgroundColor: '#fef2f2', borderRadius: '12px', border: '1px solid #fecaca' }}>
               <span style={{ fontSize: '13px', color: '#991b1b', fontWeight: '600' }}>Hospital</span>
-              <span style={{ fontSize: '14px', color: '#7f1d1d', fontWeight: '700' }}>{emergencyContacts.hospitalPhone || 'Not set'}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '14px', color: '#7f1d1d', fontWeight: '700' }}>{emergencyContacts.hospitalPhone || 'Not set'}</span>
+                {emergencyContacts.hospitalPhone && (
+                  <a
+                    href={`tel:${emergencyContacts.hospitalPhone}`}
+                    style={{
+                      backgroundColor: '#dc2626',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '8px',
+                      padding: '6px 12px',
+                      fontSize: '12px',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      textDecoration: 'none',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                  >
+                    Call
+                  </a>
+                )}
+              </div>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', backgroundColor: '#fef2f2', borderRadius: '12px', border: '1px solid #fecaca' }}>
               <span style={{ fontSize: '13px', color: '#991b1b', fontWeight: '600' }}>Ambulance</span>
-              <span style={{ fontSize: '14px', color: '#7f1d1d', fontWeight: '700' }}>{emergencyContacts.ambulancePhone || 'Not set'}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '14px', color: '#7f1d1d', fontWeight: '700' }}>{emergencyContacts.ambulancePhone || 'Not set'}</span>
+                {emergencyContacts.ambulancePhone && (
+                  <a
+                    href={`tel:${emergencyContacts.ambulancePhone}`}
+                    style={{
+                      backgroundColor: '#dc2626',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '8px',
+                      padding: '6px 12px',
+                      fontSize: '12px',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      textDecoration: 'none',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                  >
+                    Call
+                  </a>
+                )}
+              </div>
             </div>
           </div>
           <button
