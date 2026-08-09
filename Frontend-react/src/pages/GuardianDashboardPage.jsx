@@ -641,6 +641,9 @@ export default function GuardianDashboardPage() {
   const handleLogout = () => {
     localStorage.removeItem('guardian_username');
     localStorage.removeItem('guardian_name');
+    localStorage.removeItem('guardian_phone');
+    localStorage.removeItem('guardian_email');
+    sessionStorage.clear();
     navigate('/guardian-auth');
   };
 

@@ -221,6 +221,14 @@ const ElderlyHome = () => {
     window.location.href = `tel:${phone}`;
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem('elderlyLoggedIn');
+    localStorage.removeItem('elderly_id');
+    localStorage.removeItem('elderly_name');
+    sessionStorage.clear();
+    navigate('/login');
+  };
+
   const goBack = () => {
     navigate('/portal');
   };
@@ -239,30 +247,56 @@ const ElderlyHome = () => {
           SilverCare
         </h1>
 
-        <button
-          className="profile-header-btn"
-          onClick={() => navigate('/profile')}
-          title="View Profile"
-          style={{
-            backgroundColor: '#eff6ff',
-            color: '#2563eb',
-            border: 'none',
-            borderRadius: '50%',
-            width: '38px',
-            height: '38px',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 2px 6px rgba(37,99,235,0.15)',
-            flexShrink: 0
-          }}
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-            <circle cx="12" cy="7" r="4"></circle>
-          </svg>
-        </button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button
+            className="profile-header-btn"
+            onClick={() => navigate('/profile')}
+            title="View Profile"
+            style={{
+              backgroundColor: '#eff6ff',
+              color: '#2563eb',
+              border: 'none',
+              borderRadius: '50%',
+              width: '38px',
+              height: '38px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 2px 6px rgba(37,99,235,0.15)',
+              flexShrink: 0
+            }}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+              <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+          </button>
+          <button
+            onClick={handleLogout}
+            title="Logout"
+            style={{
+              backgroundColor: '#fee2e2',
+              color: '#dc2626',
+              border: 'none',
+              borderRadius: '50%',
+              width: '38px',
+              height: '38px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 2px 6px rgba(220,38,38,0.15)',
+              flexShrink: 0
+            }}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+              <polyline points="16 17 21 12 16 7"></polyline>
+              <line x1="21" y1="12" x2="9" y2="12"></line>
+            </svg>
+          </button>
+        </div>
       </header>
 
       {/* Personalized Senior Name */}
