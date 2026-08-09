@@ -1,11 +1,15 @@
 package com.silvercare.controller;
 
 import com.silvercare.dto.*;
+import com.silvercare.entity.Device;
 import com.silvercare.entity.Elderly;
 import com.silvercare.entity.Guardian;
 import com.silvercare.entity.GuardianElderlyLink;
+import com.silvercare.entity.MitraChatHistory;
+import com.silvercare.repository.DeviceRepository;
 import com.silvercare.repository.GuardianElderlyLinkRepository;
 import com.silvercare.repository.GuardianRepository;
+import com.silvercare.repository.MitraChatHistoryRepository;
 import com.silvercare.service.ElderlyManagementService;
 import com.silvercare.service.ElderlyNotificationService;
 import com.silvercare.service.MedicineService;
@@ -14,6 +18,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,6 +41,12 @@ public class ElderlyManagementController {
 
     @Autowired
     private MedicineService medicineService;
+
+    @Autowired
+    private DeviceRepository deviceRepository;
+
+    @Autowired
+    private MitraChatHistoryRepository mitraChatHistoryRepository;
 
     private GuardianDetails resolveGuardianDetails(Elderly elderly) {
         if (elderly == null) return new GuardianDetails("", "", "");
@@ -408,6 +419,254 @@ public class ElderlyManagementController {
         try {
             elderlyManagementService.clearAllData();
             return ResponseEntity.ok(ApiResponse.success("All database entries deleted successfully!"));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
+    // ===== DEVICE PAIRING ENDPOINTS =====
+
+    @PostMapping("/api/devices/pair")
+    public ResponseEntity<ApiResponse<Object>> pairDeviceToElderly(@RequestBody Map<String, String> request) {
+        try {
+            String macAddress = request.get("macAddress");
+            String elderlyId = request.get("elderlyId");
+            String deviceType = request.getOrDefault("deviceType", "Waist Belt");
+
+            if (macAddress == null || elderlyId == null) {
+                return ResponseEntity.badRequest().body(ApiResponse.error("macAddress and elderlyId are required"));
+            }
+
+            // Find device by MAC address
+            Device device = deviceRepository.findByMacAddress(macAddress);
+            
+            if (device == null) {
+                // Create new device
+                String deviceId = "SC_" + deviceType.toUpperCase().replace(" ", "_") + "_" + macAddress.replace(":", "") + "_" + System.currentTimeMillis();
+                device = Device.builder()
+                    .deviceId(deviceId)
+                    .deviceType(deviceType)
+                    .macAddress(macAddress)
+                    .status("ACTIVE")
+                    .assignedElderlyId(elderlyId)
+                    .pairingDate(LocalDateTime.now())
+                    .build();
+                deviceRepository.save(device);
+            } else {
+                // Update existing device
+                if (device.getAssignedElderlyId() != null && !device.getAssignedElderlyId().equals(elderlyId)) {
+                    // Add previous elderly to history
+                    String prevHistory = device.getPreviouslyAssignedTo() != null ? device.getPreviouslyAssignedTo() : "[]";
+                    device.setPreviouslyAssignedTo(prevHistory.replace("]", ",\"" + device.getAssignedElderlyId() + "\"]"));
+                    device.setUnpairingDate(LocalDateTime.now());
+                    device.setUnpairingReason("SWAPPED");
+                }
+                device.setAssignedElderlyId(elderlyId);
+                device.setStatus("ACTIVE");
+                device.setPairingDate(LocalDateTime.now());
+                device.setUnpairingDate(null);
+                device.setUnpairingReason(null);
+                deviceRepository.save(device);
+            }
+
+            // Update elderly's primary device
+            Optional<Elderly> elderlyOpt = elderlyManagementService.getElderlyById(elderlyId);
+            if (elderlyOpt.isPresent()) {
+                Elderly elderly = elderlyOpt.get();
+                elderly.setPrimaryDeviceId(device.getDeviceId());
+                elderly.setPrimaryBeltType(deviceType);
+                elderlyManagementService.updateElderly(elderlyId, elderly);
+            }
+
+            Map<String, Object> data = new LinkedHashMap<>();
+            data.put("deviceId", device.getDeviceId());
+            data.put("macAddress", device.getMacAddress());
+            data.put("deviceType", device.getDeviceType());
+            data.put("elderlyId", elderlyId);
+            data.put("pairingDate", device.getPairingDate());
+
+            return ResponseEntity.ok(ApiResponse.builder()
+                .status("success")
+                .message("Device paired successfully")
+                .data(data)
+                .build());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
+    @PostMapping("/api/devices/unpair")
+    public ResponseEntity<ApiResponse<Object>> unpairDevice(@RequestBody Map<String, String> request) {
+        try {
+            String deviceId = request.get("deviceId");
+            String reason = request.getOrDefault("reason", "OTHER");
+
+            if (deviceId == null) {
+                return ResponseEntity.badRequest().body(ApiResponse.error("deviceId is required"));
+            }
+
+            Device device = deviceRepository.findById(deviceId).orElse(null);
+            if (device == null) {
+                return ResponseEntity.notFound().build();
+            }
+
+            // Add to history before unpairing
+            if (device.getAssignedElderlyId() != null) {
+                String prevHistory = device.getPreviouslyAssignedTo() != null ? device.getPreviouslyAssignedTo() : "[]";
+                device.setPreviouslyAssignedTo(prevHistory.replace("]", ",\"" + device.getAssignedElderlyId() + "\"]"));
+            }
+
+            device.setAssignedElderlyId(null);
+            device.setStatus("RETIRED");
+            device.setUnpairingDate(LocalDateTime.now());
+            device.setUnpairingReason(reason);
+            deviceRepository.save(device);
+
+            return ResponseEntity.ok(ApiResponse.success("Device unpaired successfully"));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
+    @GetMapping("/api/devices/elderly/{elderlyId}")
+    public ResponseEntity<ApiResponse<Object>> getElderlyDevices(@PathVariable String elderlyId) {
+        try {
+            List<Device> currentDevices = deviceRepository.findByAssignedElderlyId(elderlyId);
+            List<Device> allDevices = deviceRepository.findAll();
+            
+            // Find previously assigned devices
+            List<Map<String, Object>> previousDevices = new java.util.ArrayList<>();
+            for (Device device : allDevices) {
+                if (device.getPreviouslyAssignedTo() != null && 
+                    device.getPreviouslyAssignedTo().contains(elderlyId) &&
+                    !elderlyId.equals(device.getAssignedElderlyId())) {
+                    Map<String, Object> prevDevice = new LinkedHashMap<>();
+                    prevDevice.put("deviceId", device.getDeviceId());
+                    prevDevice.put("macAddress", device.getMacAddress());
+                    prevDevice.put("deviceType", device.getDeviceType());
+                    prevDevice.put("status", device.getStatus());
+                    prevDevice.put("unpairingReason", device.getUnpairingReason());
+                    prevDevice.put("unpairingDate", device.getUnpairingDate());
+                    previousDevices.add(prevDevice);
+                }
+            }
+
+            Map<String, Object> data = new LinkedHashMap<>();
+            data.put("currentDevices", currentDevices);
+            data.put("previousDevices", previousDevices);
+
+            return ResponseEntity.ok(ApiResponse.builder()
+                .status("success")
+                .data(data)
+                .build());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
+    @GetMapping("/api/devices/mac/{macAddress}")
+    public ResponseEntity<ApiResponse<Object>> getDeviceByMac(@PathVariable String macAddress) {
+        try {
+            Device device = deviceRepository.findByMacAddress(macAddress);
+            if (device == null) {
+                return ResponseEntity.notFound().build();
+            }
+
+            return ResponseEntity.ok(ApiResponse.builder()
+                .status("success")
+                .data(device)
+                .build());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
+    // ===== MITRA CHAT HISTORY ENDPOINTS =====
+
+    @PostMapping("/api/mitra/chat")
+    public ResponseEntity<ApiResponse<Object>> saveMitraChat(@RequestBody Map<String, Object> request) {
+        try {
+            String elderlyId = (String) request.get("elderlyId");
+            String message = (String) request.get("message");
+            String sender = (String) request.get("sender");
+            String mlState = (String) request.get("mlState");
+            Double mlConfidence = request.get("mlConfidence") != null ? 
+                Double.valueOf(request.get("mlConfidence").toString()) : null;
+            Integer heartRate = request.get("heartRate") != null ? 
+                Integer.valueOf(request.get("heartRate").toString()) : null;
+            Integer spo2 = request.get("spo2") != null ? 
+                Integer.valueOf(request.get("spo2").toString()) : null;
+
+            MitraChatHistory chat = MitraChatHistory.builder()
+                .elderlyId(elderlyId)
+                .message(message)
+                .sender(sender)
+                .mlStateAtTime(mlState)
+                .mlConfidence(mlConfidence)
+                .heartRateAtTime(heartRate)
+                .spo2AtTime(spo2)
+                .timestamp(LocalDateTime.now())
+                .isLearned(false)
+                .build();
+
+            mitraChatHistoryRepository.save(chat);
+
+            return ResponseEntity.ok(ApiResponse.success("Chat saved successfully"));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
+    @GetMapping("/api/mitra/chat/{elderlyId}")
+    public ResponseEntity<ApiResponse<Object>> getMitraChats(@PathVariable String elderlyId) {
+        try {
+            List<MitraChatHistory> chats = mitraChatHistoryRepository.findByElderlyIdOrderByTimestampDesc(elderlyId);
+            return ResponseEntity.ok(ApiResponse.builder()
+                .status("success")
+                .data(chats)
+                .build());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
+    @GetMapping("/api/mitra/chat/{elderlyId}/ml-data")
+    public ResponseEntity<ApiResponse<Object>> getChatsForML(@PathVariable String elderlyId) {
+        try {
+            // Get chats from last 7 days that haven't been learned
+            LocalDateTime since = LocalDateTime.now().minusDays(7);
+            List<MitraChatHistory> chats = mitraChatHistoryRepository.findRecentChatsForML(elderlyId, since);
+            
+            // Filter only unlearned chats
+            List<MitraChatHistory> unlearnedChats = new java.util.ArrayList<>();
+            for (MitraChatHistory chat : chats) {
+                if (!chat.getIsLearned()) {
+                    unlearnedChats.add(chat);
+                }
+            }
+
+            return ResponseEntity.ok(ApiResponse.builder()
+                .status("success")
+                .data(unlearnedChats)
+                .build());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
+    @PostMapping("/api/mitra/chat/{chatId}/mark-learned")
+    public ResponseEntity<ApiResponse<Object>> markChatAsLearned(@PathVariable Long chatId) {
+        try {
+            Optional<MitraChatHistory> chatOpt = mitraChatHistoryRepository.findById(chatId);
+            if (chatOpt.isEmpty()) {
+                return ResponseEntity.notFound().build();
+            }
+
+            MitraChatHistory chat = chatOpt.get();
+            chat.setIsLearned(true);
+            mitraChatHistoryRepository.save(chat);
+
+            return ResponseEntity.ok(ApiResponse.success("Chat marked as learned"));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.error(e.getMessage()));
         }

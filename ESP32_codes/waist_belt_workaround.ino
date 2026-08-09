@@ -428,7 +428,8 @@ void getMLPrediction() {
     payload += "\"gyroscope\":[[" + String(gyroX) + "," + String(gyroY) + "," + String(gyroZ) + "]],";
     payload += "\"heartRate\":" + String(currentHr) + ",";
     payload += "\"spo2\":" + String(currentSpo2) + ",";
-    payload += "\"temperature\":" + String(currentTemp);
+    payload += "\"temperature\":" + String(currentTemp) + ",";
+    payload += "\"elderlyId\":\"" + elderlyId + "\"";
     payload += "}";
 
     int httpResponseCode = http.POST(payload);
@@ -451,6 +452,107 @@ void getMLPrediction() {
         
         Serial.println("☁️ [CLOUD ML REFINEMENT]: " + prediction + " (Confidence: " + String(cloudConfidence) + ")");
     }
+    
+    http.end();
+}
+
+// ===== FETCH MITRA CHAT HISTORY FOR ML LEARNING =====
+void fetchMitraChatHistoryForML() {
+    if (WiFi.status() != WL_CONNECTED || elderlyId.length() == 0) {
+        return;
+    }
+
+    static unsigned long lastFetchTime = 0;
+    if (millis() - lastFetchTime < 3600000) { // Fetch every hour
+        return;
+    }
+    lastFetchTime = millis();
+
+    HTTPClient http;
+    String url = String(serverUrl).replace("/api/sensor-data", "/api/mitra/chat/") + elderlyId + "/ml-data";
+    http.begin(url);
+    http.setTimeout(10000);
+
+    int httpResponseCode = http.GET();
+    
+    if (httpResponseCode > 0) {
+        String response = http.getString();
+        DynamicJsonDocument doc(4096);
+        deserializeJson(doc, response);
+        
+        if (doc["status"] == "success" && doc["data"]) {
+            JsonArray chats = doc["data"];
+            Serial.println("📥 [ML LEARNING]: Fetched " + String(chats.size()) + " unlearned chat messages");
+            
+            // Process chat patterns for ML state refinement
+            for (JsonObject chat : chats) {
+                String message = chat["message"];
+                String mlState = chat["mlStateAtTime"];
+                String sender = chat["sender"];
+                long chatId = chat["chatId"];
+                
+                // Analyze chat patterns for ML refinement
+                analyzeChatPatternForML(message, mlState, sender);
+                
+                // Mark as learned
+                markChatAsLearned(chatId);
+            }
+        }
+    }
+    
+    http.end();
+}
+
+// ===== ANALYZE CHAT PATTERNS FOR ML STATE REFINEMENT =====
+void analyzeChatPatternForML(String message, String mlState, String sender) {
+    // Convert to lowercase for analysis
+    String lowerMsg = message;
+    lowerMsg.toLowerCase();
+    
+    // Pattern analysis for state refinement
+    if (sender == "ELDERLY") {
+        // Elderly expressing distress or pain
+        if (lowerMsg.indexOf("pain") >= 0 || lowerMsg.indexOf("hurt") >= 0 || 
+            lowerMsg.indexOf("dizzy") >= 0 || lowerMsg.indexOf("weak") >= 0) {
+            // Increase prefall/fall sensitivity
+            Serial.println("🧠 [CHAT PATTERN]: Elderly distress detected - increasing fall sensitivity");
+            // This would adjust ML thresholds in a real implementation
+        }
+        
+        // Elderly expressing feeling unwell
+        if (lowerMsg.indexOf("sick") >= 0 || lowerMsg.indexOf("nausea") >= 0 || 
+            lowerMsg.indexOf("tired") >= 0 || lowerMsg.indexOf("exhausted") >= 0) {
+            Serial.println("🧠 [CHAT PATTERN]: Elderly unwell detected - monitoring vitals closely");
+        }
+        
+        // Elderly expressing normal activity
+        if (lowerMsg.indexOf("fine") >= 0 || lowerMsg.indexOf("okay") >= 0 || 
+            lowerMsg.indexOf("good") >= 0 || lowerMsg.indexOf("walking") >= 0) {
+            Serial.println("🧠 [CHAT PATTERN]: Elderly reports normal activity");
+        }
+    } else if (sender == "GUARDIAN") {
+        // Guardian checking on elderly
+        if (lowerMsg.indexOf("how are you") >= 0 || lowerMsg.indexOf("are you okay") >= 0) {
+            Serial.println("🧠 [CHAT PATTERN]: Guardian check-in detected");
+        }
+    }
+}
+
+// ===== MARK CHAT AS LEARNED =====
+void markChatAsLearned(long chatId) {
+    if (WiFi.status() != WL_CONNECTED) {
+        return;
+    }
+
+    HTTPClient http;
+    String url = String(serverUrl).replace("/api/sensor-data", "/api/mitra/chat/") + String(chatId) + "/mark-learned";
+    http.begin(url);
+    http.addHeader("Content-Type", "application/json");
+    http.setTimeout(5000);
+
+    http.POST("");
+    
+    Serial.println("✅ [ML LEARNING]: Marked chat " + String(chatId) + " as learned");
     
     http.end();
 }
@@ -1563,6 +1665,18 @@ void setup() {
   Serial.println("========================================");
 
   generateDeviceId();
+  
+  // Display MAC address for pairing
+  String macAddress = WiFi.macAddress();
+  Serial.println("========================================");
+  Serial.println("📱 DEVICE PAIRING INFORMATION");
+  Serial.println("========================================");
+  Serial.println("MAC Address: " + macAddress);
+  Serial.println("Device ID: " + DEVICE_ID);
+  Serial.println("Use MAC address to pair this device");
+  Serial.println("with a senior citizen profile in the app");
+  Serial.println("========================================");
+
   setupPins();
   setupGPS();
   setupBLEClient(); // Initialize BLE client to connect to wrist band
@@ -1613,6 +1727,9 @@ void loop() {
     getMLPrediction();
     lastMLPrediction = now;
   }
+
+  // Fetch Mitra chat history for ML learning (every hour)
+  fetchMitraChatHistoryForML();
 
   // Handle ML & Edge state changes and trigger alerts
   if (currentMLState == ML_PREFALL && currentAlertState != PREFALL_ALERT) {

@@ -116,6 +116,93 @@ export const submitMedicalHistoryCalibration = async (elderlyId, healthHistory) 
   }
 };
 
+export const pairDeviceToElderly = async (macAddress, elderlyId, deviceType = 'Waist Belt') => {
+  try {
+    const response = await api.post('/api/devices/pair', {
+      macAddress,
+      elderlyId,
+      deviceType,
+    });
+    return response.data;
+  } catch (error) {
+    return { status: 'error', message: 'Device pairing failed' };
+  }
+};
+
+export const unpairDevice = async (deviceId, reason = 'OTHER') => {
+  try {
+    const response = await api.post('/api/devices/unpair', {
+      deviceId,
+      reason,
+    });
+    return response.data;
+  } catch (error) {
+    return { status: 'error', message: 'Device unpairing failed' };
+  }
+};
+
+export const getElderlyDevices = async (elderlyId) => {
+  try {
+    const response = await api.get(`/api/devices/elderly/${elderlyId}`);
+    return response.data;
+  } catch (error) {
+    return { status: 'error', message: 'Failed to fetch devices' };
+  }
+};
+
+export const getDeviceByMac = async (macAddress) => {
+  try {
+    const response = await api.get(`/api/devices/mac/${macAddress}`);
+    return response.data;
+  } catch (error) {
+    return { status: 'error', message: 'Device not found' };
+  }
+};
+
+export const saveMitraChat = async (elderlyId, message, sender, mlState, mlConfidence, heartRate, spo2) => {
+  try {
+    const response = await api.post('/api/mitra/chat', {
+      elderlyId,
+      message,
+      sender,
+      mlState,
+      mlConfidence,
+      heartRate,
+      spo2,
+    });
+    return response.data;
+  } catch (error) {
+    return { status: 'error', message: 'Failed to save chat' };
+  }
+};
+
+export const getMitraChats = async (elderlyId) => {
+  try {
+    const response = await api.get(`/api/mitra/chat/${elderlyId}`);
+    return response.data;
+  } catch (error) {
+    return { status: 'error', message: 'Failed to fetch chats' };
+  }
+};
+
+export const getChatsForML = async (elderlyId) => {
+  try {
+    const response = await api.get(`/api/mitra/chat/${elderlyId}/ml-data`);
+    return response.data;
+  } catch (error) {
+    return { status: 'error', message: 'Failed to fetch ML data' };
+  }
+};
+
+export const markChatAsLearned = async (chatId) => {
+  try {
+    const response = await api.post(`/api/mitra/chat/${chatId}/mark-learned`);
+    return response.data;
+  } catch (error) {
+    return { status: 'error', message: 'Failed to mark chat as learned' };
+  }
+};
+
 export const acknowledgeAlert = async (alertId, guardianUsername, responseMessage = 'I am Fine') => {
   try {
     const response = await api.post('/api/alerts/acknowledge', {

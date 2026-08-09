@@ -38,6 +38,18 @@ public class Device {
     @Column(name = "notes")
     private String notes;
 
+    @Column(name = "previously_assigned_to", length = 1000)
+    private String previouslyAssignedTo; // JSON array of elderly IDs for history
+
+    @Column(name = "pairing_date")
+    private LocalDateTime pairingDate;
+
+    @Column(name = "unpairing_date")
+    private LocalDateTime unpairingDate;
+
+    @Column(name = "unpairing_reason")
+    private String unpairingReason; // BROKEN, LOST, UPGRADED, OTHER
+
     public Device() {}
 
     public Device(String deviceId, String deviceType, String macAddress) {
@@ -92,6 +104,18 @@ public class Device {
     public String getNotes() { return notes; }
     public void setNotes(String notes) { this.notes = notes; }
 
+    public String getPreviouslyAssignedTo() { return previouslyAssignedTo; }
+    public void setPreviouslyAssignedTo(String previouslyAssignedTo) { this.previouslyAssignedTo = previouslyAssignedTo; }
+
+    public LocalDateTime getPairingDate() { return pairingDate; }
+    public void setPairingDate(LocalDateTime pairingDate) { this.pairingDate = pairingDate; }
+
+    public LocalDateTime getUnpairingDate() { return unpairingDate; }
+    public void setUnpairingDate(LocalDateTime unpairingDate) { this.unpairingDate = unpairingDate; }
+
+    public String getUnpairingReason() { return unpairingReason; }
+    public void setUnpairingReason(String unpairingReason) { this.unpairingReason = unpairingReason; }
+
     public static DeviceBuilder builder() { return new DeviceBuilder(); }
 
     public static class DeviceBuilder {
@@ -105,6 +129,10 @@ public class Device {
         private LocalDateTime registeredAt;
         private Integer batteryLevel;
         private String notes;
+        private String previouslyAssignedTo;
+        private LocalDateTime pairingDate;
+        private LocalDateTime unpairingDate;
+        private String unpairingReason;
 
         public DeviceBuilder deviceId(String deviceId) { this.deviceId = deviceId; return this; }
         public DeviceBuilder deviceType(String deviceType) { this.deviceType = deviceType; return this; }
@@ -116,6 +144,10 @@ public class Device {
         public DeviceBuilder registeredAt(LocalDateTime registeredAt) { this.registeredAt = registeredAt; return this; }
         public DeviceBuilder batteryLevel(Integer batteryLevel) { this.batteryLevel = batteryLevel; return this; }
         public DeviceBuilder notes(String notes) { this.notes = notes; return this; }
+        public DeviceBuilder previouslyAssignedTo(String previouslyAssignedTo) { this.previouslyAssignedTo = previouslyAssignedTo; return this; }
+        public DeviceBuilder pairingDate(LocalDateTime pairingDate) { this.pairingDate = pairingDate; return this; }
+        public DeviceBuilder unpairingDate(LocalDateTime unpairingDate) { this.unpairingDate = unpairingDate; return this; }
+        public DeviceBuilder unpairingReason(String unpairingReason) { this.unpairingReason = unpairingReason; return this; }
 
         public Device build() {
             Device device = new Device();
@@ -129,6 +161,10 @@ public class Device {
             device.setRegisteredAt(registeredAt);
             device.setBatteryLevel(batteryLevel);
             device.setNotes(notes);
+            device.setPreviouslyAssignedTo(previouslyAssignedTo);
+            device.setPairingDate(pairingDate);
+            device.setUnpairingDate(unpairingDate);
+            device.setUnpairingReason(unpairingReason);
             return device;
         }
     }

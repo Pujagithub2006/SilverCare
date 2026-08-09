@@ -26,6 +26,12 @@ public class ChatbotController {
         String elderlyId = "default_senior";
         String elderlyName = "";
 
+        // ML state parameters for enhanced responses
+        String mlState = null;
+        Double mlConfidence = null;
+        Integer heartRate = null;
+        Integer spo2 = null;
+
         List<Map<String, String>> history = null;
         try {
             if (payload != null) {
@@ -40,6 +46,12 @@ public class ChatbotController {
                 if (payload.get("elderly_name") != null) elderlyName = String.valueOf(payload.get("elderly_name"));
                 else if (payload.get("elderlyName") != null) elderlyName = String.valueOf(payload.get("elderlyName"));
                 else if (payload.get("name") != null) elderlyName = String.valueOf(payload.get("name"));
+
+                // ML state parameters
+                if (payload.get("mlState") != null) mlState = String.valueOf(payload.get("mlState"));
+                if (payload.get("mlConfidence") != null) mlConfidence = Double.valueOf(String.valueOf(payload.get("mlConfidence")));
+                if (payload.get("heartRate") != null) heartRate = Integer.valueOf(String.valueOf(payload.get("heartRate")));
+                if (payload.get("spo2") != null) spo2 = Integer.valueOf(String.valueOf(payload.get("spo2")));
 
                 if (payload.get("history") instanceof List) {
                     history = (List<Map<String, String>>) payload.get("history");
@@ -59,7 +71,7 @@ public class ChatbotController {
         String reply = "I am right here with you! How can I help you feel relaxed and healthy today?";
         try {
             if (chatbotService != null) {
-                reply = chatbotService.getChatResponse(userMessage, elderlyId, elderlyName, history);
+                reply = chatbotService.getChatResponse(userMessage, elderlyId, elderlyName, history, mlState, mlConfidence, heartRate, spo2);
             }
         } catch (Throwable t) {
             System.err.println("⚠️ Error in ChatbotService: " + t.getMessage());

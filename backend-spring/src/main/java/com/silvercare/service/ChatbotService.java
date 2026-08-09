@@ -3,13 +3,16 @@ package com.silvercare.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.silvercare.entity.ChatMemory;
+import com.silvercare.entity.MitraChatHistory;
 import com.silvercare.repository.ChatMemoryRepository;
+import com.silvercare.repository.MitraChatHistoryRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -28,18 +31,26 @@ public class ChatbotService {
     @Autowired(required = false)
     private ChatMemoryRepository chatMemoryRepository;
 
+    @Autowired(required = false)
+    private MitraChatHistoryRepository mitraChatHistoryRepository;
+
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public String getChatResponse(String userMessage) {
-        return getChatResponse(userMessage, "default_senior", "", null);
+        return getChatResponse(userMessage, "default_senior", "", null, null, null, null, null);
     }
 
     public String getChatResponse(String userMessage, String elderlyId, String elderlyName) {
-        return getChatResponse(userMessage, elderlyId, elderlyName, null);
+        return getChatResponse(userMessage, elderlyId, elderlyName, null, null, null, null, null);
     }
 
     public String getChatResponse(String userMessage, String elderlyId, String elderlyName, List<Map<String, String>> history) {
+        return getChatResponse(userMessage, elderlyId, elderlyName, history, null, null, null, null);
+    }
+
+    public String getChatResponse(String userMessage, String elderlyId, String elderlyName, List<Map<String, String>> history, 
+                                   String mlState, Double mlConfidence, Integer heartRate, Integer spo2) {
         String firstName = extractFirstName(elderlyName);
         String nameGreeting = !firstName.isEmpty() ? " " + firstName : "";
 
@@ -58,6 +69,9 @@ public class ChatbotService {
             System.err.println("Memory fetch warning: " + t.getMessage());
         }
 
+        // Build ML state context for enhanced responses
+        String mlContext = buildMLContext(mlState, mlConfidence, heartRate, spo2);
+
         String nameInstruction = !firstName.isEmpty() ? "The senior's first name is " + firstName + "." : "";
         String systemPrompt = "You are Mitra, a warm, empathetic, highly intelligent AI health companion for senior citizens. " +
                 nameInstruction + " Speak in clear, fluent, natural English like a caring friend and medical advisor. " +
@@ -65,6 +79,8 @@ public class ChatbotService {
                 "Answer questions directly, accurately, and thoroughly like ChatGPT/Gemini. " +
                 "Provide actionable, safe health recommendations (hydration, nutrition, gentle exercises, medicine reminders) when relevant. " +
                 "CONTINUOUS LEARNING MEMORY OF THIS SENIOR: [" + memoryContext + "]. Use past memory to personalize naturally. " +
+                "CURRENT HEALTH STATE: [" + mlContext + "]. Adjust responses based on current vitals and ML state. " +
+                "If ML state indicates distress or abnormal vitals, show extra empathy and suggest rest or guardian contact. " +
                 "Keep responses warm, concise, and helpful (2-4 sentences max).";
 
         String botReply = null;
@@ -102,11 +118,70 @@ public class ChatbotService {
         // 7. Save New Conversation & Extract Insight for Continuous Self-Improvement
         try {
             saveLearnedMemory(safeElderlyId, msg, botReply);
+            // Also save to MitraChatHistory with ML context
+            saveMitraChatHistory(safeElderlyId, msg, "ELDERLY", mlState, mlConfidence, heartRate, spo2);
+            saveMitraChatHistory(safeElderlyId, botReply, "MITRA", mlState, mlConfidence, heartRate, spo2);
         } catch (Throwable t) {
             System.err.println("Memory save warning: " + t.getMessage());
         }
 
         return botReply;
+    }
+
+    private String buildMLContext(String mlState, Double mlConfidence, Integer heartRate, Integer spo2) {
+        StringBuilder context = new StringBuilder();
+        
+        if (mlState != null && !mlState.isEmpty()) {
+            context.append("ML State: ").append(mlState);
+            if (mlConfidence != null) {
+                context.append(" (").append(String.format("%.1f", mlConfidence * 100)).append("% confidence)");
+            }
+            context.append(". ");
+        }
+        
+        if (heartRate != null) {
+            context.append("Heart Rate: ").append(heartRate).append(" bpm. ");
+            if (heartRate > 100) {
+                context.append("Elevated heart rate detected. ");
+            } else if (heartRate < 60) {
+                context.append("Low heart rate detected. ");
+            }
+        }
+        
+        if (spo2 != null) {
+            context.append("SpO2: ").append(spo2).append("%. ");
+            if (spo2 < 95) {
+                context.append("Low oxygen saturation - suggest rest and deep breathing. ");
+            }
+        }
+        
+        if (context.length() == 0) {
+            return "Vitals normal, no ML state available";
+        }
+        
+        return context.toString();
+    }
+
+    private void saveMitraChatHistory(String elderlyId, String message, String sender, String mlState, 
+                                      Double mlConfidence, Integer heartRate, Integer spo2) {
+        try {
+            if (mitraChatHistoryRepository != null) {
+                MitraChatHistory chat = MitraChatHistory.builder()
+                    .elderlyId(elderlyId)
+                    .message(message)
+                    .sender(sender)
+                    .mlStateAtTime(mlState)
+                    .mlConfidence(mlConfidence)
+                    .heartRateAtTime(heartRate)
+                    .spo2AtTime(spo2)
+                    .timestamp(LocalDateTime.now())
+                    .isLearned(false)
+                    .build();
+                mitraChatHistoryRepository.save(chat);
+            }
+        } catch (Throwable e) {
+            System.err.println("Error saving Mitra chat history: " + e.getMessage());
+        }
     }
 
     private String queryGeminiApi(String key, String systemPromptText, String msg, List<Map<String, String>> history) {
