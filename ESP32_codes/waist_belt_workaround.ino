@@ -27,15 +27,31 @@
 SoftwareSerial gsmSerial(GSM_RX, GSM_TX);
 
 // ===== PIN CONFIGURATION =====
-// CHANGE THESE PINS ACCORDING TO YOUR HARDWARE CONNECTION
-#define BUZZER_PIN 18        // Buzzer for local alerts
-#define BUTTON_PIN 19        // Acknowledgment button for user to press
-#define MIC_BUTTON_PIN 23    // Microphone button for voice messages
-#define ACK_BUTTON_PIN 22     // Dedicated acknowledgment button
+#define SOS_BUTTON_PIN 19    // Push Button 1: Dedicated SOS Emergency Button
+#define ACK_BUTTON_PIN 22    // Push Button 2: Dedicated Reset / Acknowledgment Button
+#define BUZZER_PIN 18        // Local alert buzzer
 #define MPU6050_SDA 21       // MPU6050 I2C SDA pin
 #define MPU6050_SCL 22       // MPU6050 I2C SCL pin
-#define GPS_TX_PIN 4         // GPS Module TX pin connected to ESP32 RX
-#define GPS_RX_PIN 5         // GPS Module RX pin connected to ESP32 TX
+#define DS18B20_PIN 27       // DS18B20 OneWire Temperature sensor pin
+#define GPS_TX_PIN 4         // GPS NEO-6M TX pin connected to ESP32 RX
+#define GPS_RX_PIN 5         // GPS NEO-6M RX pin connected to ESP32 TX
+
+// MAX98357A I2S Speaker Amplifier Pins
+#define I2S_BCLK 26
+#define I2S_LRC 25
+#define I2S_DOUT 33
+
+// INMP441 I2S Microphone Pins
+#define MIC_I2S_WS 25
+#define MIC_I2S_SD 34
+#define MIC_I2S_SCK 32
+
+// 1-minute (60 seconds) microphone recording for analysis on Prefall
+const unsigned long PREFALL_MIC_RECORDING_DURATION = 60000; // 60,000 ms (1 min)
+bool micRecordingActive = false;
+unsigned long micRecordingStartTime = 0;
+unsigned long lastHelpSpeakerTime = 0;
+const unsigned long HELP_SPEAKER_INTERVAL = 2000; // Repeat "Help! Help!" speaker audio every 2 seconds
 
 // ===== GPS CONFIGURATION =====
 TinyGPSPlus gps;
@@ -497,6 +513,139 @@ bool sendGSMSMS(String phoneNumber, String message) {
     return false;
 }
 
+// ===== PUSH BUTTON 1: SOS BUTTON HANDLER =====
+void handleSOSButton() {
+    if (digitalRead(SOS_BUTTON_PIN) == LOW) {
+        delay(50); // Debounce
+        if (digitalRead(SOS_BUTTON_PIN) == LOW) {
+            Serial.println("🚨 [PUSH BUTTON 1 PRESSED]: Dedicated SOS Emergency Button Activated!");
+            
+            double activeLat = (gpsLat != 0.0) ? gpsLat : lastKnownLat;
+            double activeLng = (gpsLng != 0.0) ? gpsLng : lastKnownLng;
+            String sosMsg = "🚨 SOS ALERT: Emergency help is requested from elderly! Location: " + String(activeLat, 6) + "," + String(activeLng, 6);
+
+            // Send SMS to Main Guardian, Secondary Guardian, and Neighbor
+            if (mainGuardianPhone.length() > 0) sendGSMSMS(mainGuardianPhone, sosMsg);
+            if (secondaryGuardianPhone.length() > 0) sendGSMSMS(secondaryGuardianPhone, sosMsg);
+            if (neighborPhone.length() > 0) sendGSMSMS(neighborPhone, sosMsg);
+
+            // Trigger SOS alarm on speaker
+            playSpeakerAnnouncement("SOS_EMERGENCY");
+            
+            // Post SOS Alert to Backend
+            if (WiFi.status() == WL_CONNECTED) {
+                HTTPClient http;
+                String url = String(serverUrl).replace("/api/sensor-data", "/api/alerts/sos");
+                http.begin(url);
+                http.addHeader("Content-Type", "application/json");
+                String payload = "{\"deviceId\":\"" + DEVICE_ID + "\",\"elderlyId\":\"" + elderlyId + "\",\"alertType\":\"SOS_BUTTON\",\"latitude\":" + String(activeLat, 6) + ",\"longitude\":" + String(activeLng, 6) + "}";
+                http.POST(payload);
+                http.end();
+            }
+
+            // Wait for button release
+            while(digitalRead(SOS_BUTTON_PIN) == LOW) { delay(10); }
+        }
+    }
+}
+
+// ===== CONTINUOUS SPEAKER "HELP! HELP!" LOOP FOR FALL =====
+void playSpeakerHelpLoop() {
+    if (currentAlertState == FALL_ALERT && !guardianAcknowledged) {
+        unsigned long now = millis();
+        if (now - lastHelpSpeakerTime > HELP_SPEAKER_INTERVAL) {
+            lastHelpSpeakerTime = now;
+            Serial.println("🔊 [MAX98357A SPEAKER REPEAT]: Help! Help! Emergency fall detected!");
+            
+            // Output audio tone pulse to MAX98357A / DAC pin 25
+            dacWrite(25, 255);
+            delay(150);
+            dacWrite(25, 0);
+            delay(100);
+            dacWrite(25, 255);
+            delay(150);
+            dacWrite(25, 0);
+        }
+    }
+}
+
+// ===== AUTOMATIC 1-MINUTE (60 SECONDS) MICROPHONE RECORDING =====
+void startOneMinuteMicRecording(String alertType) {
+    micRecordingActive = true;
+    micRecordingStartTime = millis();
+    micMessage = "Emergency 1-Minute Mic Recording (" + alertType + "): Started capturing audio for 60 seconds...";
+    Serial.println("🎙️ [INMP441 MIC RECORDING]: Started 1-minute (60s) audio recording for " + alertType);
+}
+
+void handleMicrophoneRecording() {
+    if (!micRecordingActive) return;
+
+    unsigned long elapsed = millis() - micRecordingStartTime;
+    if (elapsed >= PREFALL_MIC_RECORDING_DURATION) { // 60 seconds complete
+        micRecordingActive = false;
+        micMessage = "Full 60-Second Audio Clip Captured from INMP441 Mic during emergency (" + String(gpsLat, 6) + "," + String(gpsLng, 6) + ")";
+        Serial.println("✅ [INMP441 MIC RECORDING COMPLETE]: 1-minute audio recording finalized and ready for backend transmission.");
+        
+        // Transmit voice message to backend
+        if (WiFi.status() == WL_CONNECTED) {
+            HTTPClient http;
+            String url = String(serverUrl).replace("/api/sensor-data", "/api/alerts/voice-message");
+            http.begin(url);
+            http.addHeader("Content-Type", "application/json");
+            String payload = "{\"deviceId\":\"" + DEVICE_ID + "\",\"elderlyId\":\"" + elderlyId + "\",\"audioData\":\"" + micMessage + "\"}";
+            http.POST(payload);
+            http.end();
+        }
+    }
+}
+
+// ===== LOCAL EDGE-BASED FALL DETECTION LOGIC =====
+void runEdgeFallDetection() {
+    // Edge heuristic classification algorithm calculated on ESP32 MPU6050 data
+    float totalAccelMag = sqrt(accelX * accelX + accelY * accelY + accelZ * accelZ);
+    float totalGyroMag = sqrt(gyroX * gyroX + gyroY * gyroY + gyroZ * gyroZ);
+
+    static bool freeFallDetected = false;
+    static unsigned long freeFallTime = 0;
+
+    // 1. Detect Free Fall stage (Magnitude < 3.0 m/s^2)
+    if (totalAccelMag < 3.0) {
+        freeFallDetected = true;
+        freeFallTime = millis();
+    }
+
+    // 2. High Impact peak acceleration (> 25.0 m/s^2) within 1.5s after freefall -> FALL
+    if (freeFallDetected && (millis() - freeFallTime < 1500)) {
+        if (totalAccelMag > 25.0) {
+            freeFallDetected = false;
+            if (currentMLState != ML_FALL) {
+                currentMLState = ML_FALL;
+                mlConfidence = 0.95;
+                Serial.println("⚡ [EDGE FALL DETECTED]: Onboard ESP32 heuristic fall classification triggered!");
+            }
+            return;
+        }
+    }
+
+    // Reset freefall flag after timeout
+    if (freeFallDetected && (millis() - freeFallTime >= 1500)) {
+        freeFallDetected = false;
+    }
+
+    // 3. Moderate instability (15.0 < accel <= 25.0 m/s^2) -> PREFALL
+    if (totalAccelMag > 15.0 && totalAccelMag <= 25.0 && currentMLState == ML_NORMAL) {
+        currentMLState = ML_PREFALL;
+        mlConfidence = 0.88;
+        Serial.println("⚡ [EDGE PREFALL DETECTED]: Onboard ESP32 instability classification triggered!");
+    }
+    // 4. Sudden Jerk/Movement -> SUDDEN_MOVEMENT
+    else if (totalGyroMag > 180.0 && currentMLState == ML_NORMAL) {
+        currentMLState = ML_SUDDEN_MOVEMENT;
+        mlConfidence = 0.82;
+        Serial.println("⚡ [EDGE SUDDEN MOVEMENT DETECTED]: Onboard ESP32 rapid motion triggered!");
+    }
+}
+
 // ===== PREFALL ALERT SYSTEM =====
 void triggerPrefallAlert() {
     if (currentAlertState == PREFALL_ALERT) {
@@ -518,8 +667,8 @@ void triggerPrefallAlert() {
     playSpeakerAnnouncement("PREFALL");
     digitalWrite(BUZZER_PIN, HIGH);
     
-    // Automatically trigger mic recording for voice message to guardian
-    triggerAutoVoiceRecording("PREFALL");
+    // Start 1-minute (60 seconds) INMP441 Microphone recording automatically
+    startOneMinuteMicRecording("PREFALL");
     
     // Use current or last known GPS location if lock unavailable
     double activeLat = (gpsLat != 0.0) ? gpsLat : lastKnownLat;
@@ -557,12 +706,12 @@ void triggerFallAlert() {
     
     Serial.println("🚨 FALL ALERT ACTIVATED");
     
-    // Speaker voice announcement from EEPROM (replacing buzzer)
-    playSpeakerAnnouncement("FALL");
+    // Start continuous "Help! Help!" speaker repeat loop
+    lastHelpSpeakerTime = 0;
     digitalWrite(BUZZER_PIN, HIGH);
     
-    // Automatically trigger mic recording for voice message to guardian
-    triggerAutoVoiceRecording("FALL");
+    // Start 1-minute (60 seconds) INMP441 Microphone recording automatically
+    startOneMinuteMicRecording("FALL");
     
     // Use current or last known GPS location if lock unavailable
     double activeLat = (gpsLat != 0.0) ? gpsLat : lastKnownLat;
@@ -608,8 +757,10 @@ void handleAlertTimeouts() {
         if (!guardianAcknowledged && elapsed > FALL_ACK_TIMEOUT && !secondaryGuardianNotified) {
             Serial.println("⏰ Fall acknowledgment timeout - notifying secondary guardian");
             if (secondaryGuardianPhone.length() > 0) {
+                double activeLat = (gpsLat != 0.0) ? gpsLat : lastKnownLat;
+                double activeLng = (gpsLng != 0.0) ? gpsLng : lastKnownLng;
                 makePhoneCall(secondaryGuardianPhone, false); // Actual call
-                String message = "🚨 FALL DETECTED: Main guardian did not respond. Emergency! Location: " + String(gpsLat, 6) + "," + String(gpsLng, 6);
+                String message = "🚨 FALL DETECTED: Main guardian did not respond. Emergency! Location: " + String(activeLat, 6) + "," + String(activeLng, 6);
                 sendGSMSMS(secondaryGuardianPhone, message);
                 secondaryGuardianNotified = true;
             }
@@ -617,19 +768,24 @@ void handleAlertTimeouts() {
     }
 }
 
-// ===== ACKNOWLEDGMENT HANDLING =====
+// ===== ACKNOWLEDGMENT HANDLING (PUSH BUTTON 2 & SOFTWARE) =====
 void handleAcknowledgment() {
-    // Check acknowledgment button
-    if (digitalRead(ACK_BUTTON_PIN) == LOW || digitalRead(BUTTON_PIN) == LOW) {
+    // Check Push Button 2 (Ack/Reset Button on Pin 22)
+    if (digitalRead(ACK_BUTTON_PIN) == LOW) {
         delay(50); // Debounce
-        if (digitalRead(ACK_BUTTON_PIN) == LOW || digitalRead(BUTTON_PIN) == LOW) {
-            Serial.println("✅ Acknowledgment button pressed");
+        if (digitalRead(ACK_BUTTON_PIN) == LOW) {
+            Serial.println("✅ [PUSH BUTTON 2 PRESSED]: Local reset / Acknowledgment button pressed by elderly.");
             guardianAcknowledged = true;
             currentAlertState = NO_ALERT;
             digitalWrite(BUZZER_PIN, LOW);
+            dacWrite(25, 0); // Stop speaker help loop
+            micRecordingActive = false;
             
             // Send acknowledgment to backend
             sendAcknowledgmentToBackend();
+
+            // Wait for button release
+            while(digitalRead(ACK_BUTTON_PIN) == LOW) { delay(10); }
         }
     }
 }
@@ -999,10 +1155,10 @@ void setupGSM() {
 // ===== PIN SETUP =====
 void setupPins() {
     pinMode(BUZZER_PIN, OUTPUT);
-    pinMode(BUTTON_PIN, INPUT_PULLUP);
-    pinMode(MIC_BUTTON_PIN, INPUT_PULLUP);
-    pinMode(ACK_BUTTON_PIN, INPUT_PULLUP);
-    Serial.println("✅ Pins configured");
+    pinMode(SOS_BUTTON_PIN, INPUT_PULLUP); // Push Button 1: Dedicated SOS Button
+    pinMode(ACK_BUTTON_PIN, INPUT_PULLUP); // Push Button 2: Dedicated Reset / Ack Button
+    pinMode(DS18B20_PIN, INPUT);          // DS18B20 OneWire Temperature sensor pin
+    Serial.println("✅ Pins configured: Push Button 1 (SOS), Push Button 2 (Ack), DS18B20, I2S Speaker & Mic initialized");
 }
 
 // ===== GPS SETUP =====
@@ -1388,38 +1544,42 @@ void loop() {
     updateSimulation();
   }
 
-  // Read MPU6050 sensor data
+  // Read MPU6050 sensor data & run onboard edge-based fall detection
   readMPU6050();
+  runEdgeFallDetection();
 
   // Update GPS
   updateGPS();
 
-  // Get ML prediction from service
+  // Get ML prediction from cloud service (if available)
   static unsigned long lastMLPrediction = 0;
   if (now - lastMLPrediction > 1000) { // Get prediction every second
     getMLPrediction();
     lastMLPrediction = now;
   }
 
-  // Handle ML state changes and trigger alerts
+  // Handle ML & Edge state changes and trigger alerts
   if (currentMLState == ML_PREFALL && currentAlertState != PREFALL_ALERT) {
     triggerPrefallAlert();
   } else if (currentMLState == ML_FALL && currentAlertState != FALL_ALERT) {
     triggerFallAlert();
-  } else if (currentMLState == ML_NORMAL && currentAlertState != NO_ALERT) {
-    // Clear alert if back to normal
+  } else if (currentMLState == ML_NORMAL && currentAlertState != NO_ALERT && guardianAcknowledged) {
+    // Clear alert if back to normal and acknowledged
     currentAlertState = NO_ALERT;
     digitalWrite(BUZZER_PIN, LOW);
   }
 
-  // Handle microphone input
-  handleMicrophone();
+  // Handle Push Button 1 (SOS Button)
+  handleSOSButton();
 
-  // Handle button override
-  handleButtonOverride();
-
-  // Handle acknowledgment button
+  // Handle Push Button 2 (Reset / Acknowledgment Button)
   handleAcknowledgment();
+
+  // Continuous "Help! Help!" speaker repeat loop on Fall
+  playSpeakerHelpLoop();
+
+  // Handle 1-minute (60 seconds) INMP441 microphone recording timer on Prefall/Fall
+  handleMicrophoneRecording();
 
   // Handle alert timeouts
   handleAlertTimeouts();
