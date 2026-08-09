@@ -14,6 +14,7 @@ import CalibrationPage from './pages/CalibrationPage';
 import GuardianAuthPage from './pages/GuardianAuthPage';
 import GuardianDashboardPage from './pages/GuardianDashboardPage';
 import PortalSelectionPage from './pages/PortalSelectionPage';
+import ErrorBoundary from './components/ErrorBoundary';
 
 function App() {
   return (
@@ -39,7 +40,14 @@ function App() {
           {/* Guardian Routes */}
           <Route path="/guardian-auth" element={<GuardianAuthPage />} />
           <Route path="/guardian-login" element={<GuardianAuthPage />} />
-          <Route path="/guardian-dashboard" element={<GuardianDashboardPage />} />
+          <Route 
+            path="/guardian-dashboard" 
+            element={
+              <ErrorBoundary>
+                <GuardianDashboardPage />
+              </ErrorBoundary>
+            } 
+          />
 
           {/* Fallback Catch-all Route */}
           <Route path="*" element={<Navigate to="/" replace />} />

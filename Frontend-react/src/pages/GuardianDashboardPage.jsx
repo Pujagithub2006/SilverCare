@@ -46,10 +46,16 @@ export default function GuardianDashboardPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    console.log('[GuardianDashboard] Component mounted, guardianUsername:', guardianUsername);
     if (!guardianUsername) {
+      console.log('[GuardianDashboard] No guardian username, redirecting to auth');
       navigate('/guardian-auth');
       return;
     }
+    
+    loadLinkedElderly();
+    loadEncryptedFirebaseStats();
+    loadDeviceData();
   }, [guardianUsername, navigate]);
 
   // Live Hardware Telemetry State
@@ -419,12 +425,6 @@ export default function GuardianDashboardPage() {
     };
   };
 
-  useEffect(() => {
-    loadLinkedElderly();
-    loadEncryptedFirebaseStats();
-    loadDeviceData();
-  }, []);
-
   // Poll real-time sensor hardware telemetry, active emergency alerts, and medicine data every 2 seconds
   useEffect(() => {
     const pollInterval = setInterval(() => {
@@ -446,15 +446,20 @@ export default function GuardianDashboardPage() {
   }, [selectedElderly]);
 
   const loadLinkedElderly = async () => {
+    console.log('[GuardianDashboard] Loading linked elderly for:', guardianUsername);
     setLoading(true);
     try {
       const { ok, data } = await fetchLinkedElderly(guardianUsername);
+      console.log('[GuardianDashboard] Fetch response:', { ok, data });
+      
       let list = [];
       if (ok && data) {
         if (Array.isArray(data)) list = data;
         else if (data.data && Array.isArray(data.data)) list = data.data;
         else if (data.elderly && Array.isArray(data.elderly)) list = data.elderly;
       }
+      
+      console.log('[GuardianDashboard] Elderly list before dedup:', list);
       
       // Deduplicate elderly list by person's Name + Phone
       const uniqueMap = new Map();
@@ -468,15 +473,22 @@ export default function GuardianDashboardPage() {
       });
       const uniqueList = Array.from(uniqueMap.values());
 
+      console.log('[GuardianDashboard] Setting elderly list:', uniqueList);
       setElderlyList(uniqueList);
+      
       if (uniqueList.length > 0) {
+        console.log('[GuardianDashboard] Selecting first elderly:', uniqueList[0]);
         setSelectedElderly(uniqueList[0]);
       } else {
+        console.log('[GuardianDashboard] No elderly found, setting selectedElderly to null');
         setSelectedElderly(null);
       }
     } catch (err) {
-      console.error('Error fetching linked elderly:', err);
+      console.error('[GuardianDashboard] Error fetching linked elderly:', err);
+      setElderlyList([]);
+      setSelectedElderly(null);
     } finally {
+      console.log('[GuardianDashboard] Setting loading to false');
       setLoading(false);
     }
   };
@@ -653,6 +665,38 @@ export default function GuardianDashboardPage() {
   };
 
   const isEmergency = sensorData.stateName === 'FALL_DETECTED' || sensorData.stateName === 'PREFALL' || activeAlerts.length > 0;
+
+  if (loading) {
+    return (
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        minHeight: '100vh',
+        backgroundColor: '#ffffff',
+        flexDirection: 'column',
+        gap: '20px'
+      }}>
+        <div style={{
+          width: '50px',
+          height: '50px',
+          border: '4px solid #e5e7eb',
+          borderTop: '4px solid #3b82f6',
+          borderRadius: '50%',
+          animation: 'spin 1s linear infinite'
+        }}></div>
+        <div style={{ fontSize: '16px', color: '#6b7280', fontWeight: '600' }}>
+          Loading Dashboard...
+        </div>
+        <style>{`
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+        `}</style>
+      </div>
+    );
+  }
 
   return (
     <div style={{
@@ -2382,13 +2426,15 @@ export default function GuardianDashboardPage() {
           </button>
         </div>
       )}
-      {/* 📍 Elderly Location Map Modal Component */}
-      <ElderlyMapModal
-        isOpen={showMapModal}
-        onClose={() => setShowMapModal(false)}
-        elderly={selectedElderly}
-        sensorData={sensorData}
-      />
+      {/* Elderly Location Map Modal Component */}
+      {showMapModal && (
+        <ElderlyMapModal
+          isOpen={showMapModal}
+          onClose={() => setShowMapModal(false)}
+          elderly={selectedElderly}
+          sensorData={sensorData}
+        />
+      )}
 
     </div>
   );
