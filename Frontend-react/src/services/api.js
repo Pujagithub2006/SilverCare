@@ -82,6 +82,40 @@ export const fetchDeviceStatus = async () => {
   }
 };
 
+export const uploadElderlyVoiceMessage = async (elderlyId, deviceId, audioData) => {
+  try {
+    const response = await api.post('/api/alerts/voice-message', {
+      elderlyId,
+      deviceId,
+      audioData,
+    });
+    return response.data;
+  } catch (error) {
+    return { status: 'error', message: 'Voice message upload failed' };
+  }
+};
+
+export const fetchEEPROMConfig = async (elderlyId) => {
+  try {
+    const response = await api.get(`/api/elderly/${elderlyId}/contacts`);
+    return response.data;
+  } catch (error) {
+    return { status: 'error', message: 'EEPROM config fetch failed' };
+  }
+};
+
+export const submitMedicalHistoryCalibration = async (elderlyId, healthHistory) => {
+  try {
+    const response = await api.post('/api/elderly/calibrate', {
+      elderlyId,
+      healthHistory,
+    });
+    return response.data;
+  } catch (error) {
+    return { status: 'error', message: 'Calibration submission failed' };
+  }
+};
+
 export const acknowledgeAlert = async (alertId, guardianUsername, responseMessage = 'I am Fine') => {
   try {
     const response = await api.post('/api/alerts/acknowledge', {

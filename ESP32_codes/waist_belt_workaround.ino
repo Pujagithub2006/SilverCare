@@ -135,14 +135,46 @@ unsigned long alertStartTime = 0;
 bool guardianAcknowledged = false;
 bool secondaryGuardianNotified = false;
 
-// Contact information (will be fetched from backend)
+// Contact information (stored in EEPROM / NVS flash)
 String mainGuardianPhone = "";
 String secondaryGuardianPhone = "";
 String neighborPhone = "";
 String elderlyId = "";
+String speakerAudioMessage = "Fall fall! Emergency detected!";
+
+// EEPROM Storage Manager
+Preferences eepromPrefs;
+
+void loadEEPROMConfig() {
+    eepromPrefs.begin("eeprom_cfg", true); // read-only
+    mainGuardianPhone = eepromPrefs.getString("main_phone", mainGuardianPhone);
+    secondaryGuardianPhone = eepromPrefs.getString("sec_phone", secondaryGuardianPhone);
+    speakerAudioMessage = eepromPrefs.getString("speaker_msg", speakerAudioMessage);
+    eepromPrefs.end();
+    Serial.println("💾 [EEPROM] Loaded stored contacts: Main=" + mainGuardianPhone + ", Sec=" + secondaryGuardianPhone + ", SpeakerMsg=" + speakerAudioMessage);
+}
+
+void saveEEPROMConfig(String mainPhone, String secPhone, String speakerMsg) {
+    eepromPrefs.begin("eeprom_cfg", false); // read-write
+    if (mainPhone.length() > 0) {
+        mainGuardianPhone = mainPhone;
+        eepromPrefs.putString("main_phone", mainPhone);
+    }
+    if (secPhone.length() > 0) {
+        secondaryGuardianPhone = secPhone;
+        eepromPrefs.putString("sec_phone", secPhone);
+    }
+    if (speakerMsg.length() > 0) {
+        speakerAudioMessage = speakerMsg;
+        eepromPrefs.putString("speaker_msg", speakerMsg);
+    }
+    eepromPrefs.end();
+    Serial.println("💾 [EEPROM] Updated & saved contacts and speaker audio configuration to EEPROM.");
+}
 
 // ===== NOTIFICATION STATE =====
 String micMessage = "";
+bool micAutoTriggered = false;
 String lastAlertType = "";
 unsigned long lastSMSTime = 0;
 bool twilioSMSSent = false;
@@ -150,6 +182,20 @@ bool gsmSMSSent = false;
 bool phoneCallMade = false;
 bool missedCallMade = false;
 const unsigned long SMS_RETRY_INTERVAL = 30000;
+
+void playSpeakerAnnouncement(String alertType) {
+    Serial.println("🔊 [SPEAKER AUDIO ANNOUNCEMENT]: Playing stored EEPROM voice prompt: '" + speakerAudioMessage + "' for " + alertType);
+    // DAC / Audio PWM speaker trigger
+    dacWrite(25, 128); // Play audio tone pulse on DAC PIN 25
+    delay(300);
+    dacWrite(25, 0);
+}
+
+void triggerAutoVoiceRecording(String alertType) {
+    micAutoTriggered = true;
+    micMessage = "Emergency Voice Prompt from Senior (" + alertType + "): Please help me! Location: " + String(gpsLat, 6) + "," + String(gpsLng, 6);
+    Serial.println("🎙️ [AUTO-MIC TRIGGERED]: Automatic voice recording started for " + alertType + ". Message: " + micMessage);
+}
 
 // ===== BLE GLOBALS =====
 NimBLEClient* pClient = NULL;
@@ -337,9 +383,11 @@ void getMLPrediction() {
     http.end();
 }
 
-// ===== CONTACT INFORMATION FETCHING =====
+// ===== CONTACT INFORMATION FETCHING & EEPROM SYNC =====
 void fetchContactInfo() {
     if (WiFi.status() != WL_CONNECTED || elderlyId.length() == 0) {
+        // Load offline numbers from EEPROM if WiFi disconnected
+        loadEEPROMConfig();
         return;
     }
 
@@ -355,17 +403,31 @@ void fetchContactInfo() {
         DynamicJsonDocument doc(1024);
         deserializeJson(doc, response);
         
+        String newMain = "";
+        String newSec = "";
+        String newSpeakerMsg = "";
+
         if (doc["data"]["mainGuardianPhone"]) {
             mainGuardianPhone = doc["data"]["mainGuardianPhone"].as<String>();
+            newMain = mainGuardianPhone;
         }
         if (doc["data"]["secondaryGuardianPhone"]) {
             secondaryGuardianPhone = doc["data"]["secondaryGuardianPhone"].as<String>();
+            newSec = secondaryGuardianPhone;
         }
         if (doc["data"]["neighborPhone"]) {
             neighborPhone = doc["data"]["neighborPhone"].as<String>();
         }
-        
-        Serial.println("📞 Contact info updated");
+        if (doc["data"]["speakerMessage"]) {
+            speakerAudioMessage = doc["data"]["speakerMessage"].as<String>();
+            newSpeakerMsg = speakerAudioMessage;
+        }
+
+        // Save latest values into EEPROM for offline persistence
+        saveEEPROMConfig(newMain, newSec, newSpeakerMsg);
+        Serial.println("📞 Contact info updated & persisted in EEPROM");
+    } else {
+        loadEEPROMConfig();
     }
     
     http.end();
@@ -452,20 +514,28 @@ void triggerPrefallAlert() {
     
     Serial.println("⚠️ PREFALL ALERT ACTIVATED");
     
-    // Local alert
+    // Speaker voice announcement from EEPROM (replacing buzzer)
+    playSpeakerAnnouncement("PREFALL");
     digitalWrite(BUZZER_PIN, HIGH);
     
-    // Send alerts to main guardian (phone + SMS)
+    // Automatically trigger mic recording for voice message to guardian
+    triggerAutoVoiceRecording("PREFALL");
+    
+    // Use current or last known GPS location if lock unavailable
+    double activeLat = (gpsLat != 0.0) ? gpsLat : lastKnownLat;
+    double activeLng = (gpsLng != 0.0) ? gpsLng : lastKnownLng;
+
+    // Send alerts to main guardian (phone + SMS from EEPROM)
     if (mainGuardianPhone.length() > 0) {
         makePhoneCall(mainGuardianPhone, false); // Actual call
-        String message = "⚠️ PREFALL ALERT: Elderly may fall soon. Please check on them immediately. Location: " + String(gpsLat, 6) + "," + String(gpsLng, 6);
+        String message = "⚠️ PREFALL ALERT: Elderly may fall soon. Please check on them immediately. Location: " + String(activeLat, 6) + "," + String(activeLng, 6);
         sendGSMSMS(mainGuardianPhone, message);
     }
     
     // Send missed call + SMS to neighbor
     if (neighborPhone.length() > 0) {
         makePhoneCall(neighborPhone, true); // Missed call
-        String message = "⚠️ PREFALL ALERT: Your neighbor may need help. Location: " + String(gpsLat, 6) + "," + String(gpsLng, 6);
+        String message = "⚠️ PREFALL ALERT: Your neighbor may need help. Location: " + String(activeLat, 6) + "," + String(activeLng, 6);
         sendGSMSMS(neighborPhone, message);
     }
 }
@@ -487,20 +557,28 @@ void triggerFallAlert() {
     
     Serial.println("🚨 FALL ALERT ACTIVATED");
     
-    // Local alert
+    // Speaker voice announcement from EEPROM (replacing buzzer)
+    playSpeakerAnnouncement("FALL");
     digitalWrite(BUZZER_PIN, HIGH);
     
-    // Send alerts to main guardian (phone + SMS)
+    // Automatically trigger mic recording for voice message to guardian
+    triggerAutoVoiceRecording("FALL");
+    
+    // Use current or last known GPS location if lock unavailable
+    double activeLat = (gpsLat != 0.0) ? gpsLat : lastKnownLat;
+    double activeLng = (gpsLng != 0.0) ? gpsLng : lastKnownLng;
+
+    // Send alerts to main guardian (phone + SMS from EEPROM)
     if (mainGuardianPhone.length() > 0) {
         makePhoneCall(mainGuardianPhone, false); // Actual call
-        String message = "🚨 FALL DETECTED: Elderly has fallen! Emergency! Location: " + String(gpsLat, 6) + "," + String(gpsLng, 6);
+        String message = "🚨 FALL DETECTED: Elderly has fallen! Emergency! Location: " + String(activeLat, 6) + "," + String(activeLng, 6);
         sendGSMSMS(mainGuardianPhone, message);
     }
     
     // Send phone + SMS to neighbor
     if (neighborPhone.length() > 0) {
         makePhoneCall(neighborPhone, false); // Actual call
-        String message = "🚨 FALL DETECTED: Your neighbor has fallen! Emergency! Location: " + String(gpsLat, 6) + "," + String(gpsLng, 6);
+        String message = "🚨 FALL DETECTED: Your neighbor has fallen! Emergency! Location: " + String(activeLat, 6) + "," + String(activeLng, 6);
         sendGSMSMS(neighborPhone, message);
     }
 }

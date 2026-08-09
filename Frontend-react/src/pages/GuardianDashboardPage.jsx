@@ -640,13 +640,46 @@ export default function GuardianDashboardPage() {
             </div>
 
             <div style={{
-              backgroundColor: 'rgba(255, 255, 255, 0.2)',
-              borderRadius: '8px',
-              padding: '8px 12px',
-              fontSize: '12px',
-              marginBottom: '12px'
+              backgroundColor: 'rgba(255, 255, 255, 0.25)',
+              borderRadius: '10px',
+              padding: '10px 14px',
+              fontSize: '13px',
+              marginBottom: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '8px'
             }}>
-              🎙️ Mic Msg: "{sensorData.micMessageAudio || 'Emergency audio recorded'}"
+              <div>
+                🎙️ <strong>Senior Voice Recording:</strong>
+                <div style={{ fontSize: '12px', opacity: 0.9, marginTop: '2px' }}>
+                  "{sensorData.micMessageAudio || activeAlerts[0]?.audioMessage || 'Emergency audio captured from waist belt'}"
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  if ('speechSynthesis' in window) {
+                    window.speechSynthesis.cancel();
+                    const text = sensorData.micMessageAudio || activeAlerts[0]?.audioMessage || 'Emergency fall detected! Help requested!';
+                    const msg = new SpeechSynthesisUtterance(text);
+                    msg.rate = 0.9;
+                    window.speechSynthesis.speak(msg);
+                  }
+                }}
+                style={{
+                  backgroundColor: '#ffffff',
+                  color: '#d32f2f',
+                  border: 'none',
+                  borderRadius: '20px',
+                  padding: '6px 14px',
+                  fontSize: '12px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                ▶️ Play Voice
+              </button>
             </div>
 
             <button

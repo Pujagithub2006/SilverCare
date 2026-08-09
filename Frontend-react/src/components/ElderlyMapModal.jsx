@@ -249,10 +249,33 @@ export default function ElderlyMapModal({ isOpen, onClose, elderly, sensorData }
       `;
       elderlyMarkerRef.current.bindPopup(popupContent);
 
+      // Draw GPS Location History Breadcrumb Path Array
+      const historyPoints = sensorData?.gpsHistory || sensorData?.pathHistory || [];
+      if (Array.isArray(historyPoints) && historyPoints.length > 0) {
+        const polylineCoords = historyPoints
+          .filter(pt => pt && pt.lat && pt.lng)
+          .map(pt => [pt.lat, pt.lng]);
+        
+        // Add current location to end of breadcrumb trail
+        polylineCoords.push([lat, lng]);
+
+        if (routePolylineRef.current) {
+          routePolylineRef.current.setLatLngs(polylineCoords);
+        } else if (mapInstanceRef.current && polylineCoords.length > 1) {
+          routePolylineRef.current = L.polyline(polylineCoords, {
+            color: '#3b82f6',
+            weight: 4,
+            opacity: 0.8,
+            dashArray: '6, 8',
+            lineCap: 'round'
+          }).addTo(mapInstanceRef.current);
+        }
+      }
+
     }, 200);
 
     return () => clearTimeout(timer);
-  }, [isOpen, lat, lng, elderlyName, stateName, isEmergency, locationStatusLabel, guardianCoords]);
+  }, [isOpen, lat, lng, elderlyName, stateName, isEmergency, locationStatusLabel, guardianCoords, sensorData?.gpsHistory]);
 
   // Clean up when modal closes
   useEffect(() => {

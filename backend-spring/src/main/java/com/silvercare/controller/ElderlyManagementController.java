@@ -280,6 +280,7 @@ public class ElderlyManagementController {
             contacts.put("secondaryGuardianName", elderly.getSecondaryGuardianName());
             contacts.put("neighborPhone", elderly.getNeighborPhone());
             contacts.put("neighborName", elderly.getNeighborName());
+            contacts.put("speakerMessage", "Fall fall! Emergency detected!");
 
             return ResponseEntity.ok(ApiResponse.builder()
                     .status("success")

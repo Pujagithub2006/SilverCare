@@ -328,6 +328,21 @@ public class ChatbotService {
                 .collect(Collectors.joining("; "));
     }
 
+    public void injectEventContext(String elderlyId, String eventType, String voiceTranscript) {
+        try {
+            if (chatMemoryRepository != null) {
+                String prompt = "EMERGENCY " + eventType + " EVENT DETECTED: Senior recorded voice prompt: '" + voiceTranscript + "'";
+                String response = "Notified guardian and stored fall/prefall alert context.";
+                String insight = "Senior experienced " + eventType + ". Emergency audio voice message captured.";
+                ChatMemory memory = new ChatMemory(elderlyId, prompt, response, insight);
+                chatMemoryRepository.save(memory);
+                System.out.println("🤖 [MITRA AI CONTEXT INJECTED]: " + insight);
+            }
+        } catch (Throwable e) {
+            System.err.println("Error injecting event context to Chatbot memory: " + e.getMessage());
+        }
+    }
+
     private void saveLearnedMemory(String elderlyId, String userInput, String botResponse) {
         try {
             if (chatMemoryRepository != null) {

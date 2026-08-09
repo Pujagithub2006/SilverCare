@@ -31,6 +31,9 @@ public class AlertController {
     @Autowired
     private com.silvercare.service.SensorDataService sensorDataService;
 
+    @Autowired
+    private com.silvercare.service.ChatbotService chatbotService;
+
     @PostMapping("/acknowledge")
     public ResponseEntity<ApiResponse<Object>> acknowledgeAlert(@RequestBody AlertAcknowledgeRequest request) {
         try {
@@ -93,6 +96,11 @@ public class AlertController {
                 alert = new AlertRecord("VOICE_" + System.currentTimeMillis(), elderlyId, request.getDeviceId(), "Microphone", "VOICE_TRIGGER", "PENDING_ACK", audioData, lat, lng);
             }
             alertRecordRepository.save(alert);
+
+            // Inject context into Mitra AI Chatbot memory pipeline
+            if (chatbotService != null) {
+                chatbotService.injectEventContext(elderlyId, alert.getAlertType() != null ? alert.getAlertType() : "FALL", audioData);
+            }
 
             ApiResponse<Object> response = ApiResponse.builder()
                     .status("success")
