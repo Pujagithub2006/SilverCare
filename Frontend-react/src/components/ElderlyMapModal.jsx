@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { sendSensorTelemetry } from '../services/api';
+import { sendSensorTelemetry, getLocationHistory } from '../services/api';
 
 // Fix default marker icon issues in Leaflet with Vite
 delete L.Icon.Default.prototype._getIconUrl;
@@ -55,6 +55,8 @@ export default function ElderlyMapModal({ isOpen, onClose, elderly, sensorData }
   const [geoError, setGeoError] = useState('');
   const [isSimulating, setIsSimulating] = useState(false);
   const [manualCoords, setManualCoords] = useState(null);
+  const [locationHistory, setLocationHistory] = useState([]);
+  const [showTrail, setShowTrail] = useState(true);
 
   const elderlyId = elderly?.elderlyId || elderly?.id || elderly?.elderly_id || 'default';
   const deviceId = sensorData?.deviceId || elderly?.primaryDeviceId || 'vois_belt';
@@ -63,6 +65,7 @@ export default function ElderlyMapModal({ isOpen, onClose, elderly, sensorData }
   // Local Storage keys for caching last fetched hardware location
   const storageKeyElderly = `silvercare_last_loc_${elderlyId}`;
   const storageKeyDevice = `silvercare_last_loc_${deviceId}`;
+  const storageKeyMapState = `silvercare_map_state_${elderlyId}`;
 
   // 1. Check live telemetry coordinates
   const rawLat = sensorData?.latitude;
@@ -140,6 +143,54 @@ export default function ElderlyMapModal({ isOpen, onClose, elderly, sensorData }
 
   const stateName = sensorData?.stateName || 'NORMAL';
   const isEmergency = stateName.includes('FALL') || stateName.includes('PREFALL');
+
+  // Load location history when modal opens
+  useEffect(() => {
+    if (isOpen && elderlyId) {
+      loadLocationHistory();
+      loadMapState();
+    }
+  }, [isOpen, elderlyId]);
+
+  const loadMapState = () => {
+    try {
+      const savedState = localStorage.getItem(storageKeyMapState);
+      if (savedState) {
+        const state = JSON.parse(savedState);
+        setShowTrail(state.showTrail !== undefined ? state.showTrail : true);
+      }
+    } catch (error) {
+      console.error('Error loading map state:', error);
+    }
+  };
+
+  const saveMapState = () => {
+    try {
+      const state = {
+        showTrail,
+        timestamp: Date.now()
+      };
+      localStorage.setItem(storageKeyMapState, JSON.stringify(state));
+    } catch (error) {
+      console.error('Error saving map state:', error);
+    }
+  };
+
+  // Save map state when showTrail changes
+  useEffect(() => {
+    saveMapState();
+  }, [showTrail]);
+
+  const loadLocationHistory = async () => {
+    try {
+      const response = await getLocationHistory(elderlyId, 7); // Last 7 days
+      if (response.status === 'success' && response.data && response.data.locations) {
+        setLocationHistory(response.data.locations);
+      }
+    } catch (error) {
+      console.error('Error loading location history:', error);
+    }
+  };
 
   // Initialize & Update Leaflet Map Instance
   useEffect(() => {
@@ -249,9 +300,31 @@ export default function ElderlyMapModal({ isOpen, onClose, elderly, sensorData }
       `;
       elderlyMarkerRef.current.bindPopup(popupContent);
 
-      // Draw GPS Location History Breadcrumb Path Array
+      // Draw Location History Trail from backend
+      if (showTrail && locationHistory.length > 0) {
+        const trailCoords = locationHistory
+          .filter(loc => loc.latitude && loc.longitude)
+          .map(loc => [loc.latitude, loc.longitude]);
+        
+        // Add current location to end of trail
+        trailCoords.push([lat, lng]);
+
+        if (routePolylineRef.current) {
+          routePolylineRef.current.setLatLngs(trailCoords);
+        } else if (mapInstanceRef.current && trailCoords.length > 1) {
+          routePolylineRef.current = L.polyline(trailCoords, {
+            color: '#3b82f6',
+            weight: 4,
+            opacity: 0.8,
+            dashArray: '6, 8',
+            lineCap: 'round'
+          }).addTo(mapInstanceRef.current);
+        }
+      }
+      
+      // Also draw GPS Location History Breadcrumb Path from sensor data (fallback)
       const historyPoints = sensorData?.gpsHistory || sensorData?.pathHistory || [];
-      if (Array.isArray(historyPoints) && historyPoints.length > 0) {
+      if (showTrail && !routePolylineRef.current && Array.isArray(historyPoints) && historyPoints.length > 0) {
         const polylineCoords = historyPoints
           .filter(pt => pt && pt.lat && pt.lng)
           .map(pt => [pt.lat, pt.lng]);
@@ -275,7 +348,7 @@ export default function ElderlyMapModal({ isOpen, onClose, elderly, sensorData }
     }, 200);
 
     return () => clearTimeout(timer);
-  }, [isOpen, lat, lng, elderlyName, stateName, isEmergency, locationStatusLabel, guardianCoords, sensorData?.gpsHistory]);
+  }, [isOpen, lat, lng, elderlyName, stateName, isEmergency, locationStatusLabel, guardianCoords, sensorData?.gpsHistory, locationHistory, showTrail]);
 
   // Clean up when modal closes
   useEffect(() => {
@@ -727,6 +800,25 @@ export default function ElderlyMapModal({ isOpen, onClose, elderly, sensorData }
           </div>
 
           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+            <button
+              onClick={() => setShowTrail(!showTrail)}
+              style={{
+                backgroundColor: showTrail ? 'rgba(59, 130, 246, 0.1)' : '#f2f2f7',
+                color: showTrail ? '#3b82f6' : '#6c6c70',
+                border: showTrail ? '1px solid rgba(59, 130, 246, 0.25)' : '1px solid #e5e5e7',
+                padding: '10px 16px',
+                borderRadius: '12px',
+                fontSize: '13px',
+                fontWeight: '700',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+            >
+              {showTrail ? '🛤️ Hide Trail' : '🛤️ Show Trail'}
+            </button>
+
             <button
               onClick={handleRecenter}
               style={{

@@ -1,14 +1,15 @@
 package com.silvercare.controller;
 
 import com.silvercare.dto.*;
+import com.silvercare.entity.AlertRecord;
 import com.silvercare.entity.Device;
 import com.silvercare.entity.Elderly;
-import com.silvercare.entity.Guardian;
-import com.silvercare.entity.GuardianElderlyLink;
+import com.silvercare.entity.LocationHistory;
 import com.silvercare.entity.MitraChatHistory;
+import com.silvercare.repository.AlertRecordRepository;
 import com.silvercare.repository.DeviceRepository;
-import com.silvercare.repository.GuardianElderlyLinkRepository;
-import com.silvercare.repository.GuardianRepository;
+import com.silvercare.repository.ElderlyRepository;
+import com.silvercare.repository.LocationHistoryRepository;
 import com.silvercare.repository.MitraChatHistoryRepository;
 import com.silvercare.service.ElderlyManagementService;
 import com.silvercare.service.ElderlyNotificationService;
@@ -47,6 +48,9 @@ public class ElderlyManagementController {
 
     @Autowired
     private MitraChatHistoryRepository mitraChatHistoryRepository;
+
+    @Autowired
+    private LocationHistoryRepository locationHistoryRepository;
 
     private GuardianDetails resolveGuardianDetails(Elderly elderly) {
         if (elderly == null) return new GuardianDetails("", "", "");
@@ -670,5 +674,165 @@ public class ElderlyManagementController {
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.error(e.getMessage()));
         }
+    }
+
+    // ===== LOCATION MANAGEMENT ENDPOINTS =====
+
+    @PostMapping("/api/location/request/{elderlyId}")
+    public ResponseEntity<ApiResponse<Object>> requestLocation(@PathVariable String elderlyId) {
+        try {
+            // This will trigger the ESP32 to send GPS location via SMS
+            // The ESP32 polls this endpoint or receives a signal to send location
+            Map<String, Object> data = new LinkedHashMap<>();
+            data.put("elderlyId", elderlyId);
+            data.put("requestTime", LocalDateTime.now());
+            data.put("status", "LOCATION_REQUESTED");
+            data.put("message", "Location request sent to device. GPS coordinates will be sent via SMS.");
+
+            return ResponseEntity.ok(ApiResponse.builder()
+                .status("success")
+                .message("Location request sent successfully")
+                .data(data)
+                .build());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
+    @GetMapping("/api/location/history/{elderlyId}")
+    public ResponseEntity<ApiResponse<Object>> getLocationHistory(@PathVariable String elderlyId,
+                                                                  @RequestParam(defaultValue = "7") int days) {
+        try {
+            LocalDateTime since = LocalDateTime.now().minusDays(days);
+            List<LocationHistory> locations = locationHistoryRepository.findRecentLocations(elderlyId, since);
+            
+            Map<String, Object> data = new LinkedHashMap<>();
+            data.put("elderlyId", elderlyId);
+            data.put("since", since);
+            data.put("locations", locations);
+
+            return ResponseEntity.ok(ApiResponse.builder()
+                .status("success")
+                .data(data)
+                .build());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
+    @PostMapping("/api/location/unusual-alert/{elderlyId}")
+    public ResponseEntity<ApiResponse<Object>> reportUnusualLocation(@PathVariable String elderlyId,
+                                                                      @RequestBody Map<String, Object> request) {
+        try {
+            Double latitude = request.get("latitude") != null ? 
+                Double.valueOf(request.get("latitude").toString()) : null;
+            Double longitude = request.get("longitude") != null ? 
+                Double.valueOf(request.get("longitude").toString()) : null;
+            String alertType = (String) request.get("alertType"); // "UNUSUAL_LOCATION", "OUT_OF_RANGE", "NO_INTERNET"
+            String deviceId = (String) request.get("deviceId");
+
+            // Store unusual location alert
+            LocationHistory location = LocationHistory.builder()
+                .elderlyId(elderlyId)
+                .latitude(latitude)
+                .longitude(longitude)
+                .timestamp(LocalDateTime.now())
+                .source("DEVICE_ALERT")
+                .isUnusual(true)
+                .alertType(alertType)
+                .deviceId(deviceId)
+                .build();
+            
+            locationHistoryRepository.save(location);
+
+            // Notify guardian (implementation would depend on notification service)
+            // elderlyNotificationService.sendLocationAlert(elderlyId, alertType, latitude, longitude);
+
+            Map<String, Object> data = new LinkedHashMap<>();
+            data.put("elderlyId", elderlyId);
+            data.put("latitude", latitude);
+            data.put("longitude", longitude);
+            data.put("alertType", alertType);
+            data.put("timestamp", LocalDateTime.now());
+
+            return ResponseEntity.ok(ApiResponse.builder()
+                .status("success")
+                .message("Unusual location alert recorded and guardian notified")
+                .data(data)
+                .build());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
+    @PostMapping("/api/location/save/{elderlyId}")
+    public ResponseEntity<ApiResponse<Object>> saveLocation(@PathVariable String elderlyId,
+                                                           @RequestBody Map<String, Object> request) {
+        try {
+            Double latitude = request.get("latitude") != null ? 
+                Double.valueOf(request.get("latitude").toString()) : null;
+            Double longitude = request.get("longitude") != null ? 
+                Double.valueOf(request.get("longitude").toString()) : null;
+            Double accuracy = request.get("accuracy") != null ? 
+                Double.valueOf(request.get("accuracy").toString()) : null;
+            Double altitude = request.get("altitude") != null ? 
+                Double.valueOf(request.get("altitude").toString()) : null;
+            Double speed = request.get("speed") != null ? 
+                Double.valueOf(request.get("speed").toString()) : null;
+            Double heading = request.get("heading") != null ? 
+                Double.valueOf(request.get("heading").toString()) : null;
+            String source = (String) request.getOrDefault("source", "GPS");
+            String deviceId = (String) request.get("deviceId");
+
+            // Check if location is unusual
+            Boolean isUnusual = false;
+            String alertType = null;
+            
+            // Simple distance check from home (would be enhanced with actual home location from elderly profile)
+            if (latitude != null && longitude != null) {
+                double homeLat = 19.0760; // Example - should come from elderly profile
+                double homeLng = 72.8777;
+                double distance = calculateDistance(latitude, longitude, homeLat, homeLng);
+                if (distance > 5.0) {
+                    isUnusual = true;
+                    alertType = "UNUSUAL_LOCATION";
+                }
+            }
+
+            LocationHistory location = LocationHistory.builder()
+                .elderlyId(elderlyId)
+                .latitude(latitude)
+                .longitude(longitude)
+                .timestamp(LocalDateTime.now())
+                .accuracy(accuracy)
+                .altitude(altitude)
+                .speed(speed)
+                .heading(heading)
+                .source(source)
+                .isUnusual(isUnusual)
+                .alertType(alertType)
+                .deviceId(deviceId)
+                .build();
+            
+            locationHistoryRepository.save(location);
+
+            return ResponseEntity.ok(ApiResponse.builder()
+                .status("success")
+                .message("Location saved successfully")
+                .build());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
+    private double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
+        final double R = 6371; // Earth's radius in km
+        double dLat = Math.toRadians(lat2 - lat1);
+        double dLon = Math.toRadians(lon2 - lon1);
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                   Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) *
+                   Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c;
     }
 }

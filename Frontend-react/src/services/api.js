@@ -203,6 +203,37 @@ export const markChatAsLearned = async (chatId) => {
   }
 };
 
+export const requestLocation = async (elderlyId) => {
+  try {
+    const response = await api.post(`/api/location/request/${elderlyId}`);
+    return response.data;
+  } catch (error) {
+    return { status: 'error', message: 'Failed to request location' };
+  }
+};
+
+export const getLocationHistory = async (elderlyId, days = 7) => {
+  try {
+    const response = await api.get(`/api/location/history/${elderlyId}?days=${days}`);
+    return response.data;
+  } catch (error) {
+    return { status: 'error', message: 'Failed to fetch location history' };
+  }
+};
+
+export const reportUnusualLocation = async (elderlyId, latitude, longitude, alertType) => {
+  try {
+    const response = await api.post(`/api/location/unusual-alert/${elderlyId}`, {
+      latitude,
+      longitude,
+      alertType
+    });
+    return response.data;
+  } catch (error) {
+    return { status: 'error', message: 'Failed to report unusual location' };
+  }
+};
+
 export const acknowledgeAlert = async (alertId, guardianUsername, responseMessage = 'I am Fine') => {
   try {
     const response = await api.post('/api/alerts/acknowledge', {

@@ -19,7 +19,14 @@ import {
   replaceDevice,
   markDeviceBroken,
   fetchElderlyContacts,
-  updateElderlyContacts
+  updateElderlyContacts,
+  pairDeviceToElderly,
+  unpairDevice,
+  getElderlyDevices,
+  getDeviceByMac,
+  requestLocation,
+  getLocationHistory,
+  reportUnusualLocation
 } from '../services/api';
 import ElderlyMapModal from '../components/ElderlyMapModal';
 
@@ -101,7 +108,18 @@ export default function GuardianDashboardPage() {
   const [showDeviceModal, setShowDeviceModal] = useState(false);
   const [showMapModal, setShowMapModal] = useState(false);
   const [isListeningSuggestion, setIsListeningSuggestion] = useState(false);
-  
+
+  // Device Pairing State
+  const [showDevicePairingModal, setShowDevicePairingModal] = useState(false);
+  const [macAddressInput, setMacAddressInput] = useState('');
+  const [deviceTypeInput, setDeviceTypeInput] = useState('Waist Belt');
+  const [elderlyDevices, setElderlyDevices] = useState({ currentDevices: [], previousDevices: [] });
+  const [pairingLoading, setPairingLoading] = useState(false);
+
+  // Location Request State
+  const [locationRequestLoading, setLocationRequestLoading] = useState(false);
+  const [locationHistory, setLocationHistory] = useState([]);
+
   // Device Management State
   const [allDevices, setAllDevices] = useState([]);
   const [unassignedDevices, setUnassignedDevices] = useState([]);
@@ -1026,16 +1044,30 @@ export default function GuardianDashboardPage() {
                   📍 See Elderly Person
                 </button>
                 <button
-                  onClick={() => setShowAddModal(true)}
+                  onClick={handleOpenDevicePairingModal}
                   style={{
-                    backgroundColor: '#2563eb', color: '#ffffff', border: 'none',
+                    backgroundColor: '#8b5cf6', color: '#ffffff', border: 'none',
                     padding: '12px 8px', borderRadius: '12px', fontSize: '13px',
                     fontWeight: '800', cursor: 'pointer', display: 'flex',
                     alignItems: 'center', justifyContent: 'center', gap: '4px',
-                    boxShadow: '0 4px 12px rgba(37,99,235,0.25)'
+                    boxShadow: '0 4px 12px rgba(139,92,246,0.25)'
                   }}
                 >
-                  💊 Add Medicine
+                  🔗 Pair Device
+                </button>
+                <button
+                  onClick={handleRequestLocation}
+                  disabled={locationRequestLoading}
+                  style={{
+                    backgroundColor: '#f59e0b', color: '#ffffff', border: 'none',
+                    padding: '12px 8px', borderRadius: '12px', fontSize: '13px',
+                    fontWeight: '800', cursor: locationRequestLoading ? 'not-allowed' : 'pointer', display: 'flex',
+                    alignItems: 'center', justifyContent: 'center', gap: '4px',
+                    boxShadow: '0 4px 12px rgba(245,158,11,0.25)',
+                    opacity: locationRequestLoading ? 0.6 : 1
+                  }}
+                >
+                  � Ask Location
                 </button>
                 <button
                   onClick={() => setShowSuggestionModal(true)}

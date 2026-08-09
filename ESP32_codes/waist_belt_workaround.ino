@@ -294,11 +294,53 @@ void updateGPS() {
         gpsHistoryIndex = (gpsHistoryIndex + 1) % GPS_HISTORY_SIZE;
         
         Serial.println("📍 GPS Updated: " + String(gpsLat, 6) + ", " + String(gpsLng, 6));
+        
+        // Save location to backend if WiFi is available
+        if (WiFi.status() == WL_CONNECTED && elderlyId.length() > 0) {
+            saveLocationToBackend(gpsLat, gpsLng);
+        }
+        
+        // Check if location is unusual
+        if (isLocationUnusual(gpsLat, gpsLng)) {
+            Serial.println("⚠️ [UNUSUAL LOCATION]: Detected unusual location");
+            // Would trigger alert to guardian
+        }
     } else {
         Serial.println("⚠️ GPS signal invalid, using last known location");
         gpsLat = lastKnownLat;
         gpsLng = lastKnownLng;
     }
+}
+
+// ===== SAVE LOCATION TO BACKEND =====
+void saveLocationToBackend(double lat, double lng) {
+    static unsigned long lastSaveTime = 0;
+    if (millis() - lastSaveTime < 60000) return; // Save every minute
+    lastSaveTime = millis();
+    
+    HTTPClient http;
+    String url = String(serverUrl).replace("/api/sensor-data", "/api/location/save/") + elderlyId;
+    http.begin(url);
+    http.addHeader("Content-Type", "application/json");
+    http.setTimeout(5000);
+    
+    String payload = "{";
+    payload += "\"latitude\":" + String(lat, 6) + ",";
+    payload += "\"longitude\":" + String(lng, 6) + ",";
+    payload += "\"accuracy\":10.0,";
+    payload += "\"source\":\"GPS\",";
+    payload += "\"deviceId\":\"" + DEVICE_ID + "\"";
+    payload += "}";
+    
+    int httpResponseCode = http.POST(payload);
+    
+    if (httpResponseCode > 0) {
+        Serial.println("✅ [LOCATION SAVED]: Location saved to backend");
+    } else {
+        Serial.println("❌ [LOCATION SAVE FAILED]: " + String(httpResponseCode));
+    }
+    
+    http.end();
 }
 
 void getGPSHistoryJson(String& json) {
@@ -557,7 +599,117 @@ void markChatAsLearned(long chatId) {
     http.end();
 }
 
-// ===== CONTACT INFORMATION FETCHING & EEPROM SYNC =====
+// ===== GPS LOCATION SMS SENDING VIA GSM =====
+void sendLocationViaSMS() {
+  if (WiFi.status() != WL_CONNECTED && gpsLat != 0 && gpsLng != 0) {
+    // Send GPS coordinates via SMS when no internet
+    String message = "📍 SILVERCARE LOCATION ALERT\n";
+    message += "GPS Coordinates: " + String(gpsLat, 6) + ", " + String(gpsLng, 6) + "\n";
+    message += "Google Maps Link: https://maps.google.com/?q=" + String(gpsLat, 6) + "," + String(gpsLng, 6) + "\n";
+    message += "Timestamp: " + String(now()) + "\n";
+    message += "Device ID: " + DEVICE_ID;
+    
+    sendSMS(message);
+    Serial.println("📱 [GSM SMS]: Location sent via SMS");
+  }
+}
+
+// ===== WIFI RANGE DETECTION =====
+void checkWiFiRange() {
+  static int lastRSSI = -100;
+  static unsigned long lastRangeCheck = 0;
+  
+  if (millis() - lastRangeCheck < 5000) return; // Check every 5 seconds
+  lastRangeCheck = millis();
+  
+  if (WiFi.status() == WL_CONNECTED) {
+    int rssi = WiFi.RSSI();
+    
+    // RSSI thresholds: -30 to -50 (excellent), -50 to -60 (good), -60 to -70 (fair), below -70 (poor)
+    if (rssi < -75 && lastRSSI >= -75) {
+      Serial.println("⚠️ [WIFI RANGE]: Weak signal detected (" + String(rssi) + " dBm) - approaching edge of range");
+      // Could trigger alert to guardian
+    }
+    
+    if (rssi < -85) {
+      Serial.println("🚨 [WIFI RANGE]: Critical signal (" + String(rssi) + " dBm) - about to lose connection");
+      // Send alert to guardian about potential disconnection
+    }
+    
+    lastRSSI = rssi;
+  } else {
+    lastRSSI = -100;
+  }
+}
+
+// ===== UNUSUAL LOCATION DETECTION =====
+bool isLocationUnusual(double lat, double lng) {
+  // This is a simplified version - in production, this would:
+  // 1. Compare against known safe zones (home, nursing home, frequently visited places)
+  // 2. Check if location is far from daily routine patterns
+  // 3. Consider time of day (unusual to be far from home at night)
+  
+  // For now, implement basic distance check from home location
+  // Home location would be stored in elderly profile
+  double homeLat = 19.0760; // Example: Mumbai
+  double homeLng = 72.8777;
+  
+  double distance = calculateDistance(lat, lng, homeLat, homeLng);
+  
+  // If more than 5km from home, consider unusual
+  if (distance > 5.0) {
+    Serial.println("⚠️ [UNUSUAL LOCATION]: " + String(distance, 2) + "km from home");
+    return true;
+  }
+  
+  return false;
+}
+
+double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
+ double R = 6371; // Earth's radius in km
+  double dLat = radians(lat2 - lat1);
+  double dLon = radians(lon2 - lon1);
+  double a = sin(dLat/2) * sin(dLat/2) +
+             cos(radians(lat1)) * cos(radians(lat2)) *
+             sin(dLon/2) * sin(dLon/2);
+  double c = 2 * atan2(sqrt(a), sqrt(1-a));
+  return R * c;
+}
+
+// ===== LOCATION REQUEST POLLING =====
+void checkLocationRequest() {
+  static unsigned long lastRequestCheck = 0;
+  if (millis() - lastRequestCheck < 30000) return; // Check every 30 seconds
+  lastRequestCheck = millis();
+  
+  if (WiFi.status() != WL_CONNECTED || elderlyId.length() == 0) {
+    return;
+  }
+  
+  HTTPClient http;
+  String url = String(serverUrl).replace("/api/sensor-data", "/api/location/request/") + elderlyId + "/check";
+  http.begin(url);
+  http.setTimeout(5000);
+  
+  int httpResponseCode = http.GET();
+  
+  if (httpResponseCode > 0) {
+    String response = http.getString();
+    DynamicJsonDocument doc(512);
+    deserializeJson(doc, response);
+    
+    if (doc["status"] == "success" && doc["data"]["pending"] == true) {
+      Serial.println("📱 [LOCATION REQUEST]: Guardian requested location");
+      sendLocationViaSMS();
+      
+      // Mark request as processed
+      http.begin(url + "/acknowledge");
+      http.POST("");
+    }
+  }
+  
+  http.end();
+}
 void fetchContactInfo() {
     if (WiFi.status() != WL_CONNECTED || elderlyId.length() == 0) {
         // Load offline numbers from EEPROM if WiFi disconnected
@@ -1720,6 +1872,12 @@ void loop() {
 
   // Update GPS
   updateGPS();
+
+  // Check WiFi range
+  checkWiFiRange();
+
+  // Check for location requests from guardian
+  checkLocationRequest();
 
   // Get ML prediction from cloud service (if available)
   static unsigned long lastMLPrediction = 0;
