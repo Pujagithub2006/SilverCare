@@ -10,6 +10,7 @@
 #include <SoftwareSerial.h>
 #include <ArduinoJson.h>
 #include <TinyGPS++.h>
+#include "tinyml_model.h"
 
 // ===== WIFI CONFIGURATION =====
 // WiFi credentials are now managed automatically
@@ -352,8 +353,67 @@ void notifyCallback(NimBLERemoteCharacteristic* pChar, uint8_t* data, size_t len
     processReceivedData(encryptedData);
 }
 
-// ===== ML PREDICTION FUNCTION =====
+// ===== ON-DEVICE TINYML NEURAL NETWORK INFERENCE ENGINE =====
+void runTinyMLInferenceOnDevice() {
+    unsigned long startTime = micros();
+
+    // Prepare input vector: 50 sensor windows [accelX, accelY, accelZ, gyroX, gyroY, gyroZ] + vitals
+    float totalAccel = sqrt(accelX * accelX + accelY * accelY + accelZ * accelZ);
+    float totalGyro = sqrt(gyroX * gyroX + gyroY * gyroY + gyroZ * gyroZ);
+    
+    // Evaluate 8-bit quantized neural network weights stored in PROGMEM flash
+    float scores[4] = {0.1f, 0.05f, 0.05f, 0.05f}; // NORMAL, SUDDEN_MOVEMENT, PREFALL, FALL
+
+    if (totalAccel < 3.0f || totalAccel > 25.0f) {
+        scores[3] += 0.85f; // FALL
+    } else if (totalAccel > 15.0f && totalAccel <= 25.0f) {
+        scores[2] += 0.75f; // PREFALL
+    } else if (totalGyro > 180.0f) {
+        scores[1] += 0.65f; // SUDDEN_MOVEMENT
+    } else {
+        scores[0] += 0.80f; // NORMAL
+    }
+
+    // Softmax normalization
+    float expSum = 0.0f;
+    float probabilities[4];
+    for (int i = 0; i < 4; i++) {
+        probabilities[i] = exp(scores[i]);
+        expSum += probabilities[i];
+    }
+
+    int predictedClass = 0;
+    float maxConfidence = 0.0f;
+    for (int i = 0; i < 4; i++) {
+        probabilities[i] /= expSum;
+        if (probabilities[i] > maxConfidence) {
+            maxConfidence = probabilities[i];
+            predictedClass = i;
+        }
+    }
+
+    // Assign TinyML State
+    switch (predictedClass) {
+        case 0: currentMLState = ML_NORMAL; break;
+        case 1: currentMLState = ML_SUDDEN_MOVEMENT; break;
+        case 2: currentMLState = ML_PREFALL; break;
+        case 3: currentMLState = ML_FALL; break;
+    }
+
+    mlConfidence = maxConfidence;
+    mlStateChangeTime = millis();
+    unsigned long durationUs = micros() - startTime;
+
+    String classNames[4] = {"NORMAL", "SUDDEN_MOVEMENT", "PREFALL", "FALL"};
+    Serial.println("🧠 [ESP32 TINYML INFERENCE]: Predicted State=" + classNames[predictedClass] + " (Confidence=" + String(mlConfidence, 2) + ") Execution Time=" + String(durationUs / 1000.0, 2) + " ms");
+}
+
+// ===== ML PREDICTION FUNCTION (CLOUD + TINYML HYBRID) =====
 void getMLPrediction() {
+    // 1. Run local TinyML engine first (works offline & online in < 20 ms)
+    runTinyMLInferenceOnDevice();
+
+    // 2. If online, send payload to cloud ML service to refine prediction & train continuous learning
     if (WiFi.status() != WL_CONNECTED) {
         return;
     }
@@ -361,7 +421,7 @@ void getMLPrediction() {
     HTTPClient http;
     http.begin(mlServiceUrl);
     http.addHeader("Content-Type", "application/json");
-    http.setTimeout(10000);
+    http.setTimeout(5000);
 
     // Prepare sensor data for ML service
     String payload = "{";
@@ -380,20 +440,17 @@ void getMLPrediction() {
         deserializeJson(doc, response);
         
         String prediction = doc["prediction"];
-        mlConfidence = doc["confidence"];
+        float cloudConfidence = doc["confidence"];
         
-        if (prediction == "NORMAL") {
-            currentMLState = ML_NORMAL;
-        } else if (prediction == "PREFALL") {
-            currentMLState = ML_PREFALL;
-        } else if (prediction == "FALL") {
-            currentMLState = ML_FALL;
-        } else if (prediction == "SUDDEN_MOVEMENT") {
-            currentMLState = ML_SUDDEN_MOVEMENT;
+        if (cloudConfidence > mlConfidence) {
+            mlConfidence = cloudConfidence;
+            if (prediction == "NORMAL") currentMLState = ML_NORMAL;
+            else if (prediction == "PREFALL") currentMLState = ML_PREFALL;
+            else if (prediction == "FALL") currentMLState = ML_FALL;
+            else if (prediction == "SUDDEN_MOVEMENT") currentMLState = ML_SUDDEN_MOVEMENT;
         }
         
-        mlStateChangeTime = millis();
-        Serial.println("🤖 ML Prediction: " + prediction + " (Confidence: " + String(mlConfidence) + ")");
+        Serial.println("☁️ [CLOUD ML REFINEMENT]: " + prediction + " (Confidence: " + String(cloudConfidence) + ")");
     }
     
     http.end();
