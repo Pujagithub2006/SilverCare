@@ -61,6 +61,18 @@ public class Elderly {
     @Column(name = "secondary_guardian_name")
     private String secondaryGuardianName;
 
+    @Column(name = "hospital_phone")
+    private String hospitalPhone;
+
+    @Column(name = "hospital_name")
+    private String hospitalName;
+
+    @Column(name = "ambulance_phone")
+    private String ambulancePhone;
+
+    @Column(name = "emergency_enabled")
+    private Boolean emergencyEnabled = true;
+
     @Column(name = "guardian_username")
     private String guardianUsername; // Kept for legacy compatibility / primary contact
 
@@ -179,6 +191,18 @@ public class Elderly {
 
     public String getSecondaryGuardianName() { return secondaryGuardianName; }
     public void setSecondaryGuardianName(String secondaryGuardianName) { this.secondaryGuardianName = secondaryGuardianName; }
+
+    public String getHospitalPhone() { return hospitalPhone; }
+    public void setHospitalPhone(String hospitalPhone) { this.hospitalPhone = hospitalPhone; }
+
+    public String getHospitalName() { return hospitalName; }
+    public void setHospitalName(String hospitalName) { this.hospitalName = hospitalName; }
+
+    public String getAmbulancePhone() { return ambulancePhone; }
+    public void setAmbulancePhone(String ambulancePhone) { this.ambulancePhone = ambulancePhone; }
+
+    public Boolean getEmergencyEnabled() { return emergencyEnabled; }
+    public void setEmergencyEnabled(Boolean emergencyEnabled) { this.emergencyEnabled = emergencyEnabled; }
 
     public String getPrimaryBeltType() { return primaryBeltType; }
     public void setPrimaryBeltType(String primaryBeltType) { this.primaryBeltType = primaryBeltType; }

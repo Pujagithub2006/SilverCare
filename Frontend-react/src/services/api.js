@@ -234,6 +234,55 @@ export const reportUnusualLocation = async (elderlyId, latitude, longitude, aler
   }
 };
 
+// Emergency notification APIs
+export const notifyHospital = async (elderlyId, alertData) => {
+  try {
+    const response = await api.post(`/api/emergency/notify-hospital/${elderlyId}`, alertData);
+    return response.data;
+  } catch (error) {
+    return { status: 'error', message: 'Failed to notify hospital' };
+  }
+};
+
+// Health report APIs
+export const getDailyReport = async (elderlyId) => {
+  try {
+    const response = await api.get(`/api/reports/daily/${elderlyId}`);
+    return response.data;
+  } catch (error) {
+    return { status: 'error', message: 'Failed to fetch daily report' };
+  }
+};
+
+export const getWeeklyReport = async (elderlyId) => {
+  try {
+    const response = await api.get(`/api/reports/weekly/${elderlyId}`);
+    return response.data;
+  } catch (error) {
+    return { status: 'error', message: 'Failed to fetch weekly report' };
+  }
+};
+
+export const getReportList = async (elderlyId) => {
+  try {
+    const response = await api.get(`/api/reports/list/${elderlyId}`);
+    return response.data;
+  } catch (error) {
+    return { status: 'error', message: 'Failed to fetch report list' };
+  }
+};
+
+export const downloadReportPDF = async (reportId) => {
+  try {
+    const response = await api.get(`/api/reports/download/${reportId}`, {
+      responseType: 'blob'
+    });
+    return response.data;
+  } catch (error) {
+    throw new Error('Failed to download PDF');
+  }
+};
+
 export const acknowledgeAlert = async (alertId, guardianUsername, responseMessage = 'I am Fine') => {
   try {
     const response = await api.post('/api/alerts/acknowledge', {

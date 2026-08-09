@@ -26,7 +26,11 @@ import {
   getDeviceByMac,
   requestLocation,
   getLocationHistory,
-  reportUnusualLocation
+  reportUnusualLocation,
+  getDailyReport,
+  getWeeklyReport,
+  getReportList,
+  downloadReportPDF
 } from '../services/api';
 import ElderlyMapModal from '../components/ElderlyMapModal';
 
@@ -119,6 +123,10 @@ export default function GuardianDashboardPage() {
   // Location Request State
   const [locationRequestLoading, setLocationRequestLoading] = useState(false);
   const [locationHistory, setLocationHistory] = useState([]);
+
+  // Health Report State
+  const [healthReports, setHealthReports] = useState([]);
+  const [reportLoading, setReportLoading] = useState(false);
 
   // Device Management State
   const [allDevices, setAllDevices] = useState([]);
@@ -218,6 +226,97 @@ export default function GuardianDashboardPage() {
   const handleOpenContactsModal = () => {
     setEditingContacts({ ...contacts });
     setShowContactsModal(true);
+  };
+
+  const handleRequestLocation = async () => {
+    if (!selectedElderly) return;
+    const elderlyId = selectedElderly.elderlyId || selectedElderly.id || selectedElderly.elderly_id;
+    
+    setLocationRequestLoading(true);
+    try {
+      const response = await requestLocation(elderlyId);
+      if (response.status === 'success') {
+        showSnackbarMessage('Location request sent to device', 'success');
+      } else {
+        showSnackbarMessage('Failed to request location', 'error');
+      }
+    } catch (error) {
+      console.error('Error requesting location:', error);
+      showSnackbarMessage('Failed to request location', 'error');
+    } finally {
+      setLocationRequestLoading(false);
+    }
+  };
+
+  const handleLoadLocationHistory = async () => {
+    if (!selectedElderly) return;
+    const elderlyId = selectedElderly.elderlyId || selectedElderly.id || selectedElderly.elderly_id;
+    
+    try {
+      const response = await getLocationHistory(elderlyId, 7);
+      if (response.status === 'success' && response.data) {
+        setLocationHistory(response.data.locations || []);
+      }
+    } catch (error) {
+      console.error('Error loading location history:', error);
+    }
+  };
+
+  // Health Report Handlers
+  const handleLoadHealthReports = async () => {
+    if (!selectedElderly) return;
+    const elderlyId = selectedElderly.elderlyId || selectedElderly.id || selectedElderly.elderly_id;
+    
+    setReportLoading(true);
+    try {
+      const response = await getReportList(elderlyId);
+      if (response.status === 'success' && response.data) {
+        setHealthReports(response.data.reports || []);
+      }
+    } catch (error) {
+      console.error('Error loading health reports:', error);
+    } finally {
+      setReportLoading(false);
+    }
+  };
+
+  const handleGenerateDailyReport = async () => {
+    if (!selectedElderly) return;
+    const elderlyId = selectedElderly.elderlyId || selectedElderly.id || selectedElderly.elderly_id;
+    
+    setReportLoading(true);
+    try {
+      const response = await getDailyReport(elderlyId);
+      if (response.status === 'success') {
+        showSnackbarMessage('Daily report generated successfully', 'success');
+        handleLoadHealthReports();
+      } else {
+        showSnackbarMessage('Failed to generate daily report', 'error');
+      }
+    } catch (error) {
+      console.error('Error generating daily report:', error);
+      showSnackbarMessage('Failed to generate daily report', 'error');
+    } finally {
+      setReportLoading(false);
+    }
+  };
+
+  const handleDownloadReport = async (reportId, reportType) => {
+    try {
+      const blob = await downloadReportPDF(reportId);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `SilverCare_${reportType}_Report_${reportId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      showSnackbarMessage('PDF downloaded successfully', 'success');
+    } catch (error) {
+      console.error('Error downloading report:', error);
+      showSnackbarMessage('Failed to download PDF', 'error');
+    }
   };
 
   const handleTimeChangeAtIndex = (index, value) => {
@@ -1093,6 +1192,95 @@ export default function GuardianDashboardPage() {
                 >
                   📅 Calendar
                 </button>
+                <button
+                  onClick={handleGenerateDailyReport}
+                  disabled={reportLoading}
+                  style={{
+                    backgroundColor: '#ec4899', color: '#ffffff', border: 'none',
+                    padding: '12px 8px', borderRadius: '12px', fontSize: '13px',
+                    fontWeight: '800', cursor: reportLoading ? 'not-allowed' : 'pointer', display: 'flex',
+                    alignItems: 'center', justifyContent: 'center', gap: '4px',
+                    boxShadow: '0 4px 12px rgba(236,72,153,0.25)',
+                    opacity: reportLoading ? 0.6 : 1
+                  }}
+                >
+                  📊 Generate Report
+                </button>
+              </div>
+
+              {/* Health Reports Section */}
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <div className="info-label" style={{ fontWeight: '500', color: '#6c6c70', fontSize: '12px', textTransform: 'uppercase' }}>
+                    📋 Health Reports
+                  </div>
+                  <button
+                    onClick={handleLoadHealthReports}
+                    disabled={reportLoading}
+                    style={{
+                      backgroundColor: '#007AFF', color: '#ffffff',
+                      border: 'none', padding: '6px 12px', borderRadius: '8px',
+                      fontSize: '12px', fontWeight: '600', cursor: reportLoading ? 'not-allowed' : 'pointer',
+                      opacity: reportLoading ? 0.6 : 1
+                    }}
+                  >
+                    {reportLoading ? 'Loading...' : 'Refresh'}
+                  </button>
+                </div>
+                {healthReports.length > 0 ? (
+                  <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                    {healthReports.map((report) => (
+                      <div
+                        key={report.id}
+                        style={{
+                          backgroundColor: '#ffffff',
+                          padding: '12px',
+                          borderRadius: '12px',
+                          border: '1px solid #e5e5e7',
+                          marginBottom: '8px',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center'
+                        }}
+                      >
+                        <div>
+                          <div style={{ fontSize: '13px', fontWeight: '700', color: '#1f2937' }}>
+                            {report.reportType} Report
+                          </div>
+                          <div style={{ fontSize: '11px', color: '#6c6c70', marginTop: '2px' }}>
+                            {new Date(report.reportDate).toLocaleDateString()}
+                          </div>
+                          <div style={{ fontSize: '10px', color: '#9ca3af', marginTop: '2px' }}>
+                            Falls: {report.totalFalls} | HR: {report.avgHeartRate} BPM | SpO2: {report.avgSpo2}%
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleDownloadReport(report.id, report.reportType)}
+                          style={{
+                            backgroundColor: '#10b981', color: '#ffffff',
+                            border: 'none', padding: '8px 12px', borderRadius: '8px',
+                            fontSize: '11px', fontWeight: '700', cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', gap: '4px'
+                          }}
+                        >
+                          📥 Download
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{
+                    backgroundColor: '#f9fafb',
+                    padding: '16px',
+                    borderRadius: '12px',
+                    border: '1px dashed #d1d5db',
+                    textAlign: 'center',
+                    color: '#6c6c70',
+                    fontSize: '12px'
+                  }}>
+                    No health reports generated yet. Click "Generate Report" to create one.
+                  </div>
+                )}
               </div>
 
               {/* Device Management Section */}

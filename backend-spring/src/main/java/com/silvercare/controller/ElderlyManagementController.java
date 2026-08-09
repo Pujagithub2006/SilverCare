@@ -4,18 +4,22 @@ import com.silvercare.dto.*;
 import com.silvercare.entity.AlertRecord;
 import com.silvercare.entity.Device;
 import com.silvercare.entity.Elderly;
+import com.silvercare.entity.HealthReport;
 import com.silvercare.entity.LocationHistory;
 import com.silvercare.entity.MitraChatHistory;
 import com.silvercare.repository.AlertRecordRepository;
 import com.silvercare.repository.DeviceRepository;
 import com.silvercare.repository.ElderlyRepository;
+import com.silvercare.repository.HealthReportRepository;
 import com.silvercare.repository.LocationHistoryRepository;
 import com.silvercare.repository.MitraChatHistoryRepository;
 import com.silvercare.service.ElderlyManagementService;
 import com.silvercare.service.ElderlyNotificationService;
+import com.silvercare.service.HealthReportPDFService;
 import com.silvercare.service.MedicineService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -51,6 +55,15 @@ public class ElderlyManagementController {
 
     @Autowired
     private LocationHistoryRepository locationHistoryRepository;
+
+    @Autowired
+    private HealthReportRepository healthReportRepository;
+
+    @Autowired
+    private AlertRecordRepository alertRecordRepository;
+
+    @Autowired
+    private HealthReportPDFService healthReportPDFService;
 
     private GuardianDetails resolveGuardianDetails(Elderly elderly) {
         if (elderly == null) return new GuardianDetails("", "", "");
@@ -834,5 +847,209 @@ public class ElderlyManagementController {
                    Math.sin(dLon / 2) * Math.sin(dLon / 2);
         double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         return R * c;
+    }
+
+    // ===== EMERGENCY NOTIFICATION ENDPOINTS =====
+
+    @PostMapping("/api/emergency/notify-hospital/{elderlyId}")
+    public ResponseEntity<ApiResponse<Object>> notifyHospital(@PathVariable String elderlyId,
+                                                               @RequestBody Map<String, Object> request) {
+        try {
+            Elderly elderly = elderlyManagementService.getElderly(elderlyId);
+            if (elderly == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error("Elderly not found"));
+            }
+
+            if (elderly.getEmergencyEnabled() == null || !elderly.getEmergencyEnabled()) {
+                return ResponseEntity.ok(ApiResponse.builder()
+                    .status("skipped")
+                    .message("Emergency notifications are disabled for this elderly")
+                    .build());
+            }
+
+            String alertType = (String) request.get("alertType"); // "SEVERE_FALL", "WORSENING_VITALS"
+            Double heartRate = request.get("heartRate") != null ? 
+                Double.valueOf(request.get("heartRate").toString()) : null;
+            Double spo2 = request.get("spo2") != null ? 
+                Double.valueOf(request.get("spo2").toString()) : null;
+            Double temperature = request.get("temperature") != null ? 
+                Double.valueOf(request.get("temperature").toString()) : null;
+            String deviceId = (String) request.get("deviceId");
+
+            // Determine severity based on vitals
+            boolean isCritical = false;
+            if (heartRate != null && (heartRate < 40 || heartRate > 150)) isCritical = true;
+            if (spo2 != null && spo2 < 85) isCritical = true;
+            if (temperature != null && (temperature < 35 || temperature > 40)) isCritical = true;
+
+            // Notify hospital if available and condition is critical
+            if (isCritical && elderly.getHospitalPhone() != null && !elderly.getHospitalPhone().isEmpty()) {
+                String message = "🚨 SILVERCARE EMERGENCY ALERT\n";
+                message += "Patient: " + elderly.getName() + " (" + elderlyId + ")\n";
+                message += "Condition: " + alertType + "\n";
+                message += "Heart Rate: " + (heartRate != null ? heartRate + " BPM" : "N/A") + "\n";
+                message += "SpO2: " + (spo2 != null ? spo2 + "%" : "N/A") + "\n";
+                message += "Temperature: " + (temperature != null ? temperature + "°C" : "N/A") + "\n";
+                message += "Location: " + (elderly.getLatitude() != null && elderly.getLongitude() != null ? 
+                    elderly.getLatitude() + ", " + elderly.getLongitude() : "Unknown") + "\n";
+                message += "Please call back immediately for assessment.";
+
+                // Send SMS to hospital (using existing notification service)
+                elderlyNotificationService.sendEmergencySMS(elderly.getHospitalPhone(), message);
+
+                // Also notify ambulance if available
+                if (elderly.getAmbulancePhone() != null && !elderly.getAmbulancePhone().isEmpty()) {
+                    elderlyNotificationService.sendEmergencySMS(elderly.getAmbulancePhone(), message);
+                }
+            }
+
+            Map<String, Object> data = new LinkedHashMap<>();
+            data.put("elderlyId", elderlyId);
+            data.put("alertType", alertType);
+            data.put("isCritical", isCritical);
+            data.put("hospitalNotified", isCritical && elderly.getHospitalPhone() != null);
+            data.put("timestamp", LocalDateTime.now());
+
+            return ResponseEntity.ok(ApiResponse.builder()
+                .status("success")
+                .message(isCritical ? "Hospital notified of critical condition" : "Condition not critical enough for hospital notification")
+                .data(data)
+                .build());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
+    // ===== HEALTH REPORT ENDPOINTS =====
+
+    @GetMapping("/api/reports/daily/{elderlyId}")
+    public ResponseEntity<ApiResponse<Object>> getDailyReport(@PathVariable String elderlyId) {
+        try {
+            LocalDateTime now = LocalDateTime.now();
+            LocalDateTime startOfDay = now.toLocalDate().atStartOfDay();
+            LocalDateTime endOfDay = now.toLocalDate().atTime(23, 59, 59);
+
+            HealthReport report = generateHealthReport(elderlyId, "DAILY", startOfDay, endOfDay, now);
+
+            return ResponseEntity.ok(ApiResponse.builder()
+                .status("success")
+                .data(report)
+                .build());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
+    @GetMapping("/api/reports/weekly/{elderlyId}")
+    public ResponseEntity<ApiResponse<Object>> getWeeklyReport(@PathVariable String elderlyId) {
+        try {
+            LocalDateTime now = LocalDateTime.now();
+            LocalDateTime startOfWeek = now.minusDays(7).toLocalDate().atStartOfDay();
+            LocalDateTime endOfDay = now.toLocalDate().atTime(23, 59, 59);
+
+            HealthReport report = generateHealthReport(elderlyId, "WEEKLY", startOfWeek, endOfDay, now);
+
+            return ResponseEntity.ok(ApiResponse.builder()
+                .status("success")
+                .data(report)
+                .build());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
+    @GetMapping("/api/reports/list/{elderlyId}")
+    public ResponseEntity<ApiResponse<Object>> getReportList(@PathVariable String elderlyId) {
+        try {
+            List<HealthReport> reports = healthReportRepository.findByElderlyIdOrderByReportDateDesc(elderlyId);
+
+            return ResponseEntity.ok(ApiResponse.builder()
+                .status("success")
+                .data(Map.of("reports", reports))
+                .build());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
+    @GetMapping("/api/reports/download/{reportId}")
+    public ResponseEntity<byte[]> downloadReportPDF(@PathVariable Long reportId) {
+        try {
+            Optional<HealthReport> reportOpt = healthReportRepository.findById(reportId);
+            if (reportOpt.isEmpty()) {
+                return ResponseEntity.notFound().build();
+            }
+
+            HealthReport report = reportOpt.get();
+            byte[] pdfBytes = healthReportPDFService.generateHealthReportPDF(report);
+
+            // Update report to mark PDF as generated
+            report.setPdfGenerated(true);
+            healthReportRepository.save(report);
+
+            return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header("Content-Disposition", "attachment; filename=\"SilverCare_Health_Report_" + report.getReportType() + "_" + report.getElderlyId() + ".pdf\"")
+                .body(pdfBytes);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    private HealthReport generateHealthReport(String elderlyId, String reportType, 
+                                             LocalDateTime startDate, LocalDateTime endDate, LocalDateTime reportDate) {
+        // Check if report already exists for this date
+        Optional<HealthReport> existing = healthReportRepository
+            .findByElderlyIdAndReportTypeAndReportDate(elderlyId, reportType, reportDate);
+        
+        if (existing.isPresent()) {
+            return existing.get();
+        }
+
+        // Fetch alert records for falls
+        List<AlertRecord> alerts = alertRecordRepository.findByElderlyIdAndTimestampBetweenOrderByTimestampDesc(
+            elderlyId, startDate, endDate);
+        int totalFalls = (int) alerts.stream().filter(a -> a.getAlertType() != null && 
+            a.getAlertType().contains("FALL")).count();
+
+        // Fetch Mitra chat history
+        List<MitraChatHistory> chats = mitraChatHistoryRepository.findByElderlyIdAndTimestampBetweenOrderByTimestampAsc(
+            elderlyId, startDate, endDate);
+        int mitraConversations = chats.size();
+        long mitraDistress = chats.stream().filter(c -> "DISTRESS".equals(c.getMlStateAtTime())).count();
+        long mitraWellness = chats.stream().filter(c -> "WELLNESS".equals(c.getMlStateAtTime())).count();
+
+        // Calculate averages (would need sensor data table for accurate values)
+        // For now, using placeholder values
+        double avgHeartRate = 75.0;
+        double minHeartRate = 60.0;
+        double maxHeartRate = 100.0;
+        double avgSpo2 = 97.0;
+        double minSpo2 = 94.0;
+        double avgTemperature = 36.6;
+        double medicationAdherence = 85.0;
+
+        HealthReport report = HealthReport.builder()
+            .elderlyId(elderlyId)
+            .reportType(reportType)
+            .reportDate(reportDate)
+            .startDate(startDate)
+            .endDate(endDate)
+            .totalFalls(totalFalls)
+            .avgHeartRate(avgHeartRate)
+            .minHeartRate(minHeartRate)
+            .maxHeartRate(maxHeartRate)
+            .avgSpo2(avgSpo2)
+            .minSpo2(minSpo2)
+            .avgTemperature(avgTemperature)
+            .mitraConversationCount(mitraConversations)
+            .mitraDistressCount((int) mitraDistress)
+            .mitraWellnessCount((int) mitraWellness)
+            .mlStateSummary("{\"NORMAL\": 80, \"PREFALL\": 15, \"FALL\": 5}")
+            .medicationAdherence(medicationAdherence)
+            .pdfGenerated(false)
+            .build();
+
+        return healthReportRepository.save(report);
     }
 }

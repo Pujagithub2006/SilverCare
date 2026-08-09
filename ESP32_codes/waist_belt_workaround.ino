@@ -599,6 +599,91 @@ void markChatAsLearned(long chatId) {
     http.end();
 }
 
+// ===== CHECK FOR WORSENING VITALS AFTER FALL =====
+void checkWorseningVitalsAfterFall() {
+  static unsigned long fallStartTime = 0;
+  static bool fallDetected = false;
+  static float preFallHeartRate = 0;
+  static float preFallSpo2 = 0;
+  static float preFallTemp = 0;
+  
+  // Detect fall
+  if (currentMLState == ML_FALL && !fallDetected) {
+    fallDetected = true;
+    fallStartTime = millis();
+    preFallHeartRate = currentHr;
+    preFallSpo2 = currentSpo2;
+    preFallTemp = currentTemp;
+    Serial.println("⚠️ [FALL DETECTED]: Recording pre-fall vitals");
+  }
+  
+  // Check vitals for 5 minutes after fall
+  if (fallDetected && (millis() - fallStartTime < 300000)) {
+    bool vitalsWorsening = false;
+    String alertReason = "";
+    
+    // Check if heart rate is worsening (significant increase or decrease)
+    if (currentHr < preFallHeartRate - 20 || currentHr > preFallHeartRate + 30) {
+      vitalsWorsening = true;
+      alertReason += "Heart Rate: " + String(currentHr) + " BPM (was " + String(preFallHeartRate) + ") ";
+    }
+    
+    // Check if SpO2 is dropping
+    if (currentSpo2 < preFallSpo2 - 5 || currentSpo2 < 90) {
+      vitalsWorsening = true;
+      alertReason += "SpO2: " + String(currentSpo2) + "% (was " + String(preFallSpo2) + ") ";
+    }
+    
+    // Check if temperature is abnormal
+    if (currentTemp < 35 || currentTemp > 38.5) {
+      vitalsWorsening = true;
+      alertReason += "Temp: " + String(currentTemp) + "°C ";
+    }
+    
+    // If vitals are worsening, notify hospital
+    if (vitalsWorsening && WiFi.status() == WL_CONNECTED && elderlyId.length() > 0) {
+      Serial.println("🚨 [WORSENING VITALS]: " + alertReason);
+      notifyHospitalOfEmergency("WORSENING_VITALS", currentHr, currentSpo2, currentTemp);
+      
+      // Reset to avoid repeated notifications
+      fallDetected = false;
+      fallStartTime = 0;
+    }
+  } else if (fallDetected && (millis() - fallStartTime >= 300000)) {
+    // Reset after 5 minutes
+    fallDetected = false;
+    fallStartTime = 0;
+    Serial.println("✅ [FALL MONITORING]: 5-minute monitoring period ended");
+  }
+}
+
+// ===== NOTIFY HOSPITAL OF EMERGENCY =====
+void notifyHospitalOfEmergency(String alertType, float heartRate, float spo2, float temperature) {
+  HTTPClient http;
+  String url = String(serverUrl).replace("/api/sensor-data", "/api/emergency/notify-hospital/") + elderlyId;
+  http.begin(url);
+  http.addHeader("Content-Type", "application/json");
+  http.setTimeout(5000);
+  
+  String payload = "{";
+  payload += "\"alertType\":\"" + alertType + "\",";
+  payload += "\"heartRate\":" + String(heartRate) + ",";
+  payload += "\"spo2\":" + String(spo2) + ",";
+  payload += "\"temperature\":" + String(temperature) + ",";
+  payload += "\"deviceId\":\"" + DEVICE_ID + "\"";
+  payload += "}";
+  
+  int httpResponseCode = http.POST(payload);
+  
+  if (httpResponseCode > 0) {
+    Serial.println("✅ [HOSPITAL NOTIFIED]: Emergency notification sent");
+  } else {
+    Serial.println("❌ [HOSPITAL NOTIFICATION FAILED]: " + String(httpResponseCode));
+  }
+  
+  http.end();
+}
+
 // ===== GPS LOCATION SMS SENDING VIA GSM =====
 void sendLocationViaSMS() {
   if (WiFi.status() != WL_CONNECTED && gpsLat != 0 && gpsLng != 0) {
@@ -1878,6 +1963,9 @@ void loop() {
 
   // Check for location requests from guardian
   checkLocationRequest();
+
+  // Check for worsening vitals after fall
+  checkWorseningVitalsAfterFall();
 
   // Get ML prediction from cloud service (if available)
   static unsigned long lastMLPrediction = 0;

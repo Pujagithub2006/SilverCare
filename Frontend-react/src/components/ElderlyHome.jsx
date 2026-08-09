@@ -5,7 +5,8 @@ import {
   getElderlyNotifications,
   clearElderlyNotification,
   fetchHardwareData,
-  triggerEmergency
+  triggerEmergency,
+  getElderlyInfo
 } from '../services/api';
 import { useLanguage } from '../context/LanguageContext';
 import '../styles.css';
@@ -19,6 +20,11 @@ const ElderlyHome = () => {
   const [sosPressed, setSosPressed] = useState(false);
   const [notifications, setNotifications] = useState({});
   const [isCalibrated, setIsCalibrated] = useState(false);
+  const [emergencyContacts, setEmergencyContacts] = useState({
+    hospitalPhone: '',
+    ambulancePhone: '',
+    hospitalName: ''
+  });
 
   // Device Status Realtime State
   const [beltWornRealtime, setBeltWornRealtime] = useState(true);
@@ -47,6 +53,7 @@ const ElderlyHome = () => {
 
     pollDeviceStatus();
     checkCalibrationStatus(id);
+    fetchEmergencyContacts(id);
 
     // Realtime polling interval every 3 seconds
     const interval = setInterval(() => {
@@ -121,6 +128,21 @@ const ElderlyHome = () => {
     } catch (err) {}
   };
 
+  const fetchEmergencyContacts = async (id) => {
+    try {
+      const response = await getElderlyInfo(id);
+      if (response && response.status === 'success' && response.data) {
+        setEmergencyContacts({
+          hospitalPhone: response.data.hospitalPhone || '',
+          ambulancePhone: response.data.ambulancePhone || '',
+          hospitalName: response.data.hospitalName || ''
+        });
+      }
+    } catch (err) {
+      console.error('Error fetching emergency contacts:', err);
+    }
+  };
+
   const handleNotificationResponse = async (medicineId, response) => {
     const targetId = elderlyId || localStorage.getItem('elderly_id');
     try {
@@ -189,6 +211,14 @@ const ElderlyHome = () => {
       clearTimeout(sosTimerRef.current);
       setSosPressed(false);
     }
+  };
+
+  const handleEmergencyCall = (phone, type) => {
+    if (!phone) {
+      showToast(`No ${type} number configured`);
+      return;
+    }
+    window.location.href = `tel:${phone}`;
   };
 
   const goBack = () => {
@@ -338,6 +368,82 @@ const ElderlyHome = () => {
           <div className="sos-subtext">{t('press_for_help')}</div>
         </button>
         <p className="sos-instruction">{t('press_and_hold')}</p>
+      </div>
+
+      {/* Emergency Call Buttons */}
+      <div style={{ padding: '0 20px 16px 20px' }}>
+        <div style={{
+          padding: '16px',
+          borderRadius: '16px',
+          backgroundColor: '#fef2f2',
+          border: '2px solid #fecaca',
+          textAlign: 'left'
+        }}>
+          <h3 style={{ margin: '0 0 12px 0', fontSize: '15px', fontWeight: '800', color: '#991b1b' }}>
+            🚨 Emergency Contacts
+          </h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+            
+            {/* Hospital Call Button */}
+            <button
+              onClick={() => handleEmergencyCall(emergencyContacts.hospitalPhone, 'hospital')}
+              style={{
+                backgroundColor: '#ffffff',
+                padding: '12px',
+                borderRadius: '12px',
+                border: '2px solid #fca5a5',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+              }}
+              onMouseOver={(e) => e.target.style.backgroundColor = '#fff5f5'}
+              onMouseOut={(e) => e.target.style.backgroundColor = '#ffffff'}
+            >
+              <div style={{ fontSize: '24px', marginBottom: '4px' }}>🏥</div>
+              <div style={{ fontSize: '12px', fontWeight: '700', color: '#7f1d1d', textAlign: 'center' }}>
+                Hospital
+              </div>
+              <div style={{ fontSize: '10px', color: '#991b1b', marginTop: '2px' }}>
+                {emergencyContacts.hospitalPhone || 'Not set'}
+              </div>
+            </button>
+
+            {/* Ambulance Call Button */}
+            <button
+              onClick={() => handleEmergencyCall(emergencyContacts.ambulancePhone, 'ambulance')}
+              style={{
+                backgroundColor: '#ffffff',
+                padding: '12px',
+                borderRadius: '12px',
+                border: '2px solid #fca5a5',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+              }}
+              onMouseOver={(e) => e.target.style.backgroundColor = '#fff5f5'}
+              onMouseOut={(e) => e.target.style.backgroundColor = '#ffffff'}
+            >
+              <div style={{ fontSize: '24px', marginBottom: '4px' }}>🚑</div>
+              <div style={{ fontSize: '12px', fontWeight: '700', color: '#7f1d1d', textAlign: 'center' }}>
+                Ambulance
+              </div>
+              <div style={{ fontSize: '10px', color: '#991b1b', marginTop: '2px' }}>
+                {emergencyContacts.ambulancePhone || 'Not set'}
+              </div>
+            </button>
+          </div>
+          <p style={{ margin: '8px 0 0 0', fontSize: '11px', color: '#991b1b', textAlign: 'center' }}>
+            Tap to call emergency services
+          </p>
+        </div>
       </div>
 
       {/* 1. Wearable Device Status Section */}
