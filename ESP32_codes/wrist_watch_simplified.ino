@@ -136,16 +136,16 @@ class MyServerCallbacks : public NimBLEServerCallbacks {
   void onConnect(NimBLEServer* pServer, NimBLEConnInfo& connInfo) {
     deviceConnected = true;
     Serial.println("========================================");
-    Serial.println("✅ [BLE] Wrist band connected to Waist belt");
-    Serial.print("📱 [BLE] Connected to: ");
+    Serial.println("[BLE] Wrist band connected to Waist belt");
+    Serial.print("[BLE] Connected to: ");
     Serial.println(connInfo.getAddress().toString().c_str());
     Serial.println("========================================");
   }
 
   void onDisconnect(NimBLEServer* pServer, NimBLEConnInfo& connInfo, int reason) {
     deviceConnected = false;
-    Serial.println("❌ [BLE] Wrist band disconnected from Waist belt");
-    Serial.println("🔄 [BLE] Restarting advertising...");
+    Serial.println("[BLE] Wrist band disconnected from Waist belt");
+    Serial.println("[BLE] Restarting advertising...");
     delay(100);
     if (pAdvertising) {
       pAdvertising->start();
@@ -168,9 +168,9 @@ void setup() {
   Serial.println("========================================");
 
   // ========== Initialize MAX30102 Heart Sensor ==========
-  Serial.println("🔴 Initializing MAX30102...");
+  Serial.println("Initializing MAX30102...");
   if (!maxSensor.begin(Wire, I2C_SPEED_FAST)) {
-    Serial.println("❌ MAX30102 NOT FOUND");
+    Serial.println("MAX30102 NOT FOUND");
     while (1);
   }
   
@@ -185,15 +185,15 @@ void setup() {
   maxSensor.setPulseAmplitudeRed(0x7F);
   maxSensor.setPulseAmplitudeIR(0x7F);
   
-  Serial.println("✅ MAX30102 Initialized");
+  Serial.println("MAX30102 Initialized");
   sensorInitialized = true;
 
   // ========== BLE Server Initialization ==========
   initBLEServer();
   
   Serial.println("========================================");
-  Serial.println("✅ Setup Complete - Advertising as: " + String(DEVICE_NAME));
-  Serial.println("🔐 AES-256 Encryption: ENABLED");
+  Serial.println("Setup Complete - Advertising as: " + String(DEVICE_NAME));
+  Serial.println("AES-256 Encryption: ENABLED");
   Serial.println("========================================");
 }
 
@@ -242,10 +242,10 @@ void initBLEServer() {
   // Start advertising
   pAdvertising->start();
   
-  Serial.println("✅ BLE Server started!");
-  Serial.print("📱 Service UUID: ");
+  Serial.println("BLE Server started!");
+  Serial.print("Service UUID: ");
   Serial.println(SERVICE_UUID);
-  Serial.print("📱 Characteristic UUID: ");
+  Serial.print("Characteristic UUID: ");
   Serial.println(CHARACTERISTIC_UUID);
 }
 

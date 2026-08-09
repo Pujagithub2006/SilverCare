@@ -10,6 +10,6 @@ public class SilverCareApplication {
 
     public static void main(String[] args) {
         SpringApplication.run(SilverCareApplication.class, args);
-        System.out.println("🚀 [SERVER] SilverCare Spring Boot Backend initialized successfully on port 5001");
+        System.out.println("[SERVER] SilverCare Spring Boot Backend initialized successfully on port 5001");
     }
 }

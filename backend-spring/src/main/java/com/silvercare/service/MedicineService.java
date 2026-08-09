@@ -137,7 +137,7 @@ public class MedicineService {
             medicineRepository.save(medicine);
             snoozedReminders.remove(key);
             elderlyNotificationService.clearElderlyNotification(elderlyId, medicineId);
-            System.out.println("✅ Medicine marked as taken for " + elderlyId);
+            System.out.println("Medicine marked as taken for " + elderlyId);
 
         } else if ("snooze".equalsIgnoreCase(response)) {
             snoozedReminders.put(key, LocalDateTime.now().plusMinutes(2));
@@ -154,7 +154,7 @@ public class MedicineService {
             medicineRepository.save(medicine);
             snoozedReminders.remove(key);
             elderlyNotificationService.clearElderlyNotification(elderlyId, medicineId);
-            System.out.println("❌ Medicine marked as missed for " + elderlyId);
+            System.out.println("Medicine marked as missed for " + elderlyId);
         }
     }
 

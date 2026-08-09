@@ -30,12 +30,12 @@ public class TwilioService {
         if (twilioEnabled && accountSid != null && !accountSid.isEmpty() && !accountSid.startsWith("YOUR_")) {
             try {
                 Twilio.init(accountSid, authToken);
-                System.out.println("📞 [TWILIO] Twilio client initialized successfully");
+                System.out.println("[TWILIO] Twilio client initialized successfully");
             } catch (Exception e) {
-                System.err.println("⚠️ [TWILIO] Error initializing Twilio client: " + e.getMessage());
+                System.err.println("[TWILIO] Error initializing Twilio client: " + e.getMessage());
             }
         } else {
-            System.out.println("⚠️ [TWILIO] Twilio not configured or disabled");
+            System.out.println("[TWILIO] Twilio not configured or disabled");
         }
     }
 
@@ -47,7 +47,7 @@ public class TwilioService {
         }
 
         try {
-            String bodyText = String.format("🚨 SILVERCARE ALERT: Fall detected for %s at %s (Device: %s). Please check on them immediately.",
+            String bodyText = String.format("SILVERCARE ALERT: Fall detected for %s at %s (Device: %s). Please check on them immediately.",
                     elderlyName, location, deviceId);
             Message message = Message.creator(
                     new PhoneNumber(guardianPhone),
@@ -55,10 +55,10 @@ public class TwilioService {
                     bodyText
             ).create();
 
-            System.out.println("[SMS] ✅ Fall alert SMS sent! SID: " + message.getSid());
+            System.out.println("[SMS] Fall alert SMS sent! SID: " + message.getSid());
             return true;
         } catch (Exception e) {
-            System.err.println("[SMS] ❌ Error sending SMS: " + e.getMessage());
+            System.err.println("[SMS] Error sending SMS: " + e.getMessage());
             return false;
         }
     }
@@ -70,7 +70,7 @@ public class TwilioService {
         }
 
         try {
-            String bodyText = String.format("🚨🚨 URGENT SILVERCARE ALERT: %s has NOT RESPONDED to fall alert at %s! This is an emergency. Please call them immediately or check on them. Device: %s",
+            String bodyText = String.format("URGENT SILVERCARE ALERT: %s has NOT RESPONDED to fall alert at %s! This is an emergency. Please call them immediately or check on them. Device: %s",
                     elderlyName, location, deviceId);
             Message message = Message.creator(
                     new PhoneNumber(guardianPhone),
@@ -78,10 +78,10 @@ public class TwilioService {
                     bodyText
             ).create();
 
-            System.out.println("[SMS] ✅ URGENT alert SMS sent! SID: " + message.getSid());
+            System.out.println("[SMS] URGENT alert SMS sent! SID: " + message.getSid());
             return true;
         } catch (Exception e) {
-            System.err.println("[SMS] ❌ Error sending urgent SMS: " + e.getMessage());
+            System.err.println("[SMS] Error sending urgent SMS: " + e.getMessage());
             return false;
         }
     }
@@ -113,17 +113,17 @@ public class TwilioService {
                     new Twiml(twimlXml)
             ).create();
 
-            System.out.println("[TWILIO] ✅ Emergency call initiated! SID: " + call.getSid());
+            System.out.println("[TWILIO] Emergency call initiated! SID: " + call.getSid());
             return true;
         } catch (Exception e) {
-            System.err.println("[TWILIO] ❌ Error making call: " + e.getMessage());
+            System.err.println("[TWILIO] Error making call: " + e.getMessage());
             return false;
         }
     }
 
     public boolean makeNoResponseAlertCall(String guardianPhone, String elderlyName, String location) {
         if (!twilioEnabled) {
-            System.out.println("[TWILIO] Mock URGENT call to: " + guardianPhone + " SIREN: 🚨🚨🚨");
+            System.out.println("[TWILIO] Mock URGENT call to: " + guardianPhone + " SIREN: URGENT");
             return true;
         }
 
@@ -153,10 +153,10 @@ public class TwilioService {
                     new Twiml(twimlXml)
             ).create();
 
-            System.out.println("[TWILIO] 🚨 URGENT call initiated! SID: " + call.getSid());
+            System.out.println("[TWILIO] URGENT call initiated! SID: " + call.getSid());
             return true;
         } catch (Exception e) {
-            System.err.println("[TWILIO] ❌ Error making urgent call: " + e.getMessage());
+            System.err.println("[TWILIO] Error making urgent call: " + e.getMessage());
             return false;
         }
     }

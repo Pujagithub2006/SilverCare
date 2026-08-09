@@ -30,12 +30,12 @@ public class ElderlyNotificationService {
 
     public void registerElderlySession(String elderlyId, String deviceInfo) {
         elderlySessions.put(elderlyId, new ElderlySession(elderlyId, deviceInfo));
-        System.out.println("👤 [ELDERLY] " + elderlyId + " logged in on " + deviceInfo);
+        System.out.println("[ELDERLY] " + elderlyId + " logged in on " + deviceInfo);
     }
 
     public void unregisterElderlySession(String elderlyId) {
         elderlySessions.remove(elderlyId);
-        System.out.println("👋 [ELDERLY] " + elderlyId + " logged out");
+        System.out.println("[ELDERLY] " + elderlyId + " logged out");
     }
 
     public boolean isElderlyLoggedIn(String elderlyId) {
@@ -44,7 +44,7 @@ public class ElderlyNotificationService {
 
     public boolean sendElderlyNotification(String elderlyId, Medicine medicine, String notificationType) {
         if (!elderlySessions.containsKey(elderlyId)) {
-            System.out.println("⚠️ [ELDERLY] " + elderlyId + " not logged in - skipping notification");
+            System.out.println("[ELDERLY] " + elderlyId + " not logged in - skipping notification");
             return false;
         }
 
@@ -63,7 +63,7 @@ public class ElderlyNotificationService {
         String key = elderlyId + "_" + medicine.getId();
         activeNotifications.put(key, notificationData);
 
-        System.out.println("📱 [ELDERLY NOTIFICATION] Sent to " + elderlyId + " for medicine: " + medicine.getMedicineName());
+        System.out.println("[ELDERLY NOTIFICATION] Sent to " + elderlyId + " for medicine: " + medicine.getMedicineName());
         return true;
     }
 
@@ -84,6 +84,6 @@ public class ElderlyNotificationService {
     public void clearElderlyNotification(String elderlyId, Long medicineId) {
         String key = elderlyId + "_" + medicineId;
         activeNotifications.remove(key);
-        System.out.println("✅ [ELDERLY] Notification cleared for " + key);
+        System.out.println("[ELDERLY] Notification cleared for " + key);
     }
 }

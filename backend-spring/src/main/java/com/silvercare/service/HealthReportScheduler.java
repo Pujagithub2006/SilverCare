@@ -26,7 +26,7 @@ public class HealthReportScheduler {
      */
     @Scheduled(cron = "0 0 * * * ?")
     public void generateHourlyHealthReports() {
-        System.out.println("📊 [SCHEDULER]: Starting hourly health report generation - " + LocalDateTime.now());
+        System.out.println("[SCHEDULER]: Starting hourly health report generation - " + LocalDateTime.now());
         
         List<String> allElderlyIds = elderlyRepository.findAllElderlyIds();
         
@@ -35,11 +35,11 @@ public class HealthReportScheduler {
                 generateDailyReportForElderly(elderlyId);
                 generateWeeklyReportForElderly(elderlyId);
             } catch (Exception e) {
-                System.err.println("❌ [SCHEDULER]: Failed to generate report for " + elderlyId + ": " + e.getMessage());
+                System.err.println("[SCHEDULER]: Failed to generate report for " + elderlyId + ": " + e.getMessage());
             }
         }
         
-        System.out.println("✅ [SCHEDULER]: Completed hourly health report generation - " + LocalDateTime.now());
+        System.out.println("[SCHEDULER]: Completed hourly health report generation - " + LocalDateTime.now());
     }
 
     /**
@@ -60,12 +60,12 @@ public class HealthReportScheduler {
             HealthReport report = existing.get();
             updateReportData(report, startOfDay, endOfDay);
             healthReportRepository.save(report);
-            System.out.println("🔄 [SCHEDULER]: Updated daily report for " + elderlyId);
+            System.out.println("[SCHEDULER]: Updated daily report for " + elderlyId);
         } else {
             // Create new report
             HealthReport report = createReportData(elderlyId, "DAILY", startOfDay, endOfDay, now);
             healthReportRepository.save(report);
-            System.out.println("📝 [SCHEDULER]: Created daily report for " + elderlyId);
+            System.out.println("[SCHEDULER]: Created daily report for " + elderlyId);
         }
     }
 
@@ -87,12 +87,12 @@ public class HealthReportScheduler {
             HealthReport report = existing.get();
             updateReportData(report, startOfWeek, endOfDay);
             healthReportRepository.save(report);
-            System.out.println("🔄 [SCHEDULER]: Updated weekly report for " + elderlyId);
+            System.out.println("[SCHEDULER]: Updated weekly report for " + elderlyId);
         } else {
             // Create new report
             HealthReport report = createReportData(elderlyId, "WEEKLY", startOfWeek, endOfDay, now);
             healthReportRepository.save(report);
-            System.out.println("📝 [SCHEDULER]: Created weekly report for " + elderlyId);
+            System.out.println("[SCHEDULER]: Created weekly report for " + elderlyId);
         }
     }
 

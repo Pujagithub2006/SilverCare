@@ -131,10 +131,10 @@ public class SensorDataService {
 
         // Process State Transitions
         if ("PREFALL".equalsIgnoreCase(stateName)) {
-            System.out.println("⚠️ [PREFALL DETECTED] Triggering prefall notification to ALL linked guardians for " + deviceId);
+            System.out.println("[PREFALL DETECTED] Triggering prefall notification to ALL linked guardians for " + deviceId);
             fallDetectionService.handlePrefallAlert(deviceId, beltType, lat, lng, request.getMicMessageAudio());
         } else if ("FALL_DETECTED".equalsIgnoreCase(stateName)) {
-            System.out.println("🚨 [FALL DETECTED] Triggering fall escalation workflow for " + deviceId);
+            System.out.println("[FALL DETECTED] Triggering fall escalation workflow for " + deviceId);
             fallDetectionService.triggerFall(deviceId, 1.0);
             fallDetectionService.handleFallAlert(deviceId, beltType, lat, lng, request.getMicMessageAudio());
         }
