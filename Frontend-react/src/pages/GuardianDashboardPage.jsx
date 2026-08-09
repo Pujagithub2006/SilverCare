@@ -234,6 +234,15 @@ export default function GuardianDashboardPage() {
     setShowContactsModal(true);
   };
 
+  const handleOpenDevicePairingModal = () => {
+    if (!selectedElderly) {
+      showSnackbarMessage('Please select a senior citizen first', 'error');
+      return;
+    }
+    setShowDevicePairingModal(true);
+    loadElderlyDevices(selectedElderly.elderlyId || selectedElderly.id);
+  };
+
   const handleRequestLocation = async () => {
     if (!selectedElderly) return;
     const elderlyId = selectedElderly.elderlyId || selectedElderly.id || selectedElderly.elderly_id;
