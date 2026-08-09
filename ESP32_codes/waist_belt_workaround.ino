@@ -20,32 +20,31 @@
 #define AP_SSID "SilverCare_Setup"
 #define AP_PASSWORD "silvercare123"
 
-// ===== GSM CONFIGURATION =====
-// CHANGE THESE PINS ACCORDING TO YOUR HARDWARE CONNECTION
-#define GSM_TX 16      // GSM Module TX pin connected to ESP32 RX
-#define GSM_RX 17      // GSM Module RX pin connected to ESP32 TX
+// ===== GSM CONFIGURATION (SIM800L) =====
+// GSM RX connected to ESP32 D23 (TX), GSM TX connected to ESP32 D5 (RX)
+#define GSM_RX_PIN 5       // GSM TX -> ESP32 RX (D5)
+#define GSM_TX_PIN 23      // GSM RX -> ESP32 TX (D23)
 #define GSM_BAUD 9600
-SoftwareSerial gsmSerial(GSM_RX, GSM_TX);
+SoftwareSerial gsmSerial(GSM_RX_PIN, GSM_TX_PIN);
 
 // ===== PIN CONFIGURATION =====
-#define SOS_BUTTON_PIN 19    // Push Button 1: Dedicated SOS Emergency Button
-#define ACK_BUTTON_PIN 22    // Push Button 2: Dedicated Reset / Acknowledgment Button
-#define BUZZER_PIN 18        // Local alert buzzer
-#define MPU6050_SDA 21       // MPU6050 I2C SDA pin
-#define MPU6050_SCL 22       // MPU6050 I2C SCL pin
-#define DS18B20_PIN 27       // DS18B20 OneWire Temperature sensor pin
-#define GPS_TX_PIN 4         // GPS NEO-6M TX pin connected to ESP32 RX
-#define GPS_RX_PIN 5         // GPS NEO-6M RX pin connected to ESP32 TX
+#define SOS_BUTTON_PIN 19    // Push Button 1: Dedicated SOS Emergency Button (D19)
+#define ACK_BUTTON_PIN 18    // Push Button 2: Dedicated Reset / Acknowledgment Button (D18)
+#define BUZZER_PIN 25        // Mapped to MAX98357A Audio DIN Pin (D25)
+#define MPU6050_SDA 21       // MPU6050 SDA pin (D21)
+#define MPU6050_SCL 22       // MPU6050 SCL pin (D22)
+#define GPS_RX_PIN 16        // GPS TX -> ESP32 RX (D16)
+#define GPS_TX_PIN 17        // GPS RX -> ESP32 TX (D17)
 
 // MAX98357A I2S Speaker Amplifier Pins
-#define I2S_BCLK 26
-#define I2S_LRC 25
-#define I2S_DOUT 33
+#define I2S_LRC 33           // Speaker LRC (WS) -> D33
+#define I2S_BCLK 32          // Speaker BCLK -> D32
+#define I2S_DOUT 25          // Speaker DIN -> D25
 
 // INMP441 I2S Microphone Pins
-#define MIC_I2S_WS 25
-#define MIC_I2S_SD 34
-#define MIC_I2S_SCK 32
+#define MIC_I2S_WS 14        // Mic WS -> D14
+#define MIC_I2S_SCK 27       // Mic SCK -> D27
+#define MIC_I2S_SD 34        // Mic SD -> D34 (LR to GND, VDD to 3.3V)
 
 // 1-minute (60 seconds) microphone recording for analysis on Prefall
 const unsigned long PREFALL_MIC_RECORDING_DURATION = 60000; // 60,000 ms (1 min)
