@@ -263,6 +263,64 @@ public class ElderlyManagementController {
         }
     }
 
+    @GetMapping("/api/elderly/{elderlyId}/contacts")
+    public ResponseEntity<ApiResponse<Object>> getContacts(@PathVariable String elderlyId) {
+        try {
+            Elderly elderly = elderlyManagementService.getElderly(elderlyId);
+            if (elderly == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error("Elderly not found"));
+            }
+
+            GuardianDetails gd = resolveGuardianDetails(elderly);
+
+            Map<String, Object> contacts = new LinkedHashMap<>();
+            contacts.put("mainGuardianPhone", gd.phone);
+            contacts.put("mainGuardianName", gd.name);
+            contacts.put("secondaryGuardianPhone", elderly.getSecondaryGuardianPhone());
+            contacts.put("secondaryGuardianName", elderly.getSecondaryGuardianName());
+            contacts.put("neighborPhone", elderly.getNeighborPhone());
+            contacts.put("neighborName", elderly.getNeighborName());
+
+            return ResponseEntity.ok(ApiResponse.builder()
+                    .status("success")
+                    .data(contacts)
+                    .build());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
+    @PostMapping("/api/elderly/{elderlyId}/contacts")
+    public ResponseEntity<ApiResponse<Object>> updateContacts(
+            @PathVariable String elderlyId,
+            @RequestBody Map<String, Object> contactData) {
+        try {
+            Elderly elderly = elderlyManagementService.getElderly(elderlyId);
+            if (elderly == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error("Elderly not found"));
+            }
+
+            if (contactData.containsKey("neighborPhone")) {
+                elderly.setNeighborPhone(contactData.get("neighborPhone").toString());
+            }
+            if (contactData.containsKey("neighborName")) {
+                elderly.setNeighborName(contactData.get("neighborName").toString());
+            }
+            if (contactData.containsKey("secondaryGuardianPhone")) {
+                elderly.setSecondaryGuardianPhone(contactData.get("secondaryGuardianPhone").toString());
+            }
+            if (contactData.containsKey("secondaryGuardianName")) {
+                elderly.setSecondaryGuardianName(contactData.get("secondaryGuardianName").toString());
+            }
+
+            elderlyManagementService.updateElderlyEntity(elderly);
+
+            return ResponseEntity.ok(ApiResponse.success("Contact information updated successfully"));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
     @GetMapping("/guardian-elderly/{guardianUsername}")
     public ResponseEntity<ApiResponse<Object>> getGuardianElderly(@PathVariable String guardianUsername) {
         List<Elderly> list = elderlyManagementService.getElderlyByGuardian(guardianUsername);

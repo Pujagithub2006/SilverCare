@@ -9,6 +9,7 @@
 #include <WebServer.h>
 #include <SoftwareSerial.h>
 #include <ArduinoJson.h>
+#include <TinyGPS++.h>
 
 // ===== WIFI CONFIGURATION =====
 // WiFi credentials are now managed automatically
@@ -19,24 +20,48 @@
 #define AP_PASSWORD "silvercare123"
 
 // ===== GSM CONFIGURATION =====
-#define GSM_TX 16
-#define GSM_RX 17
+// CHANGE THESE PINS ACCORDING TO YOUR HARDWARE CONNECTION
+#define GSM_TX 16      // GSM Module TX pin connected to ESP32 RX
+#define GSM_RX 17      // GSM Module RX pin connected to ESP32 TX
 #define GSM_BAUD 9600
 SoftwareSerial gsmSerial(GSM_RX, GSM_TX);
 
 // ===== PIN CONFIGURATION =====
-#define BUZZER_PIN 18
-#define BUTTON_PIN 19
-#define MIC_BUTTON_PIN 23
+// CHANGE THESE PINS ACCORDING TO YOUR HARDWARE CONNECTION
+#define BUZZER_PIN 18        // Buzzer for local alerts
+#define BUTTON_PIN 19        // Acknowledgment button for user to press
+#define MIC_BUTTON_PIN 23    // Microphone button for voice messages
+#define ACK_BUTTON_PIN 22     // Dedicated acknowledgment button
+#define MPU6050_SDA 21       // MPU6050 I2C SDA pin
+#define MPU6050_SCL 22       // MPU6050 I2C SCL pin
+#define GPS_TX_PIN 4         // GPS Module TX pin connected to ESP32 RX
+#define GPS_RX_PIN 5         // GPS Module RX pin connected to ESP32 TX
 
 // ===== GPS CONFIGURATION =====
+TinyGPSPlus gps;
+HardwareSerial GPSSerial(1);  // Use UART1 for GPS
 double gpsLat = 18.5204;
 double gpsLng = 73.8567;
+double lastKnownLat = 18.5204;
+double lastKnownLng = 73.8567;
+unsigned long lastGPSUpdate = 0;
+const unsigned long GPS_UPDATE_INTERVAL = 10000; // Update GPS every 10 seconds
+
+// GPS History for tracking
+#define GPS_HISTORY_SIZE 10
+struct GPSLocation {
+    double lat;
+    double lng;
+    unsigned long timestamp;
+};
+GPSLocation gpsHistory[GPS_HISTORY_SIZE];
+int gpsHistoryIndex = 0;
 
 // ===== BACKEND CONFIGURATION =====
 const char* serverUrl = "https://silvercare-production-3455.up.railway.app/api/sensor-data";
 const char* twilioUrl = "https://silvercare-production-3455.up.railway.app/api/twilio-sms";
 const char* deviceApiUrl = "https://silvercare-production-3455.up.railway.app/api/devices";
+const char* mlServiceUrl = "http://localhost:8000/predict";  // ML service endpoint
 String DEVICE_ID = ""; // Will be generated based on MAC address
 
 // ===== CONNECTION STATE TRACKING =====
@@ -85,10 +110,37 @@ static const uint8_t ENCRYPTION_IV[12] = {
 const unsigned long DATA_SEND_INTERVAL = 5000; // Send data every 5 seconds
 unsigned long lastDataSent = 0;
 
-// ===== SIMULATION STATE =====
-enum SystemState { NORMAL, ALERT, CRITICAL };
-SystemState currentState = NORMAL;
-unsigned long stateChangeTime = 0;
+// ===== ML PREDICTION STATES =====
+enum MLState { ML_NORMAL, ML_PREFALL, ML_FALL, ML_SUDDEN_MOVEMENT };
+MLState currentMLState = ML_NORMAL;
+unsigned long mlStateChangeTime = 0;
+float mlConfidence = 0.0;
+
+// ===== SENSOR DATA FOR ML =====
+float accelX = 0.0, accelY = 0.0, accelZ = 0.0;
+float gyroX = 0.0, gyroY = 0.0, gyroZ = 0.0;
+float currentHr = 72.0;
+float currentSpo2 = 98.0;
+float currentTemp = 36.6;
+long currentIr = 50000;
+
+// ===== ALERT SYSTEM CONFIGURATION =====
+// Prefall: 5 minutes acknowledgment timeout
+const unsigned long PREFALL_ACK_TIMEOUT = 300000; // 5 minutes
+// Fall: 2 minutes acknowledgment timeout for main guardian
+const unsigned long FALL_ACK_TIMEOUT = 120000; // 2 minutes
+
+enum AlertState { NO_ALERT, PREFALL_ALERT, FALL_ALERT };
+AlertState currentAlertState = NO_ALERT;
+unsigned long alertStartTime = 0;
+bool guardianAcknowledged = false;
+bool secondaryGuardianNotified = false;
+
+// Contact information (will be fetched from backend)
+String mainGuardianPhone = "";
+String secondaryGuardianPhone = "";
+String neighborPhone = "";
+String elderlyId = "";
 
 // ===== NOTIFICATION STATE =====
 String micMessage = "";
@@ -96,12 +148,9 @@ String lastAlertType = "";
 unsigned long lastSMSTime = 0;
 bool twilioSMSSent = false;
 bool gsmSMSSent = false;
+bool phoneCallMade = false;
+bool missedCallMade = false;
 const unsigned long SMS_RETRY_INTERVAL = 30000;
-
-float currentHr = 72.0;
-float currentSpo2 = 98.0;
-float currentTemp = 36.6;
-long currentIr = 50000;
 
 // ===== BLE GLOBALS =====
 NimBLEClient* pClient = NULL;
@@ -156,6 +205,55 @@ public:
     }
 };
 
+// ===== GPS FUNCTIONS =====
+void updateGPS() {
+    unsigned long now = millis();
+    if (now - lastGPSUpdate < GPS_UPDATE_INTERVAL) {
+        return;
+    }
+    lastGPSUpdate = now;
+
+    // Read GPS data
+    while (GPSSerial.available() > 0) {
+        gps.encode(GPSSerial.read());
+    }
+
+    if (gps.location.isValid()) {
+        gpsLat = gps.location.lat();
+        gpsLng = gps.location.lng();
+        
+        // Update last known location
+        lastKnownLat = gpsLat;
+        lastKnownLng = gpsLng;
+        
+        // Add to history
+        gpsHistory[gpsHistoryIndex].lat = gpsLat;
+        gpsHistory[gpsHistoryIndex].lng = gpsLng;
+        gpsHistory[gpsHistoryIndex].timestamp = now;
+        gpsHistoryIndex = (gpsHistoryIndex + 1) % GPS_HISTORY_SIZE;
+        
+        Serial.println("📍 GPS Updated: " + String(gpsLat, 6) + ", " + String(gpsLng, 6));
+    } else {
+        Serial.println("⚠️ GPS signal invalid, using last known location");
+        gpsLat = lastKnownLat;
+        gpsLng = lastKnownLng;
+    }
+}
+
+void getGPSHistoryJson(String& json) {
+    json = "[";
+    for (int i = 0; i < GPS_HISTORY_SIZE; i++) {
+        int idx = (gpsHistoryIndex - 1 - i + GPS_HISTORY_SIZE) % GPS_HISTORY_SIZE;
+        if (gpsHistory[idx].timestamp > 0) {
+            if (i > 0) json += ",";
+            json += "{\"lat\":" + String(gpsHistory[idx].lat, 6) + ",";
+            json += "\"lng\":" + String(gpsHistory[idx].lng, 6) + ",";
+            json += "\"timestamp\":" + String(gpsHistory[idx].timestamp) + "}";
+        }
+    }
+    json += "]";
+}
+
 // ===== PROCESS RECEIVED DATA =====
 void processReceivedData(String encryptedData) {
     String decryptedData = EncryptionManager::decrypt(encryptedData);
@@ -179,6 +277,294 @@ void notifyCallback(NimBLERemoteCharacteristic* pChar, uint8_t* data, size_t len
     if (len == 0) return;
     String encryptedData = String((char*)data).substring(0, len);
     processReceivedData(encryptedData);
+}
+
+// ===== ML PREDICTION FUNCTION =====
+void getMLPrediction() {
+    if (WiFi.status() != WL_CONNECTED) {
+        return;
+    }
+
+    HTTPClient http;
+    http.begin(mlServiceUrl);
+    http.addHeader("Content-Type", "application/json");
+    http.setTimeout(10000);
+
+    // Prepare sensor data for ML service
+    String payload = "{";
+    payload += "\"accelerometer\":[[" + String(accelX) + "," + String(accelY) + "," + String(accelZ) + "]],";
+    payload += "\"gyroscope\":[[" + String(gyroX) + "," + String(gyroY) + "," + String(gyroZ) + "]],";
+    payload += "\"heartRate\":" + String(currentHr) + ",";
+    payload += "\"spo2\":" + String(currentSpo2) + ",";
+    payload += "\"temperature\":" + String(currentTemp);
+    payload += "}";
+
+    int httpResponseCode = http.POST(payload);
+    
+    if (httpResponseCode > 0) {
+        String response = http.getString();
+        DynamicJsonDocument doc(1024);
+        deserializeJson(doc, response);
+        
+        String prediction = doc["prediction"];
+        mlConfidence = doc["confidence"];
+        
+        if (prediction == "NORMAL") {
+            currentMLState = ML_NORMAL;
+        } else if (prediction == "PREFALL") {
+            currentMLState = ML_PREFALL;
+        } else if (prediction == "FALL") {
+            currentMLState = ML_FALL;
+        } else if (prediction == "SUDDEN_MOVEMENT") {
+            currentMLState = ML_SUDDEN_MOVEMENT;
+        }
+        
+        mlStateChangeTime = millis();
+        Serial.println("🤖 ML Prediction: " + prediction + " (Confidence: " + String(mlConfidence) + ")");
+    }
+    
+    http.end();
+}
+
+// ===== CONTACT INFORMATION FETCHING =====
+void fetchContactInfo() {
+    if (WiFi.status() != WL_CONNECTED || elderlyId.length() == 0) {
+        return;
+    }
+
+    HTTPClient http;
+    String url = String(serverUrl).replace("/api/sensor-data", "/api/elderly/") + elderlyId + "/contacts";
+    http.begin(url);
+    http.setTimeout(10000);
+
+    int httpResponseCode = http.GET();
+    
+    if (httpResponseCode > 0) {
+        String response = http.getString();
+        DynamicJsonDocument doc(1024);
+        deserializeJson(doc, response);
+        
+        if (doc["data"]["mainGuardianPhone"]) {
+            mainGuardianPhone = doc["data"]["mainGuardianPhone"].as<String>();
+        }
+        if (doc["data"]["secondaryGuardianPhone"]) {
+            secondaryGuardianPhone = doc["data"]["secondaryGuardianPhone"].as<String>();
+        }
+        if (doc["data"]["neighborPhone"]) {
+            neighborPhone = doc["data"]["neighborPhone"].as<String>();
+        }
+        
+        Serial.println("📞 Contact info updated");
+    }
+    
+    http.end();
+}
+
+// ===== GSM PHONE CALL FUNCTIONS =====
+bool makePhoneCall(String phoneNumber, bool missedCall = false) {
+    if (phoneNumber.length() == 0) {
+        Serial.println("❌ No phone number provided");
+        return false;
+    }
+
+    Serial.println("📞 Calling: " + phoneNumber + (missedCall ? " (missed call)" : ""));
+    
+    gsmSerial.println("ATD" + phoneNumber + ";");
+    delay(2000);
+    
+    if (missedCall) {
+        // Hang up after 2 rings for missed call
+        delay(4000);
+        gsmSerial.println("ATH");
+        Serial.println("📞 Missed call made to: " + phoneNumber);
+        return true;
+    } else {
+        // Wait for answer or timeout
+        unsigned long callStartTime = millis();
+        while (millis() - callStartTime < 30000) { // 30 second timeout
+            if (gsmSerial.available()) {
+                String response = gsmSerial.readString();
+                if (response.indexOf("OK") != -1 || response.indexOf("NO CARRIER") != -1) {
+                    break;
+                }
+            }
+            delay(100);
+        }
+        Serial.println("📞 Call completed to: " + phoneNumber);
+        return true;
+    }
+}
+
+// ===== GSM SMS FUNCTIONS =====
+bool sendGSMSMS(String phoneNumber, String message) {
+    if (phoneNumber.length() == 0) {
+        Serial.println("❌ No phone number provided");
+        return false;
+    }
+
+    Serial.println("📱 Sending SMS to: " + phoneNumber);
+    
+    gsmSerial.println("AT+CMGS=\"" + phoneNumber + "\"");
+    delay(1000);
+    gsmSerial.print(message);
+    delay(100);
+    gsmSerial.write(26); // CTRL+Z to send
+    delay(5000);
+    
+    // Check response
+    if (gsmSerial.available()) {
+        String response = gsmSerial.readString();
+        if (response.indexOf("OK") != -1) {
+            Serial.println("✅ SMS sent successfully");
+            return true;
+        }
+    }
+    
+    Serial.println("❌ SMS failed");
+    return false;
+}
+
+// ===== PREFALL ALERT SYSTEM =====
+void triggerPrefallAlert() {
+    if (currentAlertState == PREFALL_ALERT) {
+        return; // Already in prefall alert state
+    }
+    
+    currentAlertState = PREFALL_ALERT;
+    alertStartTime = millis();
+    guardianAcknowledged = false;
+    secondaryGuardianNotified = false;
+    twilioSMSSent = false;
+    gsmSMSSent = false;
+    phoneCallMade = false;
+    missedCallMade = false;
+    
+    Serial.println("⚠️ PREFALL ALERT ACTIVATED");
+    
+    // Local alert
+    digitalWrite(BUZZER_PIN, HIGH);
+    
+    // Send alerts to main guardian (phone + SMS)
+    if (mainGuardianPhone.length() > 0) {
+        makePhoneCall(mainGuardianPhone, false); // Actual call
+        String message = "⚠️ PREFALL ALERT: Elderly may fall soon. Please check on them immediately. Location: " + String(gpsLat, 6) + "," + String(gpsLng, 6);
+        sendGSMSMS(mainGuardianPhone, message);
+    }
+    
+    // Send missed call + SMS to neighbor
+    if (neighborPhone.length() > 0) {
+        makePhoneCall(neighborPhone, true); // Missed call
+        String message = "⚠️ PREFALL ALERT: Your neighbor may need help. Location: " + String(gpsLat, 6) + "," + String(gpsLng, 6);
+        sendGSMSMS(neighborPhone, message);
+    }
+}
+
+// ===== FALL ALERT SYSTEM =====
+void triggerFallAlert() {
+    if (currentAlertState == FALL_ALERT) {
+        return; // Already in fall alert state
+    }
+    
+    currentAlertState = FALL_ALERT;
+    alertStartTime = millis();
+    guardianAcknowledged = false;
+    secondaryGuardianNotified = false;
+    twilioSMSSent = false;
+    gsmSMSSent = false;
+    phoneCallMade = false;
+    missedCallMade = false;
+    
+    Serial.println("🚨 FALL ALERT ACTIVATED");
+    
+    // Local alert
+    digitalWrite(BUZZER_PIN, HIGH);
+    
+    // Send alerts to main guardian (phone + SMS)
+    if (mainGuardianPhone.length() > 0) {
+        makePhoneCall(mainGuardianPhone, false); // Actual call
+        String message = "🚨 FALL DETECTED: Elderly has fallen! Emergency! Location: " + String(gpsLat, 6) + "," + String(gpsLng, 6);
+        sendGSMSMS(mainGuardianPhone, message);
+    }
+    
+    // Send phone + SMS to neighbor
+    if (neighborPhone.length() > 0) {
+        makePhoneCall(neighborPhone, false); // Actual call
+        String message = "🚨 FALL DETECTED: Your neighbor has fallen! Emergency! Location: " + String(gpsLat, 6) + "," + String(gpsLng, 6);
+        sendGSMSMS(neighborPhone, message);
+    }
+}
+
+// ===== ALERT TIMEOUT HANDLING =====
+void handleAlertTimeouts() {
+    if (currentAlertState == NO_ALERT) {
+        return;
+    }
+    
+    unsigned long now = millis();
+    unsigned long elapsed = now - alertStartTime;
+    
+    if (currentAlertState == PREFALL_ALERT) {
+        // Check 5-minute timeout
+        if (!guardianAcknowledged && elapsed > PREFALL_ACK_TIMEOUT) {
+            Serial.println("⏰ Prefall acknowledgment timeout - notifying neighbor");
+            if (neighborPhone.length() > 0 && !missedCallMade) {
+                makePhoneCall(neighborPhone, true); // Missed call
+                String message = "⚠️ PREFALL ALERT: Guardian did not respond. Please check on your neighbor immediately. Location: " + String(gpsLat, 6) + "," + String(gpsLng, 6);
+                sendGSMSMS(neighborPhone, message);
+                missedCallMade = true;
+            }
+        }
+    } else if (currentAlertState == FALL_ALERT) {
+        // Check 2-minute timeout for main guardian
+        if (!guardianAcknowledged && elapsed > FALL_ACK_TIMEOUT && !secondaryGuardianNotified) {
+            Serial.println("⏰ Fall acknowledgment timeout - notifying secondary guardian");
+            if (secondaryGuardianPhone.length() > 0) {
+                makePhoneCall(secondaryGuardianPhone, false); // Actual call
+                String message = "🚨 FALL DETECTED: Main guardian did not respond. Emergency! Location: " + String(gpsLat, 6) + "," + String(gpsLng, 6);
+                sendGSMSMS(secondaryGuardianPhone, message);
+                secondaryGuardianNotified = true;
+            }
+        }
+    }
+}
+
+// ===== ACKNOWLEDGMENT HANDLING =====
+void handleAcknowledgment() {
+    // Check acknowledgment button
+    if (digitalRead(ACK_BUTTON_PIN) == LOW || digitalRead(BUTTON_PIN) == LOW) {
+        delay(50); // Debounce
+        if (digitalRead(ACK_BUTTON_PIN) == LOW || digitalRead(BUTTON_PIN) == LOW) {
+            Serial.println("✅ Acknowledgment button pressed");
+            guardianAcknowledged = true;
+            currentAlertState = NO_ALERT;
+            digitalWrite(BUZZER_PIN, LOW);
+            
+            // Send acknowledgment to backend
+            sendAcknowledgmentToBackend();
+        }
+    }
+}
+
+void sendAcknowledgmentToBackend() {
+    if (WiFi.status() != WL_CONNECTED) {
+        return;
+    }
+
+    HTTPClient http;
+    String url = String(serverUrl).replace("/api/sensor-data", "/api/alerts/acknowledge");
+    http.begin(url);
+    http.addHeader("Content-Type", "application/json");
+    http.setTimeout(10000);
+
+    String payload = "{";
+    payload += "\"elderlyId\":\"" + elderlyId + "\",";
+    payload += "\"deviceId\":\"" + DEVICE_ID + "\",";
+    payload += "\"alertType\":\"" + (currentAlertState == PREFALL_ALERT ? "PREFALL" : "FALL") + "\",";
+    payload += "\"acknowledged\":true";
+    payload += "}";
+
+    http.POST(payload);
+    http.end();
 }
 
 // ===== WIFI MANAGER FUNCTIONS =====
@@ -526,7 +912,120 @@ void setupPins() {
     pinMode(BUZZER_PIN, OUTPUT);
     pinMode(BUTTON_PIN, INPUT_PULLUP);
     pinMode(MIC_BUTTON_PIN, INPUT_PULLUP);
+    pinMode(ACK_BUTTON_PIN, INPUT_PULLUP);
     Serial.println("✅ Pins configured");
+}
+
+// ===== GPS SETUP =====
+void setupGPS() {
+    GPSSerial.begin(9600, SERIAL_8N1, GPS_TX_PIN, GPS_RX_PIN);
+    Serial.println("✅ GPS initialized");
+
+    // Initialize GPS history
+    for (int i = 0; i < GPS_HISTORY_SIZE; i++) {
+        gpsHistory[i].lat = 0.0;
+        gpsHistory[i].lng = 0.0;
+        gpsHistory[i].timestamp = 0;
+    }
+}
+
+// ===== BLE CLIENT SETUP =====
+void setupBLEClient() {
+    Serial.println("🔵 Initializing BLE Client to connect to Wrist Band...");
+
+    NimBLEDevice::init("");
+    pClient = NimBLEDevice::createClient();
+    pClient->setConnectTimeout(30); // 30 second timeout
+    pClient->setScanTimeout(30); // 30 second scan timeout
+
+    Serial.println("✅ BLE Client initialized");
+}
+
+// ===== CONNECT TO WRIST BAND =====
+bool connectToWristBand() {
+    if (connected) {
+        return true; // Already connected
+    }
+
+    Serial.println("🔍 Scanning for Wrist Band...");
+
+    NimBLEScan* pScan = NimBLEDevice::getScan();
+    pScan->setActiveScanning(true);
+    pScan->setInterval(100);
+    pScan->setWindow(99);
+
+    NimBLEScanResults results = pScan->start(5, false); // Scan for 5 seconds
+
+    Serial.println("📱 Scan complete. Devices found: " + String(results.getCount()));
+
+    for (int i = 0; i < results.getCount(); i++) {
+        NimBLEAdvertisedDevice device = results.getDevice(i);
+
+        if (device.getName().c_str() == String(WRIST_NAME)) {
+            Serial.println("✅ Found Wrist Band: " + device.getName().c_str());
+            Serial.println("📍 Address: " + device.getAddress().toString().c_str());
+
+            if (pClient->connect(&device)) {
+                Serial.println("✅ Connected to Wrist Band!");
+
+                // Get service
+                NimBLERemoteService* pService = pClient->getService(SERVICE_UUID);
+                if (pService == nullptr) {
+                    Serial.println("❌ Service not found");
+                    pClient->disconnect();
+                    return false;
+                }
+                Serial.println("✅ Service found");
+
+                // Get characteristic
+                pChar = pService->getCharacteristic(CHARACTERISTIC_UUID);
+                if (pChar == nullptr) {
+                    Serial.println("❌ Characteristic not found");
+                    pClient->disconnect();
+                    return false;
+                }
+                Serial.println("✅ Characteristic found");
+
+                // Subscribe to notifications
+                if (pChar->subscribe(true, notifyCallback, true)) {
+                    Serial.println("✅ Subscribed to notifications");
+                    connected = true;
+                    return true;
+                } else {
+                    Serial.println("❌ Failed to subscribe");
+                    pClient->disconnect();
+                    return false;
+                }
+            } else {
+                Serial.println("❌ Failed to connect");
+                return false;
+            }
+        }
+    }
+
+    Serial.println("❌ Wrist Band not found");
+    return false;
+}
+
+// ===== MPU6050 SENSOR READING (SIMULATED) =====
+void readMPU6050() {
+    // In actual implementation, read from MPU6050 via I2C
+    // For now, simulate sensor data
+    static unsigned long lastSensorUpdate = 0;
+    if (millis() - lastSensorUpdate < 100) {
+        return;
+    }
+    lastSensorUpdate = millis();
+    
+    // Simulate accelerometer data
+    accelX = (random(-100, 100) / 100.0);
+    accelY = (random(-100, 100) / 100.0) + 9.8; // Gravity
+    accelZ = (random(-100, 100) / 100.0);
+    
+    // Simulate gyroscope data
+    gyroX = (random(-50, 50) / 100.0);
+    gyroY = (random(-50, 50) / 100.0);
+    gyroZ = (random(-50, 50) / 100.0);
 }
 
 // ===== SIMULATION LOGIC =====
@@ -573,21 +1072,38 @@ void sendDataToBackend() {
         http.setTimeout(10000); // 10 second timeout
         http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
 
-        int stateVal = (currentState == NORMAL) ? 0 : (currentState == ALERT) ? 1 : 2;
-        String stateName = (currentState == NORMAL) ? "NORMAL" : (currentState == ALERT) ? "ALERT" : "FALL_DETECTED";
+        // Convert ML state to string
+        String mlStateName = "";
+        switch (currentMLState) {
+            case ML_NORMAL: mlStateName = "NORMAL"; break;
+            case ML_PREFALL: mlStateName = "PREFALL"; break;
+            case ML_FALL: mlStateName = "FALL"; break;
+            case ML_SUDDEN_MOVEMENT: mlStateName = "SUDDEN_MOVEMENT"; break;
+        }
+
+        // Get GPS history JSON
+        String gpsHistoryJson;
+        getGPSHistoryJson(gpsHistoryJson);
 
         String payload = "{";
         payload += "\"deviceId\":\"" + String(DEVICE_ID) + "\",";
         payload += "\"beltType\":\"Waist Belt\",";
-        payload += "\"state\":" + String(stateVal) + ",";
-        payload += "\"stateName\":\"" + stateName + "\",";
+        payload += "\"mlState\":\"" + mlStateName + "\",";
+        payload += "\"mlConfidence\":" + String(mlConfidence) + ",";
         payload += "\"heartRate\":" + String(currentHr) + ",";
         payload += "\"spo2\":" + String(currentSpo2) + ",";
         payload += "\"temperature\":" + String(currentTemp) + ",";
         payload += "\"beltWorn\":true,";
-        payload += "\"acceleration\":1.0,";
+        payload += "\"accelX\":" + String(accelX) + ",";
+        payload += "\"accelY\":" + String(accelY) + ",";
+        payload += "\"accelZ\":" + String(accelZ) + ",";
+        payload += "\"gyroX\":" + String(gyroX) + ",";
+        payload += "\"gyroY\":" + String(gyroY) + ",";
+        payload += "\"gyroZ\":" + String(gyroZ) + ",";
         payload += "\"latitude\":" + String(gpsLat, 6) + ",";
         payload += "\"longitude\":" + String(gpsLng, 6) + ",";
+        payload += "\"gpsHistory\":" + gpsHistoryJson + ",";
+        payload += "\"alertState\":" + String(currentAlertState) + ",";
         payload += "\"micMessageAudio\":\"" + micMessage + "\",";
         payload += "\"timestamp\":" + String(millis());
         payload += "}";
@@ -601,7 +1117,8 @@ void sendDataToBackend() {
             if (response.indexOf("ACKNOWLEDGED") != -1 || response.indexOf("I am Fine") != -1) {
                 Serial.println("💚 [GUARDIAN ACKNOWLEDGED]: Clearing local buzzer and state!");
                 digitalWrite(BUZZER_PIN, LOW);
-                currentState = NORMAL;
+                currentAlertState = NO_ALERT;
+                guardianAcknowledged = true;
                 micMessage = "";
             }
         } else {
@@ -739,54 +1256,108 @@ void sendHeartbeat() {
 void setup() {
   Serial.begin(115200);
   delay(3000);
-  
+
   Serial.println("========================================");
   Serial.println("=== SILVERCARE WAIST BELT WORKAROUND ===");
   Serial.println("========================================");
-  
+
   generateDeviceId();
   setupPins();
+  setupGPS();
+  setupBLEClient(); // Initialize BLE client to connect to wrist band
   setupWiFi();
   setupGSM();
-  stateChangeTime = millis();
-  
+  mlStateChangeTime = millis();
+
+  // Get elderly ID from preferences or backend
+  devicePrefs.begin("device_id", false);
+  elderlyId = devicePrefs.getString("elderly_id", "");
+  devicePrefs.end();
+
   // Register device if WiFi is connected
   if (WiFi.status() == WL_CONNECTED) {
     registerDevice();
+    fetchContactInfo();
   }
+
+  // Try to connect to wrist band via BLE
+  connectToWristBand();
 }
 
 void loop() {
   unsigned long now = millis();
-  
+
+  // Try to connect to wrist band if not connected
+  static unsigned long lastBLEConnect尝试 = 0;
+  if (!connected && now - lastBLEConnect尝试 > 30000) { // Try every 30 seconds
+    connectToWristBand();
+    lastBLEConnect尝试 = now;
+  }
+
   // In actual implementation, if dataReceivedFromWrist is false, run simulation
   if (!dataReceivedFromWrist) {
     updateSimulation();
   }
-  
+
+  // Read MPU6050 sensor data
+  readMPU6050();
+
+  // Update GPS
+  updateGPS();
+
+  // Get ML prediction from service
+  static unsigned long lastMLPrediction = 0;
+  if (now - lastMLPrediction > 1000) { // Get prediction every second
+    getMLPrediction();
+    lastMLPrediction = now;
+  }
+
+  // Handle ML state changes and trigger alerts
+  if (currentMLState == ML_PREFALL && currentAlertState != PREFALL_ALERT) {
+    triggerPrefallAlert();
+  } else if (currentMLState == ML_FALL && currentAlertState != FALL_ALERT) {
+    triggerFallAlert();
+  } else if (currentMLState == ML_NORMAL && currentAlertState != NO_ALERT) {
+    // Clear alert if back to normal
+    currentAlertState = NO_ALERT;
+    digitalWrite(BUZZER_PIN, LOW);
+  }
+
   // Handle microphone input
   handleMicrophone();
-  
+
   // Handle button override
   handleButtonOverride();
-  
+
+  // Handle acknowledgment button
+  handleAcknowledgment();
+
+  // Handle alert timeouts
+  handleAlertTimeouts();
+
   // Manage WiFi connection (includes captive portal handling)
   manageWiFiConnection();
-  
+
   // Send heartbeat to backend
   if (now - lastHeartbeat > HEARTBEAT_INTERVAL) {
     sendHeartbeat();
     lastHeartbeat = now;
   }
-  
+
   // Handle notifications (buzzer, SMS)
   handleNotifications();
-  
+
+  // Send data to backend
   if (now - lastDataSent > DATA_SEND_INTERVAL) {
     sendDataToBackend();
     lastDataSent = now;
   }
-  
-  // (Optional) Add non-blocking BLE connect / scan logic here to fallback to real data
+
+  // Periodically fetch contact info (every 5 minutes)
+  static unsigned long lastContactFetch = 0;
+  if (now - lastContactFetch > 300000) {
+    fetchContactInfo();
+    lastContactFetch = now;
+  }
   delay(10);
 }

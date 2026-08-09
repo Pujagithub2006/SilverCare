@@ -100,7 +100,37 @@ export const acknowledgeAlert = async (alertId, guardianUsername, responseMessag
       });
       return legacy.data;
     } catch (e) {
-      return { status: 'error', message: 'Acknowledge failed' };
+      return { status: 'error', message: 'Alert acknowledgment failed' };
+    }
+  }
+};
+
+export const fetchElderlyContacts = async (elderlyId) => {
+  try {
+    const response = await api.get(`/api/elderly/${elderlyId}/contacts`);
+    return response.data;
+  } catch (error) {
+    if (error.response && error.response.data) return error.response.data;
+    try {
+      const legacy = await axios.get(`${LEGACY_API_BASE}/api/elderly/${elderlyId}/contacts`);
+      return legacy.data;
+    } catch (e) {
+      return { status: 'error', message: 'Failed to fetch contacts' };
+    }
+  }
+};
+
+export const updateElderlyContacts = async (elderlyId, contactData) => {
+  try {
+    const response = await api.post(`/api/elderly/${elderlyId}/contacts`, contactData);
+    return response.data;
+  } catch (error) {
+    if (error.response && error.response.data) return error.response.data;
+    try {
+      const legacy = await axios.post(`${LEGACY_API_BASE}/api/elderly/${elderlyId}/contacts`, contactData);
+      return legacy.data;
+    } catch (e) {
+      return { status: 'error', message: 'Failed to update contacts' };
     }
   }
 };

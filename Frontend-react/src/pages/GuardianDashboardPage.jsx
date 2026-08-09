@@ -17,7 +17,9 @@ import {
   fetchPotentiallyBrokenDevices,
   assignDeviceToElderly,
   replaceDevice,
-  markDeviceBroken
+  markDeviceBroken,
+  fetchElderlyContacts,
+  updateElderlyContacts
 } from '../services/api';
 import ElderlyMapModal from '../components/ElderlyMapModal';
 
@@ -104,6 +106,18 @@ export default function GuardianDashboardPage() {
   const [allDevices, setAllDevices] = useState([]);
   const [unassignedDevices, setUnassignedDevices] = useState([]);
   const [potentiallyBrokenDevices, setPotentiallyBrokenDevices] = useState([]);
+
+  // Contacts Management State
+  const [contacts, setContacts] = useState({
+    mainGuardianPhone: '',
+    mainGuardianName: '',
+    secondaryGuardianPhone: '',
+    secondaryGuardianName: '',
+    neighborPhone: '',
+    neighborName: ''
+  });
+  const [showContactsModal, setShowContactsModal] = useState(false);
+  const [editingContacts, setEditingContacts] = useState({});
   const [calendarMonth, setCalendarMonth] = useState(new Date().getMonth());
   const [calendarYear, setCalendarYear] = useState(new Date().getFullYear());
   const [selectedCalendarDay, setSelectedCalendarDay] = useState(null);
@@ -151,6 +165,41 @@ export default function GuardianDashboardPage() {
     setTimesPerDay(num);
     const defaultTimes = ['08:00', '14:00', '20:00'];
     setMedTimes(defaultTimes.slice(0, num));
+  };
+
+  const loadContacts = async (elderlyId) => {
+    try {
+      const response = await fetchElderlyContacts(elderlyId);
+      if (response.status === 'success' && response.data) {
+        setContacts(response.data);
+      }
+    } catch (error) {
+      console.error('Error loading contacts:', error);
+    }
+  };
+
+  const handleSaveContacts = async () => {
+    if (!selectedElderly) return;
+    const elderlyId = selectedElderly.elderlyId || selectedElderly.id || selectedElderly.elderly_id;
+    try {
+      const response = await updateElderlyContacts(elderlyId, editingContacts);
+      if (response.status === 'success') {
+        setContacts(editingContacts);
+        setShowContactsModal(false);
+        showSnackbarMessage('Contacts updated successfully!', 'success');
+        loadContacts(elderlyId);
+      } else {
+        showSnackbarMessage('Failed to update contacts', 'error');
+      }
+    } catch (error) {
+      console.error('Error saving contacts:', error);
+      showSnackbarMessage('Failed to update contacts', 'error');
+    }
+  };
+
+  const handleOpenContactsModal = () => {
+    setEditingContacts({ ...contacts });
+    setShowContactsModal(true);
   };
 
   const handleTimeChangeAtIndex = (index, value) => {
@@ -396,6 +445,9 @@ export default function GuardianDashboardPage() {
       if (sugOk && sugData) {
         setSuggestions(sugData.suggestions || []);
       }
+
+      // Load contacts
+      loadContacts(elderlyId);
     } catch (err) {
       console.error('Error loading elderly details:', err);
     }
@@ -725,28 +777,50 @@ export default function GuardianDashboardPage() {
                   </div>
                 </div>
 
-                <button
-                  onClick={() => setShowMapModal(true)}
-                  style={{
-                    backgroundColor: '#007AFF',
-                    color: '#ffffff',
-                    border: 'none',
-                    padding: '8px 14px',
-                    borderRadius: '12px',
-                    fontSize: '13px',
-                    fontWeight: '700',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    boxShadow: '0 3px 10px rgba(0, 122, 255, 0.25)',
-                    transition: 'all 0.2s ease'
-                  }}
-                  title="View elderly person map location"
-                >
-                  📍 See Elderly Person
-                </button>
-              </div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    onClick={handleOpenContactsModal}
+                    style={{
+                      backgroundColor: '#10b981',
+                      color: '#ffffff',
+                      border: 'none',
+                      padding: '8px 14px',
+                      borderRadius: '12px',
+                      fontSize: '13px',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      boxShadow: '0 3px 10px rgba(16, 185, 129, 0.25)',
+                      transition: 'all 0.2s ease'
+                    }}
+                    title="Manage emergency contacts"
+                  >
+                    📞 Contacts
+                  </button>
+                  <button
+                    onClick={() => setShowMapModal(true)}
+                    style={{
+                      backgroundColor: '#007AFF',
+                      color: '#ffffff',
+                      border: 'none',
+                      padding: '8px 14px',
+                      borderRadius: '12px',
+                      fontSize: '13px',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      boxShadow: '0 3px 10px rgba(0, 122, 255, 0.25)',
+                      transition: 'all 0.2s ease'
+                    }}
+                    title="View elderly person map location"
+                  >
+                    📍 See Elderly Person
+                  </button>
+                </div>
 
               {/* Phone Info Section */}
               <div className="info-section" style={{ marginBottom: '16px' }}>
@@ -837,6 +911,23 @@ export default function GuardianDashboardPage() {
                     </div>
                     <div style={{ fontSize: '10px', opacity: 0.8, marginTop: '2px' }}>
                       {sensorData.deviceId}
+                    </div>
+                  </div>
+
+                  {/* GPS Location Card */}
+                  <div className="hardware-card" style={{
+                    background: 'linear-gradient(135deg, #5856d6, #4a4ae8)',
+                    color: 'white',
+                    borderRadius: '12px',
+                    padding: '12px',
+                    textAlign: 'center'
+                  }}>
+                    <div style={{ fontSize: '11px', opacity: 0.9, textTransform: 'uppercase' }}>📍 GPS Location</div>
+                    <div style={{ fontSize: '14px', fontWeight: '700', marginTop: '4px' }}>
+                      {sensorData.latitude ? `${sensorData.latitude.toFixed(4)}, ${sensorData.longitude.toFixed(4)}` : 'No GPS Signal'}
+                    </div>
+                    <div style={{ fontSize: '10px', opacity: 0.8, marginTop: '2px' }}>
+                      {sensorData.isLastLocationFetched ? '⚠️ Last Known' : '✅ Live'}
                     </div>
                   </div>
 
@@ -1017,7 +1108,6 @@ export default function GuardianDashboardPage() {
 
                   return (
                     <div>
-                      {/* Metric Stat Boxes */}
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', marginBottom: '16px' }}>
                         <div style={{ background: '#d1fae5', color: '#065f46', borderRadius: '12px', padding: '10px 8px', textAlign: 'center', border: '1px solid #a7f3d0' }}>
                           <div style={{ fontSize: '18px', fontWeight: '800' }}>{taken}</div>
@@ -1037,9 +1127,8 @@ export default function GuardianDashboardPage() {
                         </div>
                       </div>
 
-                      {/* Scheduled Medicines Today with Live Status Badges */}
                       <div style={{ marginBottom: '16px' }}>
-                        <div style={{ fontSize: '12px', fontWeight: '700', color: '#475569', uppercase: 'true', marginBottom: '8px' }}>
+                        <div style={{ fontSize: '12px', fontWeight: '700', color: '#475569', textTransform: 'uppercase', marginBottom: '8px' }}>
                           💊 Today's Medicines & Live Status
                         </div>
                         {medicines.length === 0 ? (
@@ -1110,15 +1199,11 @@ export default function GuardianDashboardPage() {
                           </div>
                         )}
                       </div>
-
-
                     </div>
                   );
                 })()}
               </div>
-
-
-
+            </div>
             </div>
           )}
         </div>
@@ -1127,18 +1212,18 @@ export default function GuardianDashboardPage() {
       {/* Add Medicine Modal Overlay */}
       {showAddModal && (
         <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000,
-          padding: '20px'
-        }}>
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: '20px'
+          }}>
           <div style={{
             backgroundColor: '#ffffff',
             borderRadius: '20px',
@@ -1712,7 +1797,7 @@ export default function GuardianDashboardPage() {
         </div>
       )}
 
-      {/* �📝 Caregiver Advice & Suggestion Modal Overlay */}
+      {/* 📝 Caregiver Advice & Suggestion Modal Overlay */}
       {showSuggestionModal && (
         <div style={{
           position: 'fixed',
@@ -1855,6 +1940,153 @@ export default function GuardianDashboardPage() {
           </div>
         </div>
       )}
+
+      {/* 📞 Contacts Management Modal Overlay */}
+      {showContactsModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.65)',
+          backdropFilter: 'blur(6px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: '20px'
+        }}>
+          <div style={{
+            backgroundColor: '#ffffff',
+            borderRadius: '24px',
+            padding: '24px',
+            maxWidth: '500px',
+            width: '100%',
+            maxHeight: '90vh',
+            overflowY: 'auto',
+            boxShadow: '0 25px 50px -12px rgba(0,0,0,0.3)',
+            boxSizing: 'border-box'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
+              <div>
+                <h2 style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  📞 Emergency Contacts
+                </h2>
+                <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+                  For: <strong>{selectedElderly?.name}</strong>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowContactsModal(false)}
+                style={{
+                  background: '#f1f5f9', border: 'none', borderRadius: '50%',
+                  width: '32px', height: '32px', fontSize: '16px', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b'
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Main Guardian (Read-only) */}
+            <div style={{ marginBottom: '16px', padding: '12px', backgroundColor: '#f0fdf4', borderRadius: '12px', border: '1px solid #bbf7d0' }}>
+              <div style={{ fontSize: '13px', fontWeight: '700', color: '#166534', marginBottom: '8px' }}>
+                🛡️ Main Guardian (You)
+              </div>
+              <div style={{ fontSize: '12px', color: '#15803d' }}>
+                <div><strong>Name:</strong> {contacts.mainGuardianName || guardianName}</div>
+                <div><strong>Phone:</strong> {contacts.mainGuardianPhone || guardianPhone}</div>
+              </div>
+            </div>
+
+            {/* Secondary Guardian */}
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ fontSize: '13px', fontWeight: '700', color: '#334155', marginBottom: '8px', display: 'block' }}>
+                👥 Secondary Guardian
+              </label>
+              <input
+                type="text"
+                value={editingContacts.secondaryGuardianName || ''}
+                onChange={(e) => setEditingContacts({ ...editingContacts, secondaryGuardianName: e.target.value })}
+                placeholder="Name"
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  borderRadius: '8px',
+                  border: '1px solid #cbd5e1',
+                  marginBottom: '8px',
+                  fontSize: '14px',
+                  boxSizing: 'border-box'
+                }}
+              />
+              <input
+                type="tel"
+                value={editingContacts.secondaryGuardianPhone || ''}
+                onChange={(e) => setEditingContacts({ ...editingContacts, secondaryGuardianPhone: e.target.value })}
+                placeholder="Phone Number"
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  borderRadius: '8px',
+                  border: '1px solid #cbd5e1',
+                  fontSize: '14px',
+                  boxSizing: 'border-box'
+                }}
+              />
+            </div>
+
+            {/* Neighbor */}
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ fontSize: '13px', fontWeight: '700', color: '#334155', marginBottom: '8px', display: 'block' }}>
+                🏠 Neighbor
+              </label>
+              <input
+                type="text"
+                value={editingContacts.neighborName || ''}
+                onChange={(e) => setEditingContacts({ ...editingContacts, neighborName: e.target.value })}
+                placeholder="Name"
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  borderRadius: '8px',
+                  border: '1px solid #cbd5e1',
+                  marginBottom: '8px',
+                  fontSize: '14px',
+                  boxSizing: 'border-box'
+                }}
+              />
+              <input
+                type="tel"
+                value={editingContacts.neighborPhone || ''}
+                onChange={(e) => setEditingContacts({ ...editingContacts, neighborPhone: e.target.value })}
+                placeholder="Phone Number"
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  borderRadius: '8px',
+                  border: '1px solid #cbd5e1',
+                  fontSize: '14px',
+                  boxSizing: 'border-box'
+                }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                onClick={() => setShowContactsModal(false)}
+                style={{ flex: 1, padding: '12px', border: '1px solid #cbd5e1', borderRadius: '12px', backgroundColor: '#f8fafc', color: '#334155', fontWeight: '700', cursor: 'pointer' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveContacts}
+                style={{ flex: 1, padding: '12px', border: 'none', borderRadius: '12px', backgroundColor: '#10b981', color: '#ffffff', fontWeight: '800', cursor: 'pointer' }}
+              >
+                Save Contacts ✅
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 🚀 Floating Snackbar Notification */}
       {snackbar.show && (
         <div style={{
