@@ -91,7 +91,6 @@ const unsigned long HEARTBEAT_INTERVAL = 60000; // 1 minute
 // ===== EXISTING CONFIGURATION (PRESERVED) =====
 #define SERVICE_UUID "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
 #define CHARACTERISTIC_UUID "beb5483e-36e1-4688-b7f5-ea07361b26a8"
-#define IDENTITY_UUID "beb5483e-36e1-4688-b7f5-ea07361b26a9"
 #define WRIST_NAME "SilverCare_Wrist"
 
 // ===== ENCRYPTION CONFIGURATION =====
@@ -258,17 +257,29 @@ void getGPSHistoryJson(String& json) {
 void processReceivedData(String encryptedData) {
     String decryptedData = EncryptionManager::decrypt(encryptedData);
     if (decryptedData.length() == 0) return;
-    
+
     int firstColon = decryptedData.indexOf(':');
     int secondColon = decryptedData.indexOf(':', firstColon + 1);
     int thirdColon = decryptedData.indexOf(':', secondColon + 1);
-    
-    if (firstColon > 0 && secondColon > 0 && thirdColon > 0) {
+
+    // Handle 3-value format from simplified wrist band: heartRate:spo2:irValue
+    if (firstColon > 0 && secondColon > 0 && thirdColon == -1) {
+        currentHr = decryptedData.substring(0, firstColon).toFloat();
+        currentSpo2 = decryptedData.substring(firstColon + 1, secondColon).toFloat();
+        currentIr = decryptedData.substring(secondColon + 1).toInt();
+        // Use default temperature or read from local sensor
+        currentTemp = 36.6; // Default normal temperature
+        dataReceivedFromWrist = true;
+        Serial.println("📥 Received heart data: HR=" + String(currentHr) + " SpO2=" + String(currentSpo2));
+    }
+    // Handle 4-value format (legacy): heartRate:spo2:irValue:temperature
+    else if (firstColon > 0 && secondColon > 0 && thirdColon > 0) {
         currentHr = decryptedData.substring(0, firstColon).toFloat();
         currentSpo2 = decryptedData.substring(firstColon + 1, secondColon).toFloat();
         currentIr = decryptedData.substring(secondColon + 1, thirdColon).toInt();
         currentTemp = decryptedData.substring(thirdColon + 1).toFloat();
         dataReceivedFromWrist = true;
+        Serial.println("📥 Received heart data: HR=" + String(currentHr) + " SpO2=" + String(currentSpo2) + " Temp=" + String(currentTemp));
     }
 }
 
