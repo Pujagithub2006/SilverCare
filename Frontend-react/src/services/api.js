@@ -321,6 +321,21 @@ export const fetchElderlyContacts = async (elderlyId) => {
   }
 };
 
+export const getElderlyInfo = async (elderlyId) => {
+  try {
+    const response = await api.get(`/api/elderly/${elderlyId}`);
+    return response.data;
+  } catch (error) {
+    if (error.response && error.response.data) return error.response.data;
+    try {
+      const legacy = await axios.get(`${LEGACY_API_BASE}/api/elderly/${elderlyId}`);
+      return legacy.data;
+    } catch (e) {
+      return { status: 'error', message: 'Failed to fetch elderly info' };
+    }
+  }
+};
+
 export const updateElderlyContacts = async (elderlyId, contactData) => {
   try {
     const response = await api.post(`/api/elderly/${elderlyId}/contacts`, contactData);
