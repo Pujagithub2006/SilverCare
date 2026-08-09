@@ -4,12 +4,16 @@ import com.silvercare.dto.*;
 import com.silvercare.entity.AlertRecord;
 import com.silvercare.entity.Device;
 import com.silvercare.entity.Elderly;
+import com.silvercare.entity.Guardian;
+import com.silvercare.entity.GuardianElderlyLink;
 import com.silvercare.entity.HealthReport;
 import com.silvercare.entity.LocationHistory;
 import com.silvercare.entity.MitraChatHistory;
 import com.silvercare.repository.AlertRecordRepository;
 import com.silvercare.repository.DeviceRepository;
 import com.silvercare.repository.ElderlyRepository;
+import com.silvercare.repository.GuardianRepository;
+import com.silvercare.repository.GuardianElderlyLinkRepository;
 import com.silvercare.repository.HealthReportRepository;
 import com.silvercare.repository.LocationHistoryRepository;
 import com.silvercare.repository.MitraChatHistoryRepository;
@@ -464,7 +468,7 @@ public class ElderlyManagementController {
             }
 
             // Find device by MAC address
-            Device device = deviceRepository.findByMacAddress(macAddress);
+            Device device = deviceRepository.findByMacAddress(macAddress).orElse(null);
             
             if (device == null) {
                 // Create new device
@@ -496,12 +500,11 @@ public class ElderlyManagementController {
             }
 
             // Update elderly's primary device
-            Optional<Elderly> elderlyOpt = elderlyManagementService.getElderlyById(elderlyId);
-            if (elderlyOpt.isPresent()) {
-                Elderly elderly = elderlyOpt.get();
+            Elderly elderly = elderlyManagementService.getElderly(elderlyId);
+            if (elderly != null) {
                 elderly.setPrimaryDeviceId(device.getDeviceId());
                 elderly.setPrimaryBeltType(deviceType);
-                elderlyManagementService.updateElderly(elderlyId, elderly);
+                elderlyManagementService.updateElderlyEntity(elderly);
             }
 
             Map<String, Object> data = new LinkedHashMap<>();
@@ -554,46 +557,10 @@ public class ElderlyManagementController {
         }
     }
 
-    @GetMapping("/api/devices/elderly/{elderlyId}")
-    public ResponseEntity<ApiResponse<Object>> getElderlyDevices(@PathVariable String elderlyId) {
-        try {
-            List<Device> currentDevices = deviceRepository.findByAssignedElderlyId(elderlyId);
-            List<Device> allDevices = deviceRepository.findAll();
-            
-            // Find previously assigned devices
-            List<Map<String, Object>> previousDevices = new java.util.ArrayList<>();
-            for (Device device : allDevices) {
-                if (device.getPreviouslyAssignedTo() != null && 
-                    device.getPreviouslyAssignedTo().contains(elderlyId) &&
-                    !elderlyId.equals(device.getAssignedElderlyId())) {
-                    Map<String, Object> prevDevice = new LinkedHashMap<>();
-                    prevDevice.put("deviceId", device.getDeviceId());
-                    prevDevice.put("macAddress", device.getMacAddress());
-                    prevDevice.put("deviceType", device.getDeviceType());
-                    prevDevice.put("status", device.getStatus());
-                    prevDevice.put("unpairingReason", device.getUnpairingReason());
-                    prevDevice.put("unpairingDate", device.getUnpairingDate());
-                    previousDevices.add(prevDevice);
-                }
-            }
-
-            Map<String, Object> data = new LinkedHashMap<>();
-            data.put("currentDevices", currentDevices);
-            data.put("previousDevices", previousDevices);
-
-            return ResponseEntity.ok(ApiResponse.builder()
-                .status("success")
-                .data(data)
-                .build());
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.error(e.getMessage()));
-        }
-    }
-
     @GetMapping("/api/devices/mac/{macAddress}")
     public ResponseEntity<ApiResponse<Object>> getDeviceByMac(@PathVariable String macAddress) {
         try {
-            Device device = deviceRepository.findByMacAddress(macAddress);
+            Device device = deviceRepository.findByMacAddress(macAddress).orElse(null);
             if (device == null) {
                 return ResponseEntity.notFound().build();
             }
@@ -1016,14 +983,25 @@ public class ElderlyManagementController {
         }
 
         // Fetch alert records for falls
-        List<AlertRecord> alerts = alertRecordRepository.findByElderlyIdAndTimestampBetweenOrderByTimestampDesc(
-            elderlyId, startDate, endDate);
+        List<AlertRecord> allAlerts = alertRecordRepository.findByElderlyIdOrderByCreatedAtDesc(elderlyId);
+        List<AlertRecord> alerts = allAlerts.stream()
+            .filter(a -> {
+                try {
+                    LocalDateTime alertTime = LocalDateTime.parse(a.getCreatedAt());
+                    return !alertTime.isBefore(startDate) && !alertTime.isAfter(endDate);
+                } catch (Exception e) {
+                    return false;
+                }
+            })
+            .toList();
         int totalFalls = (int) alerts.stream().filter(a -> a.getAlertType() != null && 
             a.getAlertType().contains("FALL")).count();
 
         // Fetch Mitra chat history
-        List<MitraChatHistory> chats = mitraChatHistoryRepository.findByElderlyIdAndTimestampBetweenOrderByTimestampAsc(
-            elderlyId, startDate, endDate);
+        List<MitraChatHistory> allChats = mitraChatHistoryRepository.findByElderlyIdOrderByTimestampDesc(elderlyId);
+        List<MitraChatHistory> chats = allChats.stream()
+            .filter(c -> !c.getTimestamp().isBefore(startDate) && !c.getTimestamp().isAfter(endDate))
+            .toList();
         int mitraConversations = chats.size();
         long mitraDistress = chats.stream().filter(c -> "DISTRESS".equals(c.getMlStateAtTime())).count();
         long mitraWellness = chats.stream().filter(c -> "WELLNESS".equals(c.getMlStateAtTime())).count();

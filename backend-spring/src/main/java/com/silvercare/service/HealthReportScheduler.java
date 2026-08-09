@@ -102,14 +102,25 @@ public class HealthReportScheduler {
     private HealthReport createReportData(String elderlyId, String reportType, 
                                           LocalDateTime startDate, LocalDateTime endDate, LocalDateTime reportDate) {
         // Fetch alert records for falls
-        List<com.silvercare.entity.AlertRecord> alerts = alertRecordRepository.findByElderlyIdAndTimestampBetweenOrderByTimestampDesc(
-            elderlyId, startDate, endDate);
+        List<com.silvercare.entity.AlertRecord> allAlerts = alertRecordRepository.findByElderlyIdOrderByCreatedAtDesc(elderlyId);
+        List<com.silvercare.entity.AlertRecord> alerts = allAlerts.stream()
+            .filter(a -> {
+                try {
+                    LocalDateTime alertTime = LocalDateTime.parse(a.getCreatedAt());
+                    return !alertTime.isBefore(startDate) && !alertTime.isAfter(endDate);
+                } catch (Exception e) {
+                    return false;
+                }
+            })
+            .toList();
         int totalFalls = (int) alerts.stream().filter(a -> a.getAlertType() != null && 
             a.getAlertType().contains("FALL")).count();
 
         // Fetch Mitra chat history
-        List<com.silvercare.entity.MitraChatHistory> chats = mitraChatHistoryRepository.findByElderlyIdAndTimestampBetweenOrderByTimestampAsc(
-            elderlyId, startDate, endDate);
+        List<com.silvercare.entity.MitraChatHistory> allChats = mitraChatHistoryRepository.findByElderlyIdOrderByTimestampDesc(elderlyId);
+        List<com.silvercare.entity.MitraChatHistory> chats = allChats.stream()
+            .filter(c -> !c.getTimestamp().isBefore(startDate) && !c.getTimestamp().isAfter(endDate))
+            .toList();
         int mitraConversations = chats.size();
         long mitraDistress = chats.stream().filter(c -> "DISTRESS".equals(c.getMlStateAtTime())).count();
         long mitraWellness = chats.stream().filter(c -> "WELLNESS".equals(c.getMlStateAtTime())).count();
@@ -152,14 +163,25 @@ public class HealthReportScheduler {
         String elderlyId = report.getElderlyId();
 
         // Fetch alert records for falls
-        List<com.silvercare.entity.AlertRecord> alerts = alertRecordRepository.findByElderlyIdAndTimestampBetweenOrderByTimestampDesc(
-            elderlyId, startDate, endDate);
+        List<com.silvercare.entity.AlertRecord> allAlerts = alertRecordRepository.findByElderlyIdOrderByCreatedAtDesc(elderlyId);
+        List<com.silvercare.entity.AlertRecord> alerts = allAlerts.stream()
+            .filter(a -> {
+                try {
+                    LocalDateTime alertTime = LocalDateTime.parse(a.getCreatedAt());
+                    return !alertTime.isBefore(startDate) && !alertTime.isAfter(endDate);
+                } catch (Exception e) {
+                    return false;
+                }
+            })
+            .toList();
         report.setTotalFalls((int) alerts.stream().filter(a -> a.getAlertType() != null && 
             a.getAlertType().contains("FALL")).count());
 
         // Fetch Mitra chat history
-        List<com.silvercare.entity.MitraChatHistory> chats = mitraChatHistoryRepository.findByElderlyIdAndTimestampBetweenOrderByTimestampAsc(
-            elderlyId, startDate, endDate);
+        List<com.silvercare.entity.MitraChatHistory> allChats = mitraChatHistoryRepository.findByElderlyIdOrderByTimestampDesc(elderlyId);
+        List<com.silvercare.entity.MitraChatHistory> chats = allChats.stream()
+            .filter(c -> !c.getTimestamp().isBefore(startDate) && !c.getTimestamp().isAfter(endDate))
+            .toList();
         report.setMitraConversationCount(chats.size());
         report.setMitraDistressCount((int) chats.stream().filter(c -> "DISTRESS".equals(c.getMlStateAtTime())).count());
         report.setMitraWellnessCount((int) chats.stream().filter(c -> "WELLNESS".equals(c.getMlStateAtTime())).count());

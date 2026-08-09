@@ -86,4 +86,9 @@ public class ElderlyNotificationService {
         activeNotifications.remove(key);
         System.out.println("[ELDERLY] Notification cleared for " + key);
     }
+
+    public void sendEmergencySMS(String phoneNumber, String message) {
+        // TODO: Implement Twilio SMS sending for emergency notifications
+        System.out.println("[EMERGENCY SMS] Would send to " + phoneNumber + ": " + message);
+    }
 }

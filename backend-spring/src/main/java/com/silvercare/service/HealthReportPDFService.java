@@ -34,7 +34,7 @@ public class HealthReportPDFService {
 
             try (PDPageContentStream contentStream = new PDPageContentStream(document, page)) {
                 PDFont font = PDType1Font.HELVETICA_BOLD;
-                PDFFont normalFont = PDType1Font.HELVETICA;
+                PDFont normalFont = PDType1Font.HELVETICA;
 
                 float margin = 50;
                 float yPosition = page.getMediaBox().getHeight() - margin;

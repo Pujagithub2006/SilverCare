@@ -947,9 +947,9 @@ export default function GuardianDashboardPage() {
 
         {/* Senior Selector Row */}
         {elderlyList.length > 0 && (
-          <div style={{ padding: '16px 16px 8px 16px' }}>
-            <div style={{ fontSize: '12px', fontWeight: '600', color: '#6c6c70', textTransform: 'uppercase', marginBottom: '6px' }}>
-              Select Senior Ward:
+          <div style={{ padding: '16px 20px 12px 20px', backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+            <div style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
+              Select Senior Ward
             </div>
             <select
               value={selectedElderly?.elderlyId || selectedElderly?.id || ''}
@@ -959,28 +959,30 @@ export default function GuardianDashboardPage() {
               }}
               style={{
                 width: '100%',
-                padding: '12px',
+                padding: '14px 16px',
                 borderRadius: '12px',
-                border: '1px solid #c7c7cc',
-                fontSize: '16px',
+                border: '2px solid #e2e8f0',
+                fontSize: '15px',
                 fontWeight: '600',
-                color: '#000000',
-                backgroundColor: '#f2f2f7',
+                color: '#0f172a',
+                backgroundColor: '#ffffff',
                 outline: 'none',
-                boxSizing: 'border-box'
+                boxSizing: 'border-box',
+                cursor: 'pointer',
+                transition: 'border-color 0.2s ease'
               }}
             >
               {elderlyList.map((item) => (
                 <option key={item.elderlyId || item.id || item.elderly_id} value={item.elderlyId || item.id || item.elderly_id}>
-                  👴 {item.name} ({item.age || 75} yrs) {item.phone ? `• 📞 ${item.phone}` : ''}
+                  {item.name} ({item.age || 75} yrs) {item.phone ? `• ${item.phone}` : ''}
                 </option>
               ))}
             </select>
           </div>
         )}
 
-        {/* Elderly List / Card Container matching frontend/guardian-dashboard.html */}
-        <div className="elderly-grid" style={{ padding: '8px 16px 20px 16px', flex: 1 }}>
+        {/* Elderly List / Card Container */}
+        <div className="elderly-grid" style={{ padding: '20px', flex: 1, backgroundColor: '#f8fafc' }}>
           {(!selectedElderly || elderlyList.length === 0) ? (
             <div style={{
               padding: '32px 20px',
@@ -1019,49 +1021,50 @@ export default function GuardianDashboardPage() {
           ) : (
             <div className="elderly-card" style={{
               background: '#ffffff',
-              borderRadius: '16px',
-              padding: '16px',
-              border: '1px solid #e5e5e7',
-              boxShadow: '0 2px 10px rgba(0, 0, 0, 0.05)',
-              marginBottom: '16px'
+              borderRadius: '20px',
+              padding: '20px',
+              border: '1px solid #e2e8f0',
+              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)',
+              marginBottom: '20px'
             }}>
-              {/* Elderly Header with Map Location Button */}
-              <div className="elderly-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', gap: '8px', flexWrap: 'wrap' }}>
-                <div style={{ display: 'flex', alignItems: 'center' }}>
+              {/* Elderly Header with Actions */}
+              <div className="elderly-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', gap: '12px', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: '200px' }}>
                   <div className="elderly-avatar" style={{
-                    width: '48px',
-                    height: '48px',
-                    background: '#007AFF',
-                    borderRadius: '24px',
+                    width: '56px',
+                    height: '56px',
+                    background: 'linear-gradient(135deg, #007AFF, #0056b3)',
+                    borderRadius: '28px',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     color: 'white',
-                    fontSize: '18px',
-                    fontWeight: '600',
-                    marginRight: '12px',
-                    flexShrink: 0
+                    fontSize: '20px',
+                    fontWeight: '700',
+                    marginRight: '16px',
+                    flexShrink: 0,
+                    boxShadow: '0 4px 12px rgba(0, 122, 255, 0.3)'
                   }}>
                     {getInitials(selectedElderly.name)}
                   </div>
                   <div>
-                    <h3 className="elderly-name" style={{ fontSize: '18px', fontWeight: '600', color: '#000000', margin: 0 }}>
+                    <h3 className="elderly-name" style={{ fontSize: '20px', fontWeight: '700', color: '#0f172a', margin: '0 0 4px 0' }}>
                       {selectedElderly.name}
                     </h3>
-                    <p className="elderly-age" style={{ color: '#6c6c70', fontSize: '14px', margin: '2px 0 0 0' }}>
-                      Age: {selectedElderly.age || '75'} • {selectedElderly.location || 'Pune'}
+                    <p className="elderly-age" style={{ color: '#64748b', fontSize: '13px', margin: 0, fontWeight: '500' }}>
+                      {selectedElderly.age || '75'} years • {selectedElderly.location || 'Pune'}
                     </p>
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', gap: '8px' }}>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                   <button
                     onClick={handleOpenContactsModal}
                     style={{
                       backgroundColor: '#10b981',
                       color: '#ffffff',
                       border: 'none',
-                      padding: '8px 14px',
+                      padding: '10px 16px',
                       borderRadius: '12px',
                       fontSize: '13px',
                       fontWeight: '700',
@@ -1069,12 +1072,12 @@ export default function GuardianDashboardPage() {
                       display: 'flex',
                       alignItems: 'center',
                       gap: '6px',
-                      boxShadow: '0 3px 10px rgba(16, 185, 129, 0.25)',
+                      boxShadow: '0 4px 12px rgba(16, 185, 129, 0.25)',
                       transition: 'all 0.2s ease'
                     }}
                     title="Manage emergency contacts"
                   >
-                    📞 Contacts
+                    Contacts
                   </button>
                   <button
                     onClick={() => setShowMapModal(true)}
@@ -1082,7 +1085,7 @@ export default function GuardianDashboardPage() {
                       backgroundColor: '#007AFF',
                       color: '#ffffff',
                       border: 'none',
-                      padding: '8px 14px',
+                      padding: '10px 16px',
                       borderRadius: '12px',
                       fontSize: '13px',
                       fontWeight: '700',
@@ -1090,103 +1093,108 @@ export default function GuardianDashboardPage() {
                       display: 'flex',
                       alignItems: 'center',
                       gap: '6px',
-                      boxShadow: '0 3px 10px rgba(0, 122, 255, 0.25)',
+                      boxShadow: '0 4px 12px rgba(0, 122, 255, 0.25)',
                       transition: 'all 0.2s ease'
                     }}
                     title="View elderly person map location"
                   >
-                    📍 See Elderly Person
+                    Location
                   </button>
                 </div>
+              </div>
 
-              {/* Phone Info Section */}
-              <div className="info-section" style={{ marginBottom: '16px' }}>
-                <div className="info-label" style={{ fontWeight: '500', color: '#6c6c70', fontSize: '12px', textTransform: 'uppercase', marginBottom: '4px' }}>
-                  Phone Number
+              {/* Quick Info Grid */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px', marginBottom: '20px' }}>
+                <div style={{ backgroundColor: '#f8fafc', padding: '14px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>
+                    Phone
+                  </div>
+                  <div style={{ color: '#007AFF', fontSize: '15px', fontWeight: '700' }}>
+                    {selectedElderly.phone || 'Not specified'}
+                  </div>
                 </div>
-                <div className="info-value" style={{ color: '#007AFF', fontSize: '15px', fontWeight: '600' }}>
-                  📞 {selectedElderly.phone || 'Not specified'}
+                <div style={{ backgroundColor: '#f8fafc', padding: '14px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>
+                    Status
+                  </div>
+                  <span style={{
+                    display: 'inline-block',
+                    padding: '4px 10px',
+                    borderRadius: '8px',
+                    fontSize: '12px',
+                    fontWeight: '700',
+                    background: isEmergency ? '#fee2e2' : '#dcfce7',
+                    color: isEmergency ? '#dc2626' : '#16a34a'
+                  }}>
+                    {isEmergency ? `⚠️ ${sensorData.stateName}` : '✅ Normal'}
+                  </span>
                 </div>
               </div>
 
-              {/* Status Section */}
-              <div className="info-section" style={{ marginBottom: '16px' }}>
-                <div className="info-label" style={{ fontWeight: '500', color: '#6c6c70', fontSize: '12px', textTransform: 'uppercase', marginBottom: '4px' }}>
-                  Status
-                </div>
-                <span className={`status-indicator ${isEmergency ? 'status-fall' : 'status-normal'}`} style={{
-                  display: 'inline-block',
-                  padding: '4px 12px',
-                  borderRadius: '12px',
-                  fontSize: '13px',
-                  fontWeight: '600',
-                  background: isEmergency ? '#ffebee' : '#e8f5e8',
-                  color: isEmergency ? '#ff3b30' : '#34c759'
-                }}>
-                  {isEmergency ? `⚠️ ${sensorData.stateName}` : '✅ Normal'}
-                </span>
-              </div>
-
-              {/* Hardware Dashboard Section Grid */}
-              <div className="info-section" style={{ marginBottom: '16px' }}>
-                <div className="info-label" style={{ fontWeight: '500', color: '#6c6c70', fontSize: '12px', textTransform: 'uppercase', marginBottom: '8px' }}>
-                  🖥️ Hardware Status ({sensorData.beltType})
+              {/* Hardware Dashboard Section */}
+              <div className="info-section" style={{ marginBottom: '20px' }}>
+                <div className="info-label" style={{ fontWeight: '700', color: '#1e293b', fontSize: '14px', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Hardware Status ({sensorData.beltType})
                 </div>
                 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
                   
                   {/* Heart Rate Card */}
                   <div className="hardware-card" style={{
                     background: 'linear-gradient(135deg, #007AFF, #0056b3)',
                     color: 'white',
-                    borderRadius: '12px',
-                    padding: '12px',
-                    textAlign: 'center'
+                    borderRadius: '14px',
+                    padding: '16px',
+                    textAlign: 'center',
+                    boxShadow: '0 4px 12px rgba(0, 122, 255, 0.25)'
                   }}>
-                    <div style={{ fontSize: '11px', opacity: 0.9, textTransform: 'uppercase' }}>💓 Heart Rate</div>
-                    <div style={{ fontSize: '22px', fontWeight: '800', marginTop: '4px' }}>{sensorData.heartRate} <span style={{ fontSize: '12px' }}>BPM</span></div>
-                    <div style={{ fontSize: '10px', opacity: 0.8, marginTop: '2px' }}>60 - 100 Normal</div>
+                    <div style={{ fontSize: '10px', opacity: 0.9, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Heart Rate</div>
+                    <div style={{ fontSize: '24px', fontWeight: '800', marginTop: '4px' }}>{sensorData.heartRate} <span style={{ fontSize: '13px', fontWeight: '600' }}>BPM</span></div>
+                    <div style={{ fontSize: '10px', opacity: 0.8, marginTop: '4px' }}>Normal: 60-100</div>
                   </div>
 
                   {/* Oxygen Card */}
                   <div className="hardware-card" style={{
                     background: 'linear-gradient(135deg, #34c759, #28a745)',
                     color: 'white',
-                    borderRadius: '12px',
-                    padding: '12px',
-                    textAlign: 'center'
+                    borderRadius: '14px',
+                    padding: '16px',
+                    textAlign: 'center',
+                    boxShadow: '0 4px 12px rgba(52, 199, 89, 0.25)'
                   }}>
-                    <div style={{ fontSize: '11px', opacity: 0.9, textTransform: 'uppercase' }}>🫁 Oxygen (SpO2)</div>
-                    <div style={{ fontSize: '22px', fontWeight: '800', marginTop: '4px' }}>{sensorData.spo2}%</div>
-                    <div style={{ fontSize: '10px', opacity: 0.8, marginTop: '2px' }}>Optimal &gt; 95%</div>
+                    <div style={{ fontSize: '10px', opacity: 0.9, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Oxygen (SpO2)</div>
+                    <div style={{ fontSize: '24px', fontWeight: '800', marginTop: '4px' }}>{sensorData.spo2}%</div>
+                    <div style={{ fontSize: '10px', opacity: 0.8, marginTop: '4px' }}>Optimal: &gt;95%</div>
                   </div>
 
                   {/* Temperature Card */}
                   <div className="hardware-card" style={{
                     background: 'linear-gradient(135deg, #ff9500, #e08500)',
                     color: 'white',
-                    borderRadius: '12px',
-                    padding: '12px',
-                    textAlign: 'center'
+                    borderRadius: '14px',
+                    padding: '16px',
+                    textAlign: 'center',
+                    boxShadow: '0 4px 12px rgba(255, 149, 0, 0.25)'
                   }}>
-                    <div style={{ fontSize: '11px', opacity: 0.9, textTransform: 'uppercase' }}>🌡️ Temperature</div>
-                    <div style={{ fontSize: '22px', fontWeight: '800', marginTop: '4px' }}>{sensorData.temperature}°C</div>
-                    <div style={{ fontSize: '10px', opacity: 0.8, marginTop: '2px' }}>Normal</div>
+                    <div style={{ fontSize: '10px', opacity: 0.9, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Temperature</div>
+                    <div style={{ fontSize: '24px', fontWeight: '800', marginTop: '4px' }}>{sensorData.temperature}°C</div>
+                    <div style={{ fontSize: '10px', opacity: 0.8, marginTop: '4px' }}>Normal</div>
                   </div>
 
                   {/* Belt Status Card */}
                   <div className="hardware-card" style={{
                     background: sensorData.beltWorn ? 'linear-gradient(135deg, #34c759, #32d74b)' : 'linear-gradient(135deg, #8e8e93, #636366)',
                     color: 'white',
-                    borderRadius: '12px',
-                    padding: '12px',
-                    textAlign: 'center'
+                    borderRadius: '14px',
+                    padding: '16px',
+                    textAlign: 'center',
+                    boxShadow: sensorData.beltWorn ? '0 4px 12px rgba(52, 199, 89, 0.25)' : '0 4px 12px rgba(142, 142, 147, 0.25)'
                   }}>
-                    <div style={{ fontSize: '11px', opacity: 0.9, textTransform: 'uppercase' }}>📟 Belt Status</div>
-                    <div style={{ fontSize: '16px', fontWeight: '800', marginTop: '8px' }}>
+                    <div style={{ fontSize: '10px', opacity: 0.9, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Belt Status</div>
+                    <div style={{ fontSize: '18px', fontWeight: '800', marginTop: '8px' }}>
                       {sensorData.beltWorn ? 'Connected' : 'Disconnected'}
                     </div>
-                    <div style={{ fontSize: '10px', opacity: 0.8, marginTop: '2px' }}>
+                    <div style={{ fontSize: '10px', opacity: 0.8, marginTop: '4px' }}>
                       {sensorData.deviceId}
                     </div>
                   </div>
@@ -1195,347 +1203,83 @@ export default function GuardianDashboardPage() {
                   <div className="hardware-card" style={{
                     background: 'linear-gradient(135deg, #5856d6, #4a4ae8)',
                     color: 'white',
-                    borderRadius: '12px',
-                    padding: '12px',
-                    textAlign: 'center'
+                    borderRadius: '14px',
+                    padding: '16px',
+                    textAlign: 'center',
+                    boxShadow: '0 4px 12px rgba(88, 86, 214, 0.25)',
+                    gridColumn: '1 / -1'
                   }}>
-                    <div style={{ fontSize: '11px', opacity: 0.9, textTransform: 'uppercase' }}>📍 GPS Location</div>
-                    <div style={{ fontSize: '14px', fontWeight: '700', marginTop: '4px' }}>
+                    <div style={{ fontSize: '10px', opacity: 0.9, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>GPS Location</div>
+                    <div style={{ fontSize: '15px', fontWeight: '700', marginTop: '4px' }}>
                       {sensorData.latitude ? `${sensorData.latitude.toFixed(4)}, ${sensorData.longitude.toFixed(4)}` : 'No GPS Signal'}
                     </div>
-                    <div style={{ fontSize: '10px', opacity: 0.8, marginTop: '2px' }}>
+                    <div style={{ fontSize: '10px', opacity: 0.8, marginTop: '4px' }}>
                       {sensorData.isLastLocationFetched ? '⚠️ Last Known' : '✅ Live'}
                     </div>
                   </div>
 
-                  {/* Location Warning Alert Banner */}
-                  {(sensorData.locationWarning || sensorData.isLastLocationFetched) && (
-                    <div style={{
-                      gridColumn: '1 / -1',
-                      backgroundColor: '#fffbe6',
-                      border: '1px solid #ffe58f',
-                      borderRadius: '10px',
-                      padding: '10px 14px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      gap: '8px',
-                      fontSize: '12px',
-                      color: '#d46b08',
-                      fontWeight: '600'
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span>⚠️</span>
-                        <span>{sensorData.locationWarning || 'Unable to fetch current location, last location is fetched'}</span>
-                        {sensorData.latitude && sensorData.longitude && (
-                          <span style={{ fontSize: '11px', color: '#8c8c8c' }}>
-                            (Last Known: {Number(sensorData.latitude).toFixed(4)}, {Number(sensorData.longitude).toFixed(4)})
-                          </span>
-                        )}
-                      </div>
-                      <button
-                        onClick={() => setShowMapModal(true)}
-                        style={{
-                          backgroundColor: '#007AFF',
-                          color: '#ffffff',
-                          border: 'none',
-                          padding: '4px 10px',
-                          borderRadius: '8px',
-                          fontSize: '11px',
-                          fontWeight: '700',
-                          cursor: 'pointer',
-                          whiteSpace: 'nowrap'
-                        }}
-                      >
-                        📍 View Map
-                      </button>
-                    </div>
-                  )}
-
                 </div>
               </div>
 
-              {/* 4 Main Dashboard Action Buttons (Located Directly Below Hardware Status) */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '8px', marginBottom: '18px' }}>
+              {/* Main Action Buttons */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px', marginBottom: '20px' }}>
                 <button
                   onClick={() => setShowMapModal(true)}
                   style={{
                     backgroundColor: '#007AFF', color: '#ffffff', border: 'none',
-                    padding: '12px 8px', borderRadius: '12px', fontSize: '13px',
-                    fontWeight: '800', cursor: 'pointer', display: 'flex',
-                    alignItems: 'center', justifyContent: 'center', gap: '4px',
-                    boxShadow: '0 4px 12px rgba(0,122,255,0.25)'
+                    padding: '14px', borderRadius: '12px', fontSize: '14px',
+                    fontWeight: '700', cursor: 'pointer', display: 'flex',
+                    alignItems: 'center', justifyContent: 'center', gap: '8px',
+                    boxShadow: '0 4px 12px rgba(0,122,255,0.25)',
+                    transition: 'all 0.2s ease'
                   }}
                 >
-                  📍 See Elderly Person
+                  Location
                 </button>
                 <button
                   onClick={handleOpenDevicePairingModal}
                   style={{
                     backgroundColor: '#8b5cf6', color: '#ffffff', border: 'none',
-                    padding: '12px 8px', borderRadius: '12px', fontSize: '13px',
-                    fontWeight: '800', cursor: 'pointer', display: 'flex',
-                    alignItems: 'center', justifyContent: 'center', gap: '4px',
-                    boxShadow: '0 4px 12px rgba(139,92,246,0.25)'
+                    padding: '14px', borderRadius: '12px', fontSize: '14px',
+                    fontWeight: '700', cursor: 'pointer', display: 'flex',
+                    alignItems: 'center', justifyContent: 'center', gap: '8px',
+                    boxShadow: '0 4px 12px rgba(139,92,246,0.25)',
+                    transition: 'all 0.2s ease'
                   }}
                 >
-                  🔗 Pair Device
+                  Pair Device
                 </button>
                 <button
                   onClick={handleRequestLocation}
                   disabled={locationRequestLoading}
                   style={{
                     backgroundColor: '#f59e0b', color: '#ffffff', border: 'none',
-                    padding: '12px 8px', borderRadius: '12px', fontSize: '13px',
-                    fontWeight: '800', cursor: locationRequestLoading ? 'not-allowed' : 'pointer', display: 'flex',
-                    alignItems: 'center', justifyContent: 'center', gap: '4px',
+                    padding: '14px', borderRadius: '12px', fontSize: '14px',
+                    fontWeight: '700', cursor: locationRequestLoading ? 'not-allowed' : 'pointer', display: 'flex',
+                    alignItems: 'center', justifyContent: 'center', gap: '8px',
                     boxShadow: '0 4px 12px rgba(245,158,11,0.25)',
-                    opacity: locationRequestLoading ? 0.6 : 1
+                    opacity: locationRequestLoading ? 0.6 : 1,
+                    transition: 'all 0.2s ease'
                   }}
                 >
-                  Ask Location
+                  {locationRequestLoading ? 'Requesting...' : 'Ask Location'}
                 </button>
                 <button
                   onClick={() => setShowSuggestionModal(true)}
                   style={{
                     backgroundColor: '#10b981', color: '#ffffff', border: 'none',
-                    padding: '12px 8px', borderRadius: '12px', fontSize: '13px',
-                    fontWeight: '800', cursor: 'pointer', display: 'flex',
-                    alignItems: 'center', justifyContent: 'center', gap: '4px',
-                    boxShadow: '0 4px 12px rgba(16,185,129,0.25)'
+                    padding: '14px', borderRadius: '12px', fontSize: '14px',
+                    fontWeight: '700', cursor: 'pointer', display: 'flex',
+                    alignItems: 'center', justifyContent: 'center', gap: '8px',
+                    boxShadow: '0 4px 12px rgba(16,185,129,0.25)',
+                    transition: 'all 0.2s ease'
                   }}
                 >
-                  📝 Add Suggestion
-                </button>
-                <button
-                  onClick={() => setShowCalendarModal(true)}
-                  style={{
-                    backgroundColor: '#8b5cf6', color: '#ffffff', border: 'none',
-                    padding: '12px 8px', borderRadius: '12px', fontSize: '13px',
-                    fontWeight: '800', cursor: 'pointer', display: 'flex',
-                    alignItems: 'center', justifyContent: 'center', gap: '4px',
-                    boxShadow: '0 4px 12px rgba(139,92,246,0.25)'
-                  }}
-                >
-                  📅 Calendar
-                </button>
-                <button
-                  onClick={handleGenerateDailyReport}
-                  disabled={reportLoading}
-                  style={{
-                    backgroundColor: '#ec4899', color: '#ffffff', border: 'none',
-                    padding: '12px 8px', borderRadius: '12px', fontSize: '13px',
-                    fontWeight: '800', cursor: reportLoading ? 'not-allowed' : 'pointer', display: 'flex',
-                    alignItems: 'center', justifyContent: 'center', gap: '4px',
-                    boxShadow: '0 4px 12px rgba(236,72,153,0.25)',
-                    opacity: reportLoading ? 0.6 : 1
-                  }}
-                >
-                  📊 Generate Report
+                  Add Suggestion
                 </button>
               </div>
 
-              {/* Health Reports Section */}
-              <div style={{ marginBottom: '16px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <div className="info-label" style={{ fontWeight: '500', color: '#6c6c70', fontSize: '12px', textTransform: 'uppercase' }}>
-                    📋 Health Reports
-                  </div>
-                  <button
-                    onClick={handleLoadHealthReports}
-                    disabled={reportLoading}
-                    style={{
-                      backgroundColor: '#007AFF', color: '#ffffff',
-                      border: 'none', padding: '6px 12px', borderRadius: '8px',
-                      fontSize: '12px', fontWeight: '600', cursor: reportLoading ? 'not-allowed' : 'pointer',
-                      opacity: reportLoading ? 0.6 : 1
-                    }}
-                  >
-                    {reportLoading ? 'Loading...' : 'Refresh'}
-                  </button>
-                </div>
-                {healthReports.length > 0 ? (
-                  <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
-                    {healthReports.map((report) => (
-                      <div
-                        key={report.id}
-                        style={{
-                          backgroundColor: '#ffffff',
-                          padding: '12px',
-                          borderRadius: '12px',
-                          border: '1px solid #e5e5e7',
-                          marginBottom: '8px',
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center'
-                        }}
-                      >
-                        <div>
-                          <div style={{ fontSize: '13px', fontWeight: '700', color: '#1f2937' }}>
-                            {report.reportType} Report
-                          </div>
-                          <div style={{ fontSize: '11px', color: '#6c6c70', marginTop: '2px' }}>
-                            {new Date(report.reportDate).toLocaleDateString()}
-                          </div>
-                          <div style={{ fontSize: '10px', color: '#9ca3af', marginTop: '2px' }}>
-                            Falls: {report.totalFalls} | HR: {report.avgHeartRate} BPM | SpO2: {report.avgSpo2}%
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => handleDownloadReport(report.id, report.reportType)}
-                          style={{
-                            backgroundColor: '#10b981', color: '#ffffff',
-                            border: 'none', padding: '8px 12px', borderRadius: '8px',
-                            fontSize: '11px', fontWeight: '700', cursor: 'pointer',
-                            display: 'flex', alignItems: 'center', gap: '4px'
-                          }}
-                        >
-                          📥 Download
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div style={{
-                    backgroundColor: '#f9fafb',
-                    padding: '16px',
-                    borderRadius: '12px',
-                    border: '1px dashed #d1d5db',
-                    textAlign: 'center',
-                    color: '#6c6c70',
-                    fontSize: '12px'
-                  }}>
-                    No health reports generated yet. Click "Generate Report" to create one.
-                  </div>
-                )}
-              </div>
-
-              {/* Device Management Section - Advanced */}
-              {showAdvancedFeatures && (
-                <div style={{ marginBottom: '16px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                    <div className="info-label" style={{ fontWeight: '500', color: '#6c6c70', fontSize: '12px', textTransform: 'uppercase' }}>
-                      🔧 Device Management
-                    </div>
-                    <button
-                      onClick={() => {
-                        setShowDeviceModal(true);
-                        loadDeviceData();
-                      }}
-                      style={{
-                        backgroundColor: potentiallyBrokenDevices.length > 0 ? '#ff3b30' : '#007AFF',
-                        color: '#ffffff',
-                        border: 'none',
-                        padding: '6px 12px',
-                        borderRadius: '8px',
-                        fontSize: '12px',
-                        fontWeight: '600',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      {potentiallyBrokenDevices.length > 0 ? `⚠️ ${potentiallyBrokenDevices.length} Issues` : 'Manage Devices'}
-                    </button>
-                  </div>
-                  
-                  <div style={{ 
-                    background: '#f2f2f7', 
-                    borderRadius: '12px', 
-                    padding: '12px',
-                    fontSize: '13px',
-                    color: '#6c6c70'
-                  }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                      <span>📱 Total Devices:</span>
-                      <strong>{allDevices.length}</strong>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                      <span>✅ Active:</span>
-                      <strong style={{ color: '#34c759' }}>{allDevices.filter(d => d.status === 'ACTIVE').length}</strong>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span>🔓 Unassigned:</span>
-                      <strong style={{ color: '#ff9500' }}>{unassignedDevices.length}</strong>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Health Reports Section - Advanced */}
-              {showAdvancedFeatures && (
-                <div style={{ marginBottom: '16px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                    <div className="info-label" style={{ fontWeight: '500', color: '#6c6c70', fontSize: '12px', textTransform: 'uppercase' }}>
-                      📋 Health Reports
-                    </div>
-                    <button
-                      onClick={handleLoadHealthReports}
-                      disabled={reportLoading}
-                      style={{
-                        backgroundColor: '#007AFF', color: '#ffffff',
-                        border: 'none', padding: '6px 12px', borderRadius: '8px',
-                        fontSize: '12px', fontWeight: '600', cursor: reportLoading ? 'not-allowed' : 'pointer',
-                        opacity: reportLoading ? 0.6 : 1
-                      }}
-                    >
-                      {reportLoading ? 'Loading...' : 'Refresh'}
-                    </button>
-                  </div>
-                  {healthReports.length > 0 ? (
-                    <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
-                      {healthReports.map((report) => (
-                        <div
-                          key={report.id}
-                          style={{
-                            backgroundColor: '#ffffff',
-                            padding: '12px',
-                            borderRadius: '12px',
-                            border: '1px solid #e5e5e7',
-                            marginBottom: '8px',
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center'
-                          }}
-                        >
-                          <div>
-                            <div style={{ fontSize: '13px', fontWeight: '700', color: '#1f2937' }}>
-                              {report.reportType} Report
-                            </div>
-                            <div style={{ fontSize: '11px', color: '#6c6c70', marginTop: '2px' }}>
-                              {new Date(report.reportDate).toLocaleDateString()}
-                            </div>
-                            <div style={{ fontSize: '10px', color: '#9ca3af', marginTop: '2px' }}>
-                              Falls: {report.totalFalls} | HR: {report.avgHeartRate} BPM | SpO2: {report.avgSpo2}%
-                            </div>
-                          </div>
-                          <button
-                            onClick={() => handleDownloadReport(report.id, report.reportType)}
-                            style={{
-                              backgroundColor: '#10b981', color: '#ffffff',
-                              border: 'none', padding: '8px 12px', borderRadius: '8px',
-                              fontSize: '11px', fontWeight: '700', cursor: 'pointer',
-                              display: 'flex', alignItems: 'center', gap: '4px'
-                            }}
-                          >
-                            📥 Download
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div style={{
-                      backgroundColor: '#f9fafb',
-                      padding: '16px',
-                      borderRadius: '12px',
-                      border: '1px dashed #d1d5db',
-                      textAlign: 'center',
-                      color: '#6c6c70',
-                      fontSize: '12px'
-                    }}>
-                      No health reports generated yet. Click "Generate Report" to create one.
-                    </div>
-                  )}
-                </div>
-              )}
+              {/* Health Reports Section - Moved to See More */}
 
               {/* See More / See Less Toggle */}
               <button
@@ -1545,7 +1289,7 @@ export default function GuardianDashboardPage() {
                   backgroundColor: '#f3f4f6',
                   color: '#374151',
                   border: '1px solid #d1d5db',
-                  padding: '12px',
+                  padding: '14px',
                   borderRadius: '12px',
                   fontSize: '14px',
                   fontWeight: '700',
@@ -1554,11 +1298,130 @@ export default function GuardianDashboardPage() {
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: '8px',
-                  marginBottom: '16px'
+                  marginBottom: '20px',
+                  transition: 'all 0.2s ease'
                 }}
               >
                 {showAdvancedFeatures ? '▲ See Less' : '▼ See More Features'}
               </button>
+
+              {/* Advanced Features Section */}
+              {showAdvancedFeatures && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '20px' }}>
+                  
+                  {/* Device Management */}
+                  <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #e2e8f0' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                      <div style={{ fontWeight: '700', color: '#1e293b', fontSize: '14px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        Device Management
+                      </div>
+                      <button
+                        onClick={() => {
+                          setShowDeviceModal(true);
+                          loadDeviceData();
+                        }}
+                        style={{
+                          backgroundColor: potentiallyBrokenDevices.length > 0 ? '#ff3b30' : '#007AFF',
+                          color: '#ffffff',
+                          border: 'none',
+                          padding: '8px 14px',
+                          borderRadius: '8px',
+                          fontSize: '12px',
+                          fontWeight: '700',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        {potentiallyBrokenDevices.length > 0 ? `${potentiallyBrokenDevices.length} Issues` : 'Manage'}
+                      </button>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+                      <div style={{ backgroundColor: '#f8fafc', padding: '12px', borderRadius: '8px', textAlign: 'center' }}>
+                        <div style={{ fontSize: '20px', fontWeight: '800', color: '#0f172a' }}>{allDevices.length}</div>
+                        <div style={{ fontSize: '11px', color: '#64748b', textTransform: 'uppercase' }}>Total</div>
+                      </div>
+                      <div style={{ backgroundColor: '#dcfce7', padding: '12px', borderRadius: '8px', textAlign: 'center' }}>
+                        <div style={{ fontSize: '20px', fontWeight: '800', color: '#166534' }}>{allDevices.filter(d => d.status === 'ACTIVE').length}</div>
+                        <div style={{ fontSize: '11px', color: '#15803d', textTransform: 'uppercase' }}>Active</div>
+                      </div>
+                      <div style={{ backgroundColor: '#fef3c7', padding: '12px', borderRadius: '8px', textAlign: 'center' }}>
+                        <div style={{ fontSize: '20px', fontWeight: '800', color: '#92400e' }}>{unassignedDevices.length}</div>
+                        <div style={{ fontSize: '11px', color: '#b45309', textTransform: 'uppercase' }}>Unassigned</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Health Reports */}
+                  <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #e2e8f0' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                      <div style={{ fontWeight: '700', color: '#1e293b', fontSize: '14px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        Health Reports
+                      </div>
+                      <button
+                        onClick={handleLoadHealthReports}
+                        disabled={reportLoading}
+                        style={{
+                          backgroundColor: '#007AFF', color: '#ffffff',
+                          border: 'none', padding: '8px 14px', borderRadius: '8px',
+                          fontSize: '12px', fontWeight: '700', cursor: reportLoading ? 'not-allowed' : 'pointer',
+                          opacity: reportLoading ? 0.6 : 1
+                        }}
+                      >
+                        {reportLoading ? 'Loading...' : 'Refresh'}
+                      </button>
+                    </div>
+                    {healthReports.length > 0 ? (
+                      <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                        {healthReports.map((report) => (
+                          <div
+                            key={report.id}
+                            style={{
+                              backgroundColor: '#f8fafc',
+                              padding: '12px',
+                              borderRadius: '8px',
+                              border: '1px solid #e2e8f0',
+                              marginBottom: '8px',
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center'
+                            }}
+                          >
+                            <div>
+                              <div style={{ fontSize: '13px', fontWeight: '700', color: '#1f2937' }}>
+                                {report.reportType} Report
+                              </div>
+                              <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
+                                {new Date(report.reportDate).toLocaleDateString()}
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => handleDownloadReport(report.id, report.reportType)}
+                              style={{
+                                backgroundColor: '#10b981', color: '#ffffff',
+                                border: 'none', padding: '6px 12px', borderRadius: '6px',
+                                fontSize: '11px', fontWeight: '700', cursor: 'pointer'
+                              }}
+                            >
+                              Download
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div style={{
+                        backgroundColor: '#f8fafc',
+                        padding: '16px',
+                        borderRadius: '8px',
+                        border: '1px dashed #d1d5db',
+                        textAlign: 'center',
+                        color: '#64748b',
+                        fontSize: '12px'
+                      }}>
+                        No reports generated yet
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Medicine Reminders & Compliance Dashboard Section */}
               <div className="info-section" style={{ marginBottom: '16px', background: '#f8fafc', padding: '16px', borderRadius: '16px', border: '1px solid #cbd5e1' }}>
@@ -1685,7 +1548,6 @@ export default function GuardianDashboardPage() {
                   );
                 })()}
               </div>
-            </div>
             </div>
           )}
         </div>
