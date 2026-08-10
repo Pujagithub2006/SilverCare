@@ -6,6 +6,7 @@ import com.silvercare.dto.TwilioSmsRequest;
 import com.silvercare.service.FallDetectionService;
 import com.silvercare.service.SensorDataService;
 import com.silvercare.service.TwilioService;
+import com.silvercare.service.ElderlyManagementService;
 import com.silvercare.repository.ElderlyRepository;
 import com.silvercare.entity.Elderly;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,9 +15,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 @RestController
+@CrossOrigin(originPatterns = "*", allowedHeaders = "*")
 public class SensorHardwareController {
 
     @Autowired
@@ -30,6 +33,9 @@ public class SensorHardwareController {
 
     @Autowired
     private ElderlyRepository elderlyRepository;
+
+    @Autowired
+    private ElderlyManagementService elderlyManagementService;
 
     @PostMapping("/api/sensor-data")
     public ResponseEntity<Map<String, Object>> receiveSensorData(@RequestBody SensorDataRequest request) {
@@ -67,41 +73,58 @@ public class SensorHardwareController {
         return ResponseEntity.ok(response);
     }
 
-    @GetMapping("/hardware-data/{elderlyId}")
+    @GetMapping({"/hardware-data/{elderlyId}", "/api/hardware-data/{elderlyId}"})
     public ResponseEntity<ApiResponse<Object>> getHardwareData(@PathVariable String elderlyId) {
-        String deviceId = elderlyRepository.findById(elderlyId)
-                .map(Elderly::getPrimaryDeviceId)
-                .orElse(null);
+        try {
+            Elderly elderly = elderlyManagementService.getElderly(elderlyId);
+            String deviceId = elderly != null ? elderly.getPrimaryDeviceId() : null;
 
-        if (deviceId == null) {
-            Map<String, Object> data = Map.of(
-                    "heartRate", 0,
-                    "oxygenLevel", 0,
-                    "temperature", 0,
-                    "beltConnected", false,
-                    "beltLastSeen", "",
-                    "lastUpdate", LocalDateTime.now().toString(),
-                    "message", "No hardware connected"
-            );
+            if (deviceId == null || deviceId.trim().isEmpty()) {
+                Map<String, Object> data = new LinkedHashMap<>();
+                data.put("heartRate", 0);
+                data.put("oxygenLevel", 0);
+                data.put("temperature", 0);
+                data.put("beltConnected", false);
+                data.put("beltLastSeen", "");
+                data.put("lastUpdate", LocalDateTime.now().toString());
+                data.put("message", "No hardware connected");
+                return ResponseEntity.ok(ApiResponse.builder().status("success").data(data).build());
+            }
+
+            Map<String, Object> sensorData = sensorDataService.getLatestSensorData(deviceId);
+            if (sensorData == null) sensorData = new LinkedHashMap<>();
+
+            Object hr = sensorData.get("heartRate");
+            Object spo2 = sensorData.get("spo2");
+            Object temp = sensorData.get("temperature");
+            Object connected = sensorData.get("device_connected");
+            Object lastSeen = sensorData.get("last_update");
+            Object msg = sensorData.get("message");
+
+            Map<String, Object> data = new LinkedHashMap<>();
+            data.put("heartRate", hr != null ? hr : 0);
+            data.put("oxygenLevel", spo2 != null ? spo2 : 0);
+            data.put("temperature", temp != null ? temp : 0);
+            data.put("beltConnected", connected != null ? connected : false);
+            data.put("beltLastSeen", lastSeen != null ? lastSeen.toString() : "");
+            data.put("lastUpdate", lastSeen != null ? lastSeen.toString() : LocalDateTime.now().toString());
+            data.put("message", msg != null ? msg.toString() : "Hardware connected");
+
+            return ResponseEntity.ok(ApiResponse.builder()
+                    .status("success")
+                    .data(data)
+                    .build());
+        } catch (Exception e) {
+            Map<String, Object> data = new LinkedHashMap<>();
+            data.put("heartRate", 0);
+            data.put("oxygenLevel", 0);
+            data.put("temperature", 0);
+            data.put("beltConnected", false);
+            data.put("beltLastSeen", "");
+            data.put("lastUpdate", LocalDateTime.now().toString());
+            data.put("message", "Error loading hardware data: " + e.getMessage());
             return ResponseEntity.ok(ApiResponse.builder().status("success").data(data).build());
         }
-
-        Map<String, Object> sensorData = sensorDataService.getLatestSensorData(deviceId);
-        Map<String, Object> data = Map.of(
-                "heartRate", sensorData.getOrDefault("heartRate", 0),
-                "oxygenLevel", sensorData.getOrDefault("spo2", 0),
-                "temperature", sensorData.getOrDefault("temperature", 0),
-                "beltConnected", sensorData.getOrDefault("device_connected", false),
-                "beltLastSeen", sensorData.getOrDefault("last_update", ""),
-                "lastUpdate", sensorData.getOrDefault("last_update", LocalDateTime.now().toString()),
-                "message", sensorData.getOrDefault("message", "Hardware connected")
-        );
-
-        ApiResponse<Object> response = ApiResponse.builder()
-                .status("success")
-                .data(data)
-                .build();
-        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/api/device-status")

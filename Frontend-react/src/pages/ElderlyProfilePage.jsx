@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
-import { fetchElderlyInfo } from '../services/api';
+import { fetchElderlyInfo, fetchHealthHistory, updateHealthHistory } from '../services/api';
 import '../styles.css';
 
 const ElderlyProfilePage = () => {
@@ -95,33 +95,30 @@ const ElderlyProfilePage = () => {
       }).catch((err) => console.error('Failed to fetch profile:', err));
     }
 
-    // Fetch existing health history
-    fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081'}/api/elderly/${targetId}/health-history`)
-      .then(res => res.json())
-      .then(data => {
-        if (data && data.data) {
-          const hData = data.data;
-          let parsedConditions = [];
-          if (Array.isArray(hData.conditions)) {
-            parsedConditions = hData.conditions;
-          } else if (typeof hData.conditions === 'string' && hData.conditions.trim()) {
-            parsedConditions = hData.conditions.split(',').map(s => s.trim());
-          }
-
-          setHealthData(prev => ({
-            ...prev,
-            age: hData.age !== null && hData.age !== undefined ? String(hData.age) : prev.age,
-            weight: hData.weight !== null && hData.weight !== undefined ? String(hData.weight) : prev.weight,
-            height: hData.height !== null && hData.height !== undefined ? String(hData.height) : prev.height,
-            conditions: parsedConditions.length > 0 ? parsedConditions : prev.conditions,
-            mobility: hData.mobility || prev.mobility,
-            fallCount: hData.fallCount !== null && hData.fallCount !== undefined ? String(hData.fallCount) : prev.fallCount,
-            lastFallDays: hData.lastFallDays !== null && hData.lastFallDays !== undefined ? String(hData.lastFallDays) : prev.lastFallDays,
-            medications: hData.medications || prev.medications
-          }));
+    // Fetch existing health history using API service
+    fetchHealthHistory(targetId).then(data => {
+      if (data && data.data) {
+        const hData = data.data;
+        let parsedConditions = [];
+        if (Array.isArray(hData.conditions)) {
+          parsedConditions = hData.conditions;
+        } else if (typeof hData.conditions === 'string' && hData.conditions.trim()) {
+          parsedConditions = hData.conditions.split(',').map(s => s.trim());
         }
-      })
-      .catch(err => console.error('Failed to load health history:', err));
+
+        setHealthData(prev => ({
+          ...prev,
+          age: hData.age !== null && hData.age !== undefined ? String(hData.age) : prev.age,
+          weight: hData.weight !== null && hData.weight !== undefined ? String(hData.weight) : prev.weight,
+          height: hData.height !== null && hData.height !== undefined ? String(hData.height) : prev.height,
+          conditions: parsedConditions.length > 0 ? parsedConditions : prev.conditions,
+          mobility: hData.mobility || prev.mobility,
+          fallCount: hData.fallCount !== null && hData.fallCount !== undefined ? String(hData.fallCount) : prev.fallCount,
+          lastFallDays: hData.lastFallDays !== null && hData.lastFallDays !== undefined ? String(hData.lastFallDays) : prev.lastFallDays,
+          medications: hData.medications || prev.medications
+        }));
+      }
+    }).catch(err => console.error('Failed to load health history:', err));
   }, [changeLanguage]);
 
   const handleLogout = () => {
@@ -192,15 +189,9 @@ const ElderlyProfilePage = () => {
         medications: healthData.medications || ''
       };
 
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081'}/api/elderly/${elderlyId}/health-history`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      
-      const resData = await response.json();
+      const resData = await updateHealthHistory(elderlyId, payload);
 
-      if (response.ok && (resData.status === 'success' || resData.success)) {
+      if (resData && (resData.status === 'success' || resData.success || resData.data)) {
         alert('Health history saved successfully to backend & database!');
         setShowHealthForm(false);
       } else {
@@ -490,7 +481,7 @@ const ElderlyProfilePage = () => {
           }}
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-            <path d="M9 21H5a2 2 0 01-2 2v1a2 2 0 01-2 2h4a2 2 0 01-2 2v1a2 2 0 01-2 2h4M16 17l-4 4-4 4v1a2 2 0 01-2 2h4a2 2 0 01-2 2v-1a2 2 0 01-2 2h-4a2 2 0 01-2 2v-1a2 2 0 01-2 2h4M7 14l5 5 5 5s-5 5h-1.71l-.29-.29a1 1 0 01-1.42 0l-1.29-1.29A1 1 0 017 7l3.59 3.59A2 2 0 0112 9l-3.59-3.59A2 2 0 0111 7z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
           {t('logout') || 'Logout Account'}
         </button>

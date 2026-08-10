@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
+import { fetchHealthHistory as apiFetchHealthHistory, updateHealthHistory as apiUpdateHealthHistory } from '../services/api';
 import '../styles.css';
 
 const CalibrationPage = () => {
   const navigate = useNavigate();
   const { t } = useLanguage();
-  const elderlyId = localStorage.getItem('elderly_id');
+  const elderlyId = localStorage.getItem('elderly_id') || 'default_senior';
   
   const [isCalibrating, setIsCalibrating] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState(600); // 10 minutes in seconds
@@ -18,8 +19,7 @@ const CalibrationPage = () => {
   const sensorIntervalRef = useRef(null);
   
   useEffect(() => {
-    // Check if user has health history
-    fetchHealthHistory();
+    fetchHealthHistoryData();
     
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
@@ -27,11 +27,10 @@ const CalibrationPage = () => {
     };
   }, []);
   
-  const fetchHealthHistory = async () => {
+  const fetchHealthHistoryData = async () => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081'}/api/elderly/${elderlyId}/health-history`);
-      if (response.ok) {
-        const data = await response.json();
+      const data = await apiFetchHealthHistory(elderlyId);
+      if (data && data.data) {
         setHealthHistory(data.data);
       }
     } catch (err) {
@@ -136,13 +135,9 @@ const CalibrationPage = () => {
       
       if (response.ok) {
         // Update elderly calibration status
-        await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081'}/api/elderly/${elderlyId}/health-history`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            isCalibrated: true,
-            calibratedAt: new Date().toISOString()
-          })
+        await apiUpdateHealthHistory(elderlyId, {
+          isCalibrated: true,
+          calibratedAt: new Date().toISOString()
         });
         
         alert('Calibration completed successfully! Your fall detection is now personalized.');

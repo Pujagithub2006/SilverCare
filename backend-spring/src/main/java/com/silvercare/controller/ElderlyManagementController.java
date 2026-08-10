@@ -34,6 +34,7 @@ import java.util.Map;
 import java.util.Optional;
 
 @RestController
+@CrossOrigin(originPatterns = "*", allowedHeaders = "*")
 public class ElderlyManagementController {
 
     @Autowired

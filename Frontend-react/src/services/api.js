@@ -116,6 +116,38 @@ export const submitMedicalHistoryCalibration = async (elderlyId, healthHistory) 
   }
 };
 
+export const updateHealthHistory = async (elderlyId, payload) => {
+  const targetId = elderlyId || 'default_senior';
+  try {
+    const response = await api.post(`/api/elderly/${targetId}/health-history`, payload);
+    return response.data;
+  } catch (error) {
+    if (error.response && error.response.data) return error.response.data;
+    try {
+      const legacy = await axios.post(`${LEGACY_API_BASE}/api/elderly/${targetId}/health-history`, payload);
+      return legacy.data;
+    } catch (e) {
+      return { status: 'error', message: error.message || 'Health history update failed' };
+    }
+  }
+};
+
+export const fetchHealthHistory = async (elderlyId) => {
+  const targetId = elderlyId || 'default_senior';
+  try {
+    const response = await api.get(`/api/elderly/${targetId}/health-history`);
+    return response.data;
+  } catch (error) {
+    if (error.response && error.response.data) return error.response.data;
+    try {
+      const legacy = await axios.get(`${LEGACY_API_BASE}/api/elderly/${targetId}/health-history`);
+      return legacy.data;
+    } catch (e) {
+      return { status: 'error', message: 'Failed to fetch health history' };
+    }
+  }
+};
+
 export const pairDeviceToElderly = async (arg1, arg2, deviceType = 'Waist Belt') => {
   let elderlyId, macAddress;
   if (typeof arg1 === 'string' && (arg1.includes(':') || arg1.startsWith('DEV_'))) {
