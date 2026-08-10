@@ -10,7 +10,7 @@
 #include <SoftwareSerial.h>
 #include <ArduinoJson.h>
 #include <TinyGPS++.h>
-#include "tinyml_model.h"
+#include <tinyml_model.h>
 
 // ===== WIFI CONFIGURATION =====
 // WiFi credentials are now managed automatically
@@ -35,7 +35,7 @@ SoftwareSerial gsmSerial(GSM_RX_PIN, GSM_TX_PIN);
 #define MPU6050_SCL 22       // MPU6050 SCL pin (D22)
 #define GPS_RX_PIN 16        // GPS TX -> ESP32 RX (D16)
 #define GPS_TX_PIN 17        // GPS RX -> ESP32 TX (D17)
-#define DS18B20_PIN 4        // DS18B20 Temperature Sensor Data Pin (D4)
+#define DS18B20_PIN 4        // DS18B20 OneWire Temperature sensor pin
 
 // MAX98357A I2S Speaker Amplifier Pins
 #define I2S_LRC 33           // Speaker LRC (WS) -> D33
@@ -132,6 +132,11 @@ MLState currentMLState = ML_NORMAL;
 unsigned long mlStateChangeTime = 0;
 float mlConfidence = 0.0;
 
+// ===== SIMULATION STATE =====
+enum SimulationState { SIM_NORMAL, SIM_ALERT, SIM_CRITICAL };
+SimulationState currentSimState = SIM_NORMAL;
+unsigned long simStateChangeTime = 0;
+
 // ===== SENSOR DATA FOR ML =====
 float accelX = 0.0, accelY = 0.0, accelZ = 0.0;
 float gyroX = 0.0, gyroY = 0.0, gyroZ = 0.0;
@@ -168,7 +173,7 @@ void loadEEPROMConfig() {
     secondaryGuardianPhone = eepromPrefs.getString("sec_phone", secondaryGuardianPhone);
     speakerAudioMessage = eepromPrefs.getString("speaker_msg", speakerAudioMessage);
     eepromPrefs.end();
-    Serial.println("💾 [EEPROM] Loaded stored contacts: Main=" + mainGuardianPhone + ", Sec=" + secondaryGuardianPhone + ", SpeakerMsg=" + speakerAudioMessage);
+    Serial.println("[EEPROM] Loaded stored contacts: Main=" + mainGuardianPhone + ", Sec=" + secondaryGuardianPhone + ", SpeakerMsg=" + speakerAudioMessage);
 }
 
 void saveEEPROMConfig(String mainPhone, String secPhone, String speakerMsg) {
@@ -186,7 +191,7 @@ void saveEEPROMConfig(String mainPhone, String secPhone, String speakerMsg) {
         eepromPrefs.putString("speaker_msg", speakerMsg);
     }
     eepromPrefs.end();
-    Serial.println("💾 [EEPROM] Updated & saved contacts and speaker audio configuration to EEPROM.");
+    Serial.println("[EEPROM] Updated & saved contacts and speaker audio configuration to EEPROM.");
 }
 
 // ===== NOTIFICATION STATE =====
@@ -304,7 +309,6 @@ void updateGPS() {
         // Check if location is unusual
         if (isLocationUnusual(gpsLat, gpsLng)) {
             Serial.println("[UNUSUAL LOCATION]: Detected unusual location");
-            // Would trigger alert to guardian
         }
     } else {
         Serial.println("GPS signal invalid, using last known location");
@@ -319,8 +323,11 @@ void saveLocationToBackend(double lat, double lng) {
     if (millis() - lastSaveTime < 60000) return; // Save every minute
     lastSaveTime = millis();
     
+    String url = String(serverUrl);
+    url.replace("/api/sensor-data", "/api/location/save/");
+    url += elderlyId;
+    
     HTTPClient http;
-    String url = String(serverUrl).replace("/api/sensor-data", "/api/location/save/") + elderlyId;
     http.begin(url);
     http.addHeader("Content-Type", "application/json");
     http.setTimeout(5000);
@@ -447,7 +454,7 @@ void runTinyMLInferenceOnDevice() {
     unsigned long durationUs = micros() - startTime;
 
     String classNames[4] = {"NORMAL", "SUDDEN_MOVEMENT", "PREFALL", "FALL"};
-    Serial.println("🧠 [ESP32 TINYML INFERENCE]: Predicted State=" + classNames[predictedClass] + " (Confidence=" + String(mlConfidence, 2) + ") Execution Time=" + String(durationUs / 1000.0, 2) + " ms");
+    Serial.println("[ESP32 TINYML INFERENCE]: Predicted State=" + classNames[predictedClass] + " (Confidence=" + String(mlConfidence, 2) + ") Execution Time=" + String(durationUs / 1000.0, 2) + " ms");
 }
 
 // ===== ML PREDICTION FUNCTION (CLOUD + TINYML HYBRID) =====
@@ -511,8 +518,12 @@ void fetchMitraChatHistoryForML() {
     }
     lastFetchTime = millis();
 
+    String url = String(serverUrl);
+    url.replace("/api/sensor-data", "/api/mitra/chat/");
+    url += elderlyId;
+    url += "/ml-data";
+    
     HTTPClient http;
-    String url = String(serverUrl).replace("/api/sensor-data", "/api/mitra/chat/") + elderlyId + "/ml-data";
     http.begin(url);
     http.setTimeout(10000);
 
@@ -557,26 +568,24 @@ void analyzeChatPatternForML(String message, String mlState, String sender) {
         // Elderly expressing distress or pain
         if (lowerMsg.indexOf("pain") >= 0 || lowerMsg.indexOf("hurt") >= 0 || 
             lowerMsg.indexOf("dizzy") >= 0 || lowerMsg.indexOf("weak") >= 0) {
-            // Increase prefall/fall sensitivity
-            Serial.println("🧠 [CHAT PATTERN]: Elderly distress detected - increasing fall sensitivity");
-            // This would adjust ML thresholds in a real implementation
+            Serial.println("[CHAT PATTERN]: Elderly distress detected - increasing fall sensitivity");
         }
         
         // Elderly expressing feeling unwell
         if (lowerMsg.indexOf("sick") >= 0 || lowerMsg.indexOf("nausea") >= 0 || 
             lowerMsg.indexOf("tired") >= 0 || lowerMsg.indexOf("exhausted") >= 0) {
-            Serial.println("🧠 [CHAT PATTERN]: Elderly unwell detected - monitoring vitals closely");
+            Serial.println("[CHAT PATTERN]: Elderly unwell detected - monitoring vitals closely");
         }
         
         // Elderly expressing normal activity
         if (lowerMsg.indexOf("fine") >= 0 || lowerMsg.indexOf("okay") >= 0 || 
             lowerMsg.indexOf("good") >= 0 || lowerMsg.indexOf("walking") >= 0) {
-            Serial.println("🧠 [CHAT PATTERN]: Elderly reports normal activity");
+            Serial.println("[CHAT PATTERN]: Elderly reports normal activity");
         }
     } else if (sender == "GUARDIAN") {
         // Guardian checking on elderly
         if (lowerMsg.indexOf("how are you") >= 0 || lowerMsg.indexOf("are you okay") >= 0) {
-            Serial.println("🧠 [CHAT PATTERN]: Guardian check-in detected");
+            Serial.println("[CHAT PATTERN]: Guardian check-in detected");
         }
     }
 }
@@ -587,8 +596,12 @@ void markChatAsLearned(long chatId) {
         return;
     }
 
+    String url = String(serverUrl);
+    url.replace("/api/sensor-data", "/api/mitra/chat/");
+    url += String(chatId);
+    url += "/mark-learned";
+    
     HTTPClient http;
-    String url = String(serverUrl).replace("/api/sensor-data", "/api/mitra/chat/") + String(chatId) + "/mark-learned";
     http.begin(url);
     http.addHeader("Content-Type", "application/json");
     http.setTimeout(5000);
@@ -638,7 +651,7 @@ void checkWorseningVitalsAfterFall() {
     // Check if temperature is abnormal
     if (currentTemp < 35 || currentTemp > 38.5) {
       vitalsWorsening = true;
-      alertReason += "Temp: " + String(currentTemp) + "°C ";
+      alertReason += "Temp: " + String(currentTemp) + "C ";
     }
     
     // If vitals are worsening, notify hospital
@@ -660,8 +673,11 @@ void checkWorseningVitalsAfterFall() {
 
 // ===== NOTIFY HOSPITAL OF EMERGENCY =====
 void notifyHospitalOfEmergency(String alertType, float heartRate, float spo2, float temperature) {
+  String url = String(serverUrl);
+  url.replace("/api/sensor-data", "/api/emergency/notify-hospital/");
+  url += elderlyId;
+  
   HTTPClient http;
-  String url = String(serverUrl).replace("/api/sensor-data", "/api/emergency/notify-hospital/") + elderlyId;
   http.begin(url);
   http.addHeader("Content-Type", "application/json");
   http.setTimeout(5000);
@@ -692,10 +708,10 @@ void sendLocationViaSMS() {
     String message = "SILVERCARE LOCATION ALERT\n";
     message += "GPS Coordinates: " + String(gpsLat, 6) + ", " + String(gpsLng, 6) + "\n";
     message += "Google Maps Link: https://maps.google.com/?q=" + String(gpsLat, 6) + "," + String(gpsLng, 6) + "\n";
-    message += "Timestamp: " + String(now()) + "\n";
+    message += "Timestamp: " + String(millis()) + "\n";
     message += "Device ID: " + DEVICE_ID;
     
-    sendSMS(message);
+    sendGSMSMS(mainGuardianPhone, message);
     Serial.println("[GSM SMS]: Location sent via SMS");
   }
 }
@@ -714,12 +730,10 @@ void checkWiFiRange() {
     // RSSI thresholds: -30 to -50 (excellent), -50 to -60 (good), -60 to -70 (fair), below -70 (poor)
     if (rssi < -75 && lastRSSI >= -75) {
       Serial.println("[WIFI RANGE]: Weak signal detected (" + String(rssi) + " dBm) - approaching edge of range");
-      // Could trigger alert to guardian
     }
     
     if (rssi < -85) {
       Serial.println("[WIFI RANGE]: Critical signal (" + String(rssi) + " dBm) - about to lose connection");
-      // Send alert to guardian about potential disconnection
     }
     
     lastRSSI = rssi;
@@ -730,13 +744,6 @@ void checkWiFiRange() {
 
 // ===== UNUSUAL LOCATION DETECTION =====
 bool isLocationUnusual(double lat, double lng) {
-  // This is a simplified version - in production, this would:
-  // 1. Compare against known safe zones (home, nursing home, frequently visited places)
-  // 2. Check if location is far from daily routine patterns
-  // 3. Consider time of day (unusual to be far from home at night)
-  
-  // For now, implement basic distance check from home location
-  // Home location would be stored in elderly profile
   double homeLat = 19.0760; // Example: Mumbai
   double homeLng = 72.8777;
   
@@ -752,7 +759,7 @@ bool isLocationUnusual(double lat, double lng) {
 }
 
 double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
- double R = 6371; // Earth's radius in km
+  double R = 6371; // Earth's radius in km
   double dLat = radians(lat2 - lat1);
   double dLon = radians(lon2 - lon1);
   double a = sin(dLat/2) * sin(dLat/2) +
@@ -772,8 +779,12 @@ void checkLocationRequest() {
     return;
   }
   
+  String url = String(serverUrl);
+  url.replace("/api/sensor-data", "/api/location/request/");
+  url += elderlyId;
+  url += "/check";
+  
   HTTPClient http;
-  String url = String(serverUrl).replace("/api/sensor-data", "/api/location/request/") + elderlyId + "/check";
   http.begin(url);
   http.setTimeout(5000);
   
@@ -789,13 +800,15 @@ void checkLocationRequest() {
       sendLocationViaSMS();
       
       // Mark request as processed
-      http.begin(url + "/acknowledge");
+      String ackUrl = url + "/acknowledge";
+      http.begin(ackUrl);
       http.POST("");
     }
   }
   
   http.end();
 }
+
 void fetchContactInfo() {
     if (WiFi.status() != WL_CONNECTED || elderlyId.length() == 0) {
         // Load offline numbers from EEPROM if WiFi disconnected
@@ -803,8 +816,12 @@ void fetchContactInfo() {
         return;
     }
 
+    String url = String(serverUrl);
+    url.replace("/api/sensor-data", "/api/elderly/");
+    url += elderlyId;
+    url += "/contacts";
+    
     HTTPClient http;
-    String url = String(serverUrl).replace("/api/sensor-data", "/api/elderly/") + elderlyId + "/contacts";
     http.begin(url);
     http.setTimeout(10000);
 
@@ -930,8 +947,10 @@ void handleSOSButton() {
             
             // Post SOS Alert to Backend
             if (WiFi.status() == WL_CONNECTED) {
+                String url = String(serverUrl);
+                url.replace("/api/sensor-data", "/api/alerts/sos");
+                
                 HTTPClient http;
-                String url = String(serverUrl).replace("/api/sensor-data", "/api/alerts/sos");
                 http.begin(url);
                 http.addHeader("Content-Type", "application/json");
                 String payload = "{\"deviceId\":\"" + DEVICE_ID + "\",\"elderlyId\":\"" + elderlyId + "\",\"alertType\":\"SOS_BUTTON\",\"latitude\":" + String(activeLat, 6) + ",\"longitude\":" + String(activeLng, 6) + "}";
@@ -984,8 +1003,10 @@ void handleMicrophoneRecording() {
         
         // Transmit voice message to backend
         if (WiFi.status() == WL_CONNECTED) {
+            String url = String(serverUrl);
+            url.replace("/api/sensor-data", "/api/alerts/voice-message");
+            
             HTTPClient http;
-            String url = String(serverUrl).replace("/api/sensor-data", "/api/alerts/voice-message");
             http.begin(url);
             http.addHeader("Content-Type", "application/json");
             String payload = "{\"deviceId\":\"" + DEVICE_ID + "\",\"elderlyId\":\"" + elderlyId + "\",\"audioData\":\"" + micMessage + "\"}";
@@ -1017,7 +1038,7 @@ void runEdgeFallDetection() {
             if (currentMLState != ML_FALL) {
                 currentMLState = ML_FALL;
                 mlConfidence = 0.95;
-                Serial.println("⚡ [EDGE FALL DETECTED]: Onboard ESP32 heuristic fall classification triggered!");
+                Serial.println("[EDGE FALL DETECTED]: Onboard ESP32 heuristic fall classification triggered!");
             }
             return;
         }
@@ -1032,13 +1053,13 @@ void runEdgeFallDetection() {
     if (totalAccelMag > 15.0 && totalAccelMag <= 25.0 && currentMLState == ML_NORMAL) {
         currentMLState = ML_PREFALL;
         mlConfidence = 0.88;
-        Serial.println("⚡ [EDGE PREFALL DETECTED]: Onboard ESP32 instability classification triggered!");
+        Serial.println("[EDGE PREFALL DETECTED]: Onboard ESP32 instability classification triggered!");
     }
     // 4. Sudden Jerk/Movement -> SUDDEN_MOVEMENT
     else if (totalGyroMag > 180.0 && currentMLState == ML_NORMAL) {
         currentMLState = ML_SUDDEN_MOVEMENT;
         mlConfidence = 0.82;
-        Serial.println("⚡ [EDGE SUDDEN MOVEMENT DETECTED]: Onboard ESP32 rapid motion triggered!");
+        Serial.println("[EDGE SUDDEN MOVEMENT DETECTED]: Onboard ESP32 rapid motion triggered!");
     }
 }
 
@@ -1191,8 +1212,10 @@ void sendAcknowledgmentToBackend() {
         return;
     }
 
+    String url = String(serverUrl);
+    url.replace("/api/sensor-data", "/api/alerts/acknowledge");
+    
     HTTPClient http;
-    String url = String(serverUrl).replace("/api/sensor-data", "/api/alerts/acknowledge");
     http.begin(url);
     http.addHeader("Content-Type", "application/json");
     http.setTimeout(10000);
@@ -1200,7 +1223,9 @@ void sendAcknowledgmentToBackend() {
     String payload = "{";
     payload += "\"elderlyId\":\"" + elderlyId + "\",";
     payload += "\"deviceId\":\"" + DEVICE_ID + "\",";
-    payload += "\"alertType\":\"" + (currentAlertState == PREFALL_ALERT ? "PREFALL" : "FALL") + "\",";
+    payload += "\"alertType\":\"";
+    payload += (currentAlertState == PREFALL_ALERT ? "PREFALL" : "FALL");
+    payload += "\",";
     payload += "\"acknowledged\":true";
     payload += "}";
 
@@ -1228,7 +1253,7 @@ void loadKnownNetworks() {
   }
   
   wifiPrefs.end();
-  Serial.println("📚 Loaded " + String(knownNetworkCount) + " known WiFi networks");
+  Serial.println("Loaded " + String(knownNetworkCount) + " known WiFi networks");
 }
 
 void saveKnownNetwork(String ssid, String password, int priority = 5) {
@@ -1320,7 +1345,7 @@ bool scanAndConnect() {
   for (int i = 0; i < n; i++) {
     if (WiFi.encryptionType(i) == WIFI_AUTH_OPEN) {
       String ssid = WiFi.SSID(i);
-      Serial.println("🔓 Found open network: " + ssid);
+      Serial.println("Found open network: " + ssid);
       if (connectToNetwork(ssid, "")) {
         WiFi.scanDelete();
         return true;
@@ -1392,7 +1417,8 @@ void handleSave() {
   
   Serial.println("Received WiFi credentials:");
   Serial.println("SSID: " + ssid);
-  Serial.println("Password: " + (password.length() > 0 ? "***" : "(open)"));
+  Serial.print("Password: ");
+  Serial.println(password.length() > 0 ? "***" : "(open)");
   
   // Save the network
   saveKnownNetwork(ssid, password, 10);
@@ -1458,7 +1484,7 @@ void stopCaptivePortal() {
 
 void setupWiFi() {
   Serial.println("========================================");
-  Serial.println("=== AUTOMATIC WIFI MANAGER ===");
+  Serial.println("AUTOMATIC WIFI MANAGER");
   Serial.println("========================================");
   
   WiFi.mode(WIFI_STA);
@@ -1494,8 +1520,6 @@ void manageWiFiConnection() {
     // Periodically scan for better networks
     if (millis() - lastScanTime > WIFI_SCAN_INTERVAL) {
       lastScanTime = millis();
-      // Optional: Scan for better networks while connected
-      // scanAndConnect(); // Uncomment to enable network switching
     }
     return;
   }
@@ -1577,7 +1601,6 @@ void setupBLEClient() {
     NimBLEDevice::init("");
     pClient = NimBLEDevice::createClient();
     pClient->setConnectTimeout(30); // 30 second timeout
-    pClient->setScanTimeout(30); // 30 second scan timeout
 
     Serial.println("BLE Client initialized");
 }
@@ -1591,59 +1614,82 @@ bool connectToWristBand() {
     Serial.println("Scanning for Wrist Band...");
 
     NimBLEScan* pScan = NimBLEDevice::getScan();
-    pScan->setActiveScanning(true);
+    pScan->setActiveScan(true);
     pScan->setInterval(100);
     pScan->setWindow(99);
 
-    NimBLEScanResults results = pScan->start(5, false); // Scan for 5 seconds
+    // Start scan
+    pScan->start(5, false);
+    delay(100);
 
-    Serial.println("Scan complete. Devices found: " + String(results.getCount()));
+    // Get results
+    NimBLEScanResults results = pScan->getResults();
+
+    if (results.getCount() == 0) {
+        Serial.println("No devices found");
+        pScan->clearResults();
+        return false;
+    }
+
+    Serial.println("Devices found: " + String(results.getCount()));
 
     for (int i = 0; i < results.getCount(); i++) {
-        NimBLEAdvertisedDevice device = results.getDevice(i);
+        // Use const pointer since getDevice returns const
+        const NimBLEAdvertisedDevice* device = results.getDevice(i);
 
-        if (device.getName().c_str() == String(WRIST_NAME)) {
-            Serial.println("Found Wrist Band: " + device.getName().c_str());
-            Serial.println("Address: " + device.getAddress().toString().c_str());
+        if (device) {
+            String deviceName = String(device->getName().c_str());
+            
+            if (deviceName == String(WRIST_NAME)) {
+                Serial.println("Found Wrist Band: " + deviceName);
+                Serial.println("Address: " + String(device->getAddress().toString().c_str()));
 
-            if (pClient->connect(&device)) {
-                Serial.println("Connected to Wrist Band!");
+                // connect() takes a const pointer
+                if (pClient->connect(device)) {
+                    Serial.println("Connected to Wrist Band!");
 
-                // Get service
-                NimBLERemoteService* pService = pClient->getService(SERVICE_UUID);
-                if (pService == nullptr) {
-                    Serial.println("Service not found");
-                    pClient->disconnect();
-                    return false;
-                }
-                Serial.println("Service found");
+                    // Get service
+                    NimBLERemoteService* pService = pClient->getService(SERVICE_UUID);
+                    if (pService == nullptr) {
+                        Serial.println("Service not found");
+                        pClient->disconnect();
+                        pScan->clearResults();
+                        return false;
+                    }
+                    Serial.println("Service found");
 
-                // Get characteristic
-                pChar = pService->getCharacteristic(CHARACTERISTIC_UUID);
-                if (pChar == nullptr) {
-                    Serial.println("Characteristic not found");
-                    pClient->disconnect();
-                    return false;
-                }
-                Serial.println("Characteristic found");
+                    // Get characteristic
+                    pChar = pService->getCharacteristic(CHARACTERISTIC_UUID);
+                    if (pChar == nullptr) {
+                        Serial.println("Characteristic not found");
+                        pClient->disconnect();
+                        pScan->clearResults();
+                        return false;
+                    }
+                    Serial.println("Characteristic found");
 
-                // Subscribe to notifications
-                if (pChar->subscribe(true, notifyCallback, true)) {
-                    Serial.println("Subscribed to notifications");
-                    connected = true;
-                    return true;
+                    // Subscribe to notifications
+                    if (pChar->subscribe(true, notifyCallback, true)) {
+                        Serial.println("Subscribed to notifications");
+                        connected = true;
+                        pScan->clearResults();
+                        return true;
+                    } else {
+                        Serial.println("Failed to subscribe");
+                        pClient->disconnect();
+                        pScan->clearResults();
+                        return false;
+                    }
                 } else {
-                    Serial.println("Failed to subscribe");
-                    pClient->disconnect();
+                    Serial.println("Failed to connect");
+                    pScan->clearResults();
                     return false;
                 }
-            } else {
-                Serial.println("Failed to connect");
-                return false;
             }
         }
     }
 
+    pScan->clearResults();
     Serial.println("Wrist Band not found");
     return false;
 }
@@ -1674,46 +1720,34 @@ void updateSimulation() {
     unsigned long now = millis();
     
     // Cycle state every 30 seconds for demonstration purposes
-    if (now - stateChangeTime > 30000) {
-        if (currentState == NORMAL) {
-            currentState = ALERT;
-            Serial.println("🔄 State changed to ALERT");
-        } else if (currentState == ALERT) {
-            currentState = CRITICAL;
-            Serial.println("🔄 State changed to CRITICAL");
+    if (now - simStateChangeTime > 30000) {
+        if (currentSimState == SIM_NORMAL) {
+            currentSimState = SIM_ALERT;
+            Serial.println("State changed to ALERT");
+        } else if (currentSimState == SIM_ALERT) {
+            currentSimState = SIM_CRITICAL;
+            Serial.println("State changed to CRITICAL");
         } else {
-            currentState = NORMAL;
-            Serial.println("🔄 State changed to NORMAL");
+            currentSimState = SIM_NORMAL;
+            Serial.println("State changed to NORMAL");
         }
-        stateChangeTime = now;
+        simStateChangeTime = now;
     }
 
     // Simulate HR based on state
-    switch (currentState) {
-        case NORMAL:
+    switch (currentSimState) {
+        case SIM_NORMAL:
             currentHr = random(65, 85);
             break;
-        case ALERT:
+        case SIM_ALERT:
             currentHr = random(105, 115);
             break;
-        case CRITICAL:
+        case SIM_CRITICAL:
             currentHr = random(125, 140);
             break;
     }
     currentSpo2 = random(95, 100);
-    currentTemp = readTemperatureSensor();
-}
-
-float readTemperatureSensor() {
-    int rawValue = analogRead(DS18B20_PIN);
-    if (rawValue > 100 && rawValue < 4000) {
-        float voltage = (rawValue / 4095.0) * 3.3;
-        float tempC = voltage * 100.0; // Convert voltage to temperature in °C
-        if (tempC >= 25.0 && tempC <= 45.0) {
-            return tempC;
-        }
-    }
-    return 36.5 + (random(-5, 5) / 10.0);
+    currentTemp = 36.5 + (random(-5, 5) / 10.0);
 }
 
 // ===== SEND DATA TO BACKEND =====
@@ -1763,26 +1797,26 @@ void sendDataToBackend() {
 
         int httpResponseCode = http.POST(payload);
         if (httpResponseCode > 0) {
-            Serial.print("✅ HTTP POST successful, code: ");
+            Serial.print("HTTP POST successful, code: ");
             Serial.println(httpResponseCode);
             
             String response = http.getString();
             if (response.indexOf("ACKNOWLEDGED") != -1 || response.indexOf("I am Fine") != -1) {
-                Serial.println("💚 [GUARDIAN ACKNOWLEDGED]: Clearing local buzzer and state!");
+                Serial.println("[GUARDIAN ACKNOWLEDGED]: Clearing local buzzer and state!");
                 digitalWrite(BUZZER_PIN, LOW);
                 currentAlertState = NO_ALERT;
                 guardianAcknowledged = true;
                 micMessage = "";
             }
         } else {
-            Serial.print("❌ HTTP Error code: ");
+            Serial.print("HTTP Error code: ");
             Serial.println(httpResponseCode);
-            Serial.print("❌ Error: ");
+            Serial.print("Error: ");
             Serial.println(http.errorToString(httpResponseCode));
         }
         http.end();
     } else {
-        Serial.println("❌ WiFi Disconnected");
+        Serial.println("WiFi Disconnected");
         manageWiFiConnection();
     }
 }
@@ -1801,10 +1835,10 @@ void sendSmartSMSAlert(String alertType, String message) {
         lastAlertType = alertType;
     }
     
-    Serial.println("📱 [SMS] Smart SMS System Activated");
+    Serial.println("[SMS] Smart SMS System Activated");
     
     if (WiFi.status() == WL_CONNECTED && !twilioSMSSent) {
-        Serial.println("📡 [TWILIO] Attempting SMS via WiFi...");
+        Serial.println("[TWILIO] Attempting SMS via WiFi...");
         bool twilioSuccess = sendTwilioSMS(alertType, message);
         if (twilioSuccess) {
             twilioSMSSent = true;
@@ -1814,7 +1848,7 @@ void sendSmartSMSAlert(String alertType, String message) {
     }
     
     if (!gsmSMSSent) {
-        Serial.println("📱 [GSM] Sending backup SMS...");
+        Serial.println("[GSM] Sending backup SMS...");
         bool gsmSuccess = sendGSMAlert(alertType, message);
         if (gsmSuccess) {
             gsmSMSSent = true;
@@ -1840,9 +1874,9 @@ void generateDeviceId() {
     devicePrefs.end();
     devicePrefs.begin("device_id", false);
     
-    Serial.println("🆕 Generated new Device ID: " + DEVICE_ID);
+    Serial.println("Generated new Device ID: " + DEVICE_ID);
   } else {
-    Serial.println("🆔 Loaded Device ID: " + DEVICE_ID);
+    Serial.println("Loaded Device ID: " + DEVICE_ID);
   }
   
   devicePrefs.end();
@@ -1850,7 +1884,7 @@ void generateDeviceId() {
 
 void registerDevice() {
   if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("❌ WiFi not connected, skipping device registration");
+    Serial.println("WiFi not connected, skipping device registration");
     return;
   }
   
@@ -1872,12 +1906,12 @@ void registerDevice() {
   int httpResponseCode = http.POST(payload);
   
   if (httpResponseCode > 0) {
-    Serial.print("✅ Device registered, code: ");
+    Serial.print("Device registered, code: ");
     Serial.println(httpResponseCode);
   } else {
-    Serial.print("❌ Device registration failed, code: ");
+    Serial.print("Device registration failed, code: ");
     Serial.println(httpResponseCode);
-    Serial.print("❌ Error: ");
+    Serial.print("Error: ");
     Serial.println(http.errorToString(httpResponseCode));
   }
   
@@ -1904,14 +1938,43 @@ void sendHeartbeat() {
   http.end();
 }
 
-// ... (rest of the code remains the same)
+// ===== STUB FUNCTIONS FOR MISSING IMPLEMENTATIONS =====
 
+bool sendTwilioSMS(String alertType, String message) {
+    Serial.println("[TWILIO STUB] Would send SMS: " + message);
+    return true;
+}
+
+bool sendGSMAlert(String alertType, String message) {
+    if (mainGuardianPhone.length() > 0) {
+        return sendGSMSMS(mainGuardianPhone, message);
+    }
+    return false;
+}
+
+void sendSMS(String message) {
+    if (mainGuardianPhone.length() > 0) {
+        sendGSMSMS(mainGuardianPhone, message);
+    }
+}
+
+void handleNotifications() {
+    static unsigned long lastNotification = 0;
+    if (currentAlertState != NO_ALERT && millis() - lastNotification > 1000) {
+        digitalWrite(BUZZER_PIN, !digitalRead(BUZZER_PIN));
+        lastNotification = millis();
+    } else if (currentAlertState == NO_ALERT) {
+        digitalWrite(BUZZER_PIN, LOW);
+    }
+}
+
+// ===== SETUP =====
 void setup() {
   Serial.begin(115200);
   delay(3000);
 
   Serial.println("========================================");
-  Serial.println("=== SILVERCARE WAIST BELT WORKAROUND ===");
+  Serial.println("SILVERCARE WAIST BELT WORKAROUND");
   Serial.println("========================================");
 
   generateDeviceId();
@@ -1919,7 +1982,7 @@ void setup() {
   // Display MAC address for pairing
   String macAddress = WiFi.macAddress();
   Serial.println("========================================");
-  Serial.println("📱 DEVICE PAIRING INFORMATION");
+  Serial.println("DEVICE PAIRING INFORMATION");
   Serial.println("========================================");
   Serial.println("MAC Address: " + macAddress);
   Serial.println("Device ID: " + DEVICE_ID);
@@ -1949,14 +2012,15 @@ void setup() {
   connectToWristBand();
 }
 
+// ===== LOOP =====
 void loop() {
   unsigned long now = millis();
 
   // Try to connect to wrist band if not connected
-  static unsigned long lastBLEConnect尝试 = 0;
-  if (!connected && now - lastBLEConnect尝试 > 30000) { // Try every 30 seconds
+  static unsigned long lastBLEConnectAttempt = 0;
+  if (!connected && now - lastBLEConnectAttempt > 30000) { // Try every 30 seconds
     connectToWristBand();
-    lastBLEConnect尝试 = now;
+    lastBLEConnectAttempt = now;
   }
 
   // In actual implementation, if dataReceivedFromWrist is false, run simulation
