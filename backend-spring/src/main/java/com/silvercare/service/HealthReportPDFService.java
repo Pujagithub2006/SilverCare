@@ -115,21 +115,34 @@ public class HealthReportPDFService {
                 yPosition -= 25;
 
                 contentStream.setFont(normalFont, 11);
+
                 contentStream.beginText();
                 contentStream.newLineAtOffset(startX, yPosition);
-                contentStream.showText("Heart Rate: Avg " + report.getAvgHeartRate() + " BPM (Min: " + report.getMinHeartRate() + ", Max: " + report.getMaxHeartRate() + ")");
+                if (report.getAvgHeartRate() != null && report.getAvgHeartRate() > 0) {
+                    contentStream.showText("Heart Rate: Avg " + report.getAvgHeartRate() + " BPM (Min: " + report.getMinHeartRate() + ", Max: " + report.getMaxHeartRate() + ")");
+                } else {
+                    contentStream.showText("Heart Rate: Data not available from hardware");
+                }
                 contentStream.endText();
                 yPosition -= 20;
 
                 contentStream.beginText();
                 contentStream.newLineAtOffset(startX, yPosition);
-                contentStream.showText("SpO2: Avg " + report.getAvgSpo2() + "% (Min: " + report.getMinSpo2() + "%)");
+                if (report.getAvgSpo2() != null && report.getAvgSpo2() > 0) {
+                    contentStream.showText("SpO2: Avg " + report.getAvgSpo2() + "% (Min: " + report.getMinSpo2() + "%)");
+                } else {
+                    contentStream.showText("SpO2: Data not available from hardware");
+                }
                 contentStream.endText();
                 yPosition -= 20;
 
                 contentStream.beginText();
                 contentStream.newLineAtOffset(startX, yPosition);
-                contentStream.showText("Temperature: Avg " + report.getAvgTemperature() + "°C");
+                if (report.getAvgTemperature() != null && report.getAvgTemperature() > 0) {
+                    contentStream.showText("Temperature: Avg " + report.getAvgTemperature() + " C");
+                } else {
+                    contentStream.showText("Temperature: Data not available from hardware");
+                }
                 contentStream.endText();
                 yPosition -= 40;
 

@@ -368,7 +368,10 @@ export default function GuardianDashboardPage() {
   };
 
   const handleGenerateDailyReport = async () => {
-    if (!selectedElderly) return;
+    if (!selectedElderly) {
+      showSnackbarMessage('Please select a senior citizen first', 'error');
+      return;
+    }
     const elderlyId = selectedElderly.elderlyId || selectedElderly.id || selectedElderly.elderly_id;
     
     setReportLoading(true);
@@ -376,14 +379,39 @@ export default function GuardianDashboardPage() {
       const response = await getDailyReport(elderlyId);
       console.log('[GuardianDashboard] Daily report generation response:', response);
       if (response.status === 'success') {
-        showSnackbarMessage('Daily report generated successfully', 'success');
+        showSnackbarMessage('Daily health report generated successfully! 📄', 'success');
         handleLoadHealthReports();
       } else {
-        showSnackbarMessage(`Failed to generate daily report: ${response.message || 'Insufficient data'}`, 'error');
+        showSnackbarMessage(`Failed to generate daily report: ${response.message || 'Error'}`, 'error');
       }
     } catch (error) {
       console.error('[GuardianDashboard] Error generating daily report:', error);
-      showSnackbarMessage('Error generating daily report. Insufficient sensor data may be available.', 'error');
+      showSnackbarMessage('Error generating daily report.', 'error');
+    } finally {
+      setReportLoading(false);
+    }
+  };
+
+  const handleGenerateWeeklyReport = async () => {
+    if (!selectedElderly) {
+      showSnackbarMessage('Please select a senior citizen first', 'error');
+      return;
+    }
+    const elderlyId = selectedElderly.elderlyId || selectedElderly.id || selectedElderly.elderly_id;
+    
+    setReportLoading(true);
+    try {
+      const response = await getWeeklyReport(elderlyId);
+      console.log('[GuardianDashboard] Weekly report generation response:', response);
+      if (response.status === 'success') {
+        showSnackbarMessage('Weekly health report generated successfully! 📊', 'success');
+        handleLoadHealthReports();
+      } else {
+        showSnackbarMessage(`Failed to generate weekly report: ${response.message || 'Error'}`, 'error');
+      }
+    } catch (error) {
+      console.error('[GuardianDashboard] Error generating weekly report:', error);
+      showSnackbarMessage('Error generating weekly report.', 'error');
     } finally {
       setReportLoading(false);
     }
@@ -1354,22 +1382,48 @@ export default function GuardianDashboardPage() {
 
                   {/* Health Reports */}
                   <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #e2e8f0' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '6px' }}>
                       <div style={{ fontWeight: '700', color: '#1e293b', fontSize: '14px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                        Health Reports
+                        📋 Health Reports
                       </div>
-                      <button
-                        onClick={handleLoadHealthReports}
-                        disabled={reportLoading}
-                        style={{
-                          backgroundColor: '#007AFF', color: '#ffffff',
-                          border: 'none', padding: '8px 14px', borderRadius: '8px',
-                          fontSize: '12px', fontWeight: '700', cursor: reportLoading ? 'not-allowed' : 'pointer',
-                          opacity: reportLoading ? 0.6 : 1
-                        }}
-                      >
-                        {reportLoading ? 'Loading...' : 'Refresh'}
-                      </button>
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        <button
+                          onClick={handleGenerateDailyReport}
+                          disabled={reportLoading}
+                          style={{
+                            backgroundColor: '#10b981', color: '#ffffff',
+                            border: 'none', padding: '6px 10px', borderRadius: '8px',
+                            fontSize: '11px', fontWeight: '700', cursor: reportLoading ? 'not-allowed' : 'pointer',
+                            opacity: reportLoading ? 0.6 : 1
+                          }}
+                        >
+                          + Daily
+                        </button>
+                        <button
+                          onClick={handleGenerateWeeklyReport}
+                          disabled={reportLoading}
+                          style={{
+                            backgroundColor: '#8b5cf6', color: '#ffffff',
+                            border: 'none', padding: '6px 10px', borderRadius: '8px',
+                            fontSize: '11px', fontWeight: '700', cursor: reportLoading ? 'not-allowed' : 'pointer',
+                            opacity: reportLoading ? 0.6 : 1
+                          }}
+                        >
+                          + Weekly
+                        </button>
+                        <button
+                          onClick={handleLoadHealthReports}
+                          disabled={reportLoading}
+                          style={{
+                            backgroundColor: '#007AFF', color: '#ffffff',
+                            border: 'none', padding: '6px 10px', borderRadius: '8px',
+                            fontSize: '11px', fontWeight: '700', cursor: reportLoading ? 'not-allowed' : 'pointer',
+                            opacity: reportLoading ? 0.6 : 1
+                          }}
+                        >
+                          🔄 {reportLoading ? '...' : 'Refresh'}
+                        </button>
+                      </div>
                     </div>
                     {healthReports.length > 0 ? (
                       <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
@@ -1389,10 +1443,10 @@ export default function GuardianDashboardPage() {
                           >
                             <div>
                               <div style={{ fontSize: '13px', fontWeight: '700', color: '#1f2937' }}>
-                                {report.reportType} Report
+                                📄 {report.reportType} Health Report
                               </div>
                               <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
-                                {new Date(report.reportDate).toLocaleDateString()}
+                                {report.reportDate ? new Date(report.reportDate).toLocaleDateString() : 'Recent'} • {report.totalFalls || 0} Falls recorded
                               </div>
                             </div>
                             <button
@@ -1400,10 +1454,11 @@ export default function GuardianDashboardPage() {
                               style={{
                                 backgroundColor: '#10b981', color: '#ffffff',
                                 border: 'none', padding: '6px 12px', borderRadius: '6px',
-                                fontSize: '11px', fontWeight: '700', cursor: 'pointer'
+                                fontSize: '11px', fontWeight: '700', cursor: 'pointer',
+                                display: 'flex', alignItems: 'center', gap: '4px'
                               }}
                             >
-                              Download
+                              📥 PDF
                             </button>
                           </div>
                         ))}
@@ -1418,7 +1473,7 @@ export default function GuardianDashboardPage() {
                         color: '#64748b',
                         fontSize: '12px'
                       }}>
-                        No reports generated yet
+                        No reports generated yet. Click <strong>+ Daily</strong> or <strong>+ Weekly</strong> above to create one now!
                       </div>
                     )}
                   </div>

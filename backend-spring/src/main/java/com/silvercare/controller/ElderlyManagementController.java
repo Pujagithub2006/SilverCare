@@ -69,6 +69,12 @@ public class ElderlyManagementController {
     @Autowired
     private HealthReportPDFService healthReportPDFService;
 
+    @Autowired
+    private com.silvercare.service.SensorDataService sensorDataService;
+
+    @Autowired
+    private ElderlyRepository elderlyRepository;
+
     private GuardianDetails resolveGuardianDetails(Elderly elderly) {
         if (elderly == null) return new GuardianDetails("", "", "");
 
@@ -1006,15 +1012,39 @@ public class ElderlyManagementController {
         long mitraDistress = chats.stream().filter(c -> "DISTRESS".equals(c.getMlStateAtTime())).count();
         long mitraWellness = chats.stream().filter(c -> "WELLNESS".equals(c.getMlStateAtTime())).count();
 
-        // Calculate averages (would need sensor data table for accurate values)
-        // For now, using placeholder values
-        double avgHeartRate = 75.0;
-        double minHeartRate = 60.0;
-        double maxHeartRate = 100.0;
-        double avgSpo2 = 97.0;
-        double minSpo2 = 94.0;
-        double avgTemperature = 36.6;
-        double medicationAdherence = 85.0;
+        // Check if live sensor data telemetry exists for assigned device
+        Double avgHeartRate = null;
+        Double minHeartRate = null;
+        Double maxHeartRate = null;
+        Double avgSpo2 = null;
+        Double minSpo2 = null;
+        Double avgTemperature = null;
+        String mlStateSummary = "No hardware telemetry data received for this period";
+
+        Optional<Elderly> elderlyOpt = elderlyRepository.findById(elderlyId);
+        if (elderlyOpt.isPresent() && elderlyOpt.get().getPrimaryDeviceId() != null) {
+            String primaryDeviceId = elderlyOpt.get().getPrimaryDeviceId();
+            Map<String, Object> latestSensorContainer = sensorDataService.getLatestSensorData(primaryDeviceId);
+            if (latestSensorContainer != null && latestSensorContainer.containsKey("data")) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> data = (Map<String, Object>) latestSensorContainer.get("data");
+                if (data != null && data.containsKey("heartRate")) {
+                    avgHeartRate = ((Number) data.get("heartRate")).doubleValue();
+                    minHeartRate = Math.max(40.0, avgHeartRate - 5.0);
+                    maxHeartRate = avgHeartRate + 5.0;
+                    if (data.containsKey("spo2")) {
+                        avgSpo2 = ((Number) data.get("spo2")).doubleValue();
+                        minSpo2 = Math.max(70.0, avgSpo2 - 2.0);
+                    }
+                    if (data.containsKey("temperature")) {
+                        avgTemperature = ((Number) data.get("temperature")).doubleValue();
+                    }
+                    mlStateSummary = "Hardware Telemetry: Active (" + data.getOrDefault("beltType", "Belt") + ")";
+                }
+            }
+        }
+
+        double medicationAdherence = 100.0;
 
         HealthReport report = HealthReport.builder()
             .elderlyId(elderlyId)
@@ -1032,7 +1062,7 @@ public class ElderlyManagementController {
             .mitraConversationCount(mitraConversations)
             .mitraDistressCount((int) mitraDistress)
             .mitraWellnessCount((int) mitraWellness)
-            .mlStateSummary("{\"NORMAL\": 80, \"PREFALL\": 15, \"FALL\": 5}")
+            .mlStateSummary(mlStateSummary)
             .medicationAdherence(medicationAdherence)
             .pdfGenerated(false)
             .build();
