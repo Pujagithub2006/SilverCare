@@ -1601,6 +1601,20 @@ void setupBLEClient() {
     NimBLEDevice::init("");
     pClient = NimBLEDevice::createClient();
     pClient->setConnectTimeout(30); // 30 second timeout
+    
+    // Set client callbacks to handle disconnection
+    class ClientCallbacks : public NimBLEClientCallbacks {
+        void onConnect(NimBLEClient* pClient) {
+            Serial.println("[BLE CLIENT] Connected to server");
+        }
+        
+        void onDisconnect(NimBLEClient* pClient, NimBLEConnInfo& connInfo, int reason) {
+            Serial.println("[BLE CLIENT] Disconnected from server. Reason: " + String(reason));
+            connected = false;
+            dataReceivedFromWrist = false;
+        }
+    };
+    pClient->setClientCallbacks(new ClientCallbacks());
 
     Serial.println("BLE Client initialized");
 }
@@ -1611,27 +1625,40 @@ bool connectToWristBand() {
         return true; // Already connected
     }
 
+    Serial.println("========================================");
     Serial.println("Scanning for Wrist Band...");
+    Serial.println("========================================");
 
     NimBLEScan* pScan = NimBLEDevice::getScan();
     pScan->setActiveScan(true);
     pScan->setInterval(100);
     pScan->setWindow(99);
 
-    // Start scan
-    pScan->start(5, false);
+    // Start scan with longer duration (15 seconds)
+    pScan->start(15, false);
     delay(100);
 
     // Get results
     NimBLEScanResults results = pScan->getResults();
 
     if (results.getCount() == 0) {
-        Serial.println("No devices found");
+        Serial.println("No BLE devices found during scan");
         pScan->clearResults();
         return false;
     }
 
     Serial.println("Devices found: " + String(results.getCount()));
+    
+    // Debug: Print all found devices
+    for (int i = 0; i < results.getCount(); i++) {
+        const NimBLEAdvertisedDevice* device = results.getDevice(i);
+        if (device) {
+            String deviceName = String(device->getName().c_str());
+            String deviceAddr = String(device->getAddress().toString().c_str());
+            int rssi = device->getRSSI();
+            Serial.println("  [" + String(i) + "] Name: " + deviceName + " | Addr: " + deviceAddr + " | RSSI: " + String(rssi) + " dBm");
+        }
+    }
 
     for (int i = 0; i < results.getCount(); i++) {
         // Use const pointer since getDevice returns const
@@ -1640,9 +1667,13 @@ bool connectToWristBand() {
         if (device) {
             String deviceName = String(device->getName().c_str());
             
+            Serial.println("Checking device: " + deviceName + " against target: " + String(WRIST_NAME));
+            
             if (deviceName == String(WRIST_NAME)) {
+                Serial.println("========================================");
                 Serial.println("Found Wrist Band: " + deviceName);
                 Serial.println("Address: " + String(device->getAddress().toString().c_str()));
+                Serial.println("========================================");
 
                 // connect() takes a const pointer
                 if (pClient->connect(device)) {
@@ -1651,7 +1682,8 @@ bool connectToWristBand() {
                     // Get service
                     NimBLERemoteService* pService = pClient->getService(SERVICE_UUID);
                     if (pService == nullptr) {
-                        Serial.println("Service not found");
+                        Serial.println("Service not found - UUID mismatch");
+                        Serial.println("Looking for Service UUID: " + String(SERVICE_UUID));
                         pClient->disconnect();
                         pScan->clearResults();
                         return false;
@@ -1661,7 +1693,8 @@ bool connectToWristBand() {
                     // Get characteristic
                     pChar = pService->getCharacteristic(CHARACTERISTIC_UUID);
                     if (pChar == nullptr) {
-                        Serial.println("Characteristic not found");
+                        Serial.println("Characteristic not found - UUID mismatch");
+                        Serial.println("Looking for Characteristic UUID: " + String(CHARACTERISTIC_UUID));
                         pClient->disconnect();
                         pScan->clearResults();
                         return false;
@@ -1670,18 +1703,20 @@ bool connectToWristBand() {
 
                     // Subscribe to notifications
                     if (pChar->subscribe(true, notifyCallback, true)) {
-                        Serial.println("Subscribed to notifications");
+                        Serial.println("========================================");
+                        Serial.println("SUCCESS: Subscribed to notifications");
+                        Serial.println("========================================");
                         connected = true;
                         pScan->clearResults();
                         return true;
                     } else {
-                        Serial.println("Failed to subscribe");
+                        Serial.println("Failed to subscribe to notifications");
                         pClient->disconnect();
                         pScan->clearResults();
                         return false;
                     }
                 } else {
-                    Serial.println("Failed to connect");
+                    Serial.println("Failed to connect to Wrist Band");
                     pScan->clearResults();
                     return false;
                 }
@@ -1690,7 +1725,9 @@ bool connectToWristBand() {
     }
 
     pScan->clearResults();
-    Serial.println("Wrist Band not found");
+    Serial.println("========================================");
+    Serial.println("Wrist Band '" + String(WRIST_NAME) + "' not found in scan results");
+    Serial.println("========================================");
     return false;
 }
 
@@ -2018,7 +2055,7 @@ void loop() {
 
   // Try to connect to wrist band if not connected
   static unsigned long lastBLEConnectAttempt = 0;
-  if (!connected && now - lastBLEConnectAttempt > 30000) { // Try every 30 seconds
+  if (!connected && now - lastBLEConnectAttempt > 10000) { // Try every 10 seconds (was 30)
     connectToWristBand();
     lastBLEConnectAttempt = now;
   }

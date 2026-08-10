@@ -169,10 +169,24 @@ void setup() {
 
   // ========== Initialize MAX30102 Heart Sensor ==========
   Serial.println("Initializing MAX30102...");
+  Serial.println("I2C Pins: SDA=21, SCL=22");
+  
   if (!maxSensor.begin(Wire, I2C_SPEED_FAST)) {
-    Serial.println("MAX30102 NOT FOUND");
-    while (1);
+    Serial.println("========================================");
+    Serial.println("ERROR: MAX30102 NOT FOUND!");
+    Serial.println("Check:");
+    Serial.println("  1. MAX30102 connected to I2C pins 21 (SDA) and 22 (SCL)");
+    Serial.println("  2. MAX30102 powered (3.3V or 5V)");
+    Serial.println("  3. MAX30102 GND connected");
+    Serial.println("  4. Pull-up resistors on I2C lines (usually 4.7k)");
+    Serial.println("========================================");
+    while (1) {
+      delay(1000);
+      Serial.println("MAX30102 still not detected - waiting...");
+    }
   }
+  
+  Serial.println("MAX30102 detected successfully!");
   
   byte ledBrightness = 0x7F;
   byte sampleAverage = 4;
@@ -185,7 +199,17 @@ void setup() {
   maxSensor.setPulseAmplitudeRed(0x7F);
   maxSensor.setPulseAmplitudeIR(0x7F);
   
-  Serial.println("MAX30102 Initialized");
+  // Increase LED power for better signal detection
+  maxSensor.setPulseAmplitudeRed(0xFF); // Max power for RED
+  maxSensor.setPulseAmplitudeIR(0xFF);  // Max power for IR
+  
+  Serial.println("MAX30102 configured");
+  Serial.println("LED Brightness: 0x7F");
+  Serial.println("Sample Average: 4");
+  Serial.println("LED Mode: 2 (Red + IR)");
+  Serial.println("Sample Rate: 400 Hz");
+  Serial.println("Pulse Width: 411");
+  Serial.println("ADC Range: 4096");
   sensorInitialized = true;
 
   // ========== BLE Server Initialization ==========
@@ -204,7 +228,7 @@ void initBLEServer() {
   // Initialize NimBLE
   NimBLEDevice::init(DEVICE_NAME);
   NimBLEDevice::setOwnAddrType(BLE_OWN_ADDR_PUBLIC);
-  NimBLEDevice::setPower(ESP_PWR_LVL_P9);
+  NimBLEDevice::setPower(ESP_PWR_LVL_P9); // Max power for better range
   
   // Create server
   pServer = NimBLEDevice::createServer();
@@ -232,6 +256,7 @@ void initBLEServer() {
   NimBLEAdvertisementData advData;
   advData.setName(DEVICE_NAME);
   advData.setCompleteServices(NimBLEUUID(SERVICE_UUID));
+  advData.setFlags(0x06); // General Discoverable + BR/EDR not supported
   pAdvertising->setAdvertisementData(advData);
   
   // Set scan response data
@@ -242,11 +267,13 @@ void initBLEServer() {
   // Start advertising
   pAdvertising->start();
   
+  Serial.println("========================================");
   Serial.println("BLE Server started!");
-  Serial.print("Service UUID: ");
-  Serial.println(SERVICE_UUID);
-  Serial.print("Characteristic UUID: ");
-  Serial.println(CHARACTERISTIC_UUID);
+  Serial.println("Device Name: " + String(DEVICE_NAME));
+  Serial.println("Service UUID: " + String(SERVICE_UUID));
+  Serial.println("Characteristic UUID: " + String(CHARACTERISTIC_UUID));
+  Serial.println("Advertising: ACTIVE");
+  Serial.println("========================================");
 }
 
 // =========================================================================
@@ -258,40 +285,58 @@ void readHeartRateSensor() {
   irValue = maxSensor.getIR();
   redValue = maxSensor.getRed();
   
-  if (checkForBeat(irValue) == true) {
-    // We have a beat
-    long delta = millis() - lastBeat;
-    lastBeat = millis();
-    
-    beatsPerMinute = 60 / (delta / 1000.0);
-    
-    if (beatsPerMinute < 255 && beatsPerMinute > 20) {
-      rates[rateSpot++] = (byte)beatsPerMinute;
-      rateSpot %= RATE_SIZE;
-      
-      // Calculate average
-      beatAvg = 0;
-      for (int x = 0; x < RATE_SIZE; x++) {
-        beatAvg += rates[x];
-      }
-      beatAvg /= RATE_SIZE;
-      
-      heartRate = beatAvg;
-      
-      // Simple SpO2 estimation (ratio of red to IR)
-      if (redValue > 0 && irValue > 0) {
-        float ratio = (float)redValue / (float)irValue;
-        spo2 = 110.0 - (ratio * 25.0);  // Simplified estimation
-        if (spo2 > 100) spo2 = 100;
-        if (spo2 < 70) spo2 = 70;
-      }
-      
-      Serial.print("💓 Heart Rate: ");
-      Serial.print(heartRate);
-      Serial.print(" BPM | SpO2: ");
-      Serial.print(spo2);
-      Serial.println("%");
+  // Debug: Print raw sensor values every second
+  static unsigned long lastDebugPrint = 0;
+  if (millis() - lastDebugPrint > 1000) {
+    Serial.print("[SENSOR DEBUG] IR: ");
+    Serial.print(irValue);
+    Serial.print(" | RED: ");
+    Serial.println(redValue);
+    lastDebugPrint = millis();
+  }
+  
+  // Simple peak detection for heart rate
+  static long lastIrValue = 0;
+  static bool rising = false;
+  static unsigned long lastPeakTime = 0;
+  static int peakCount = 0;
+  static unsigned long hrCalcTime = 0;
+  
+  // Detect peaks in IR signal
+  if (irValue > lastIrValue + 100) {
+    rising = true;
+  }
+  if (rising && irValue < lastIrValue - 100) {
+    // Peak detected
+    rising = false;
+    unsigned long now = millis();
+    if (now - lastPeakTime > 300) { // Minimum 300ms between peaks (max 200 BPM)
+      peakCount++;
+      lastPeakTime = now;
+      Serial.print("[PEAK DETECTED] IR: ");
+      Serial.println(irValue);
     }
+  }
+  lastIrValue = irValue;
+  
+  // Calculate heart rate every 5 seconds based on peak count
+  if (millis() - hrCalcTime > 5000) {
+    if (peakCount > 0) {
+      heartRate = (peakCount * 60.0) / 5.0; // BPM = (peaks * 60) / time_window_seconds
+      Serial.print("[CALCULATED HR] ");
+      Serial.print(heartRate);
+      Serial.println(" BPM");
+    }
+    peakCount = 0;
+    hrCalcTime = millis();
+  }
+  
+  // Simple SpO2 estimation (ratio of red to IR)
+  if (redValue > 0 && irValue > 0 && irValue < 100000) { // Ignore saturated values
+    float ratio = (float)redValue / (float)irValue;
+    spo2 = 110.0 - (ratio * 25.0);  // Simplified estimation
+    if (spo2 > 100) spo2 = 100;
+    if (spo2 < 70) spo2 = 70;
   }
 }
 
