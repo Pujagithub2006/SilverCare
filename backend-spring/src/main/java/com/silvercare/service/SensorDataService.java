@@ -148,22 +148,50 @@ public class SensorDataService {
     }
 
     public Map<String, Object> getLatestSensorData(String deviceId) {
-        if (deviceId == null || !latestSensorDataContainer.containsKey(deviceId)) {
-             return Map.of(
-                "status", "success",
-                "device_connected", false,
-                "message", "No hardware connected for device: " + (deviceId != null ? deviceId : "unknown")
-            );
+        String targetId = (deviceId != null && !deviceId.trim().isEmpty()) ? deviceId : "vois_belt";
+        
+        if (!latestSensorDataContainer.containsKey(targetId)) {
+            Map<String, Object> disconnectedData = new LinkedHashMap<>();
+            disconnectedData.put("deviceId", targetId);
+            disconnectedData.put("beltType", "Waist Belt");
+            disconnectedData.put("beltWorn", false);
+            disconnectedData.put("heartRate", 0);
+            disconnectedData.put("spo2", 0);
+            disconnectedData.put("temperature", 0);
+            disconnectedData.put("acceleration", 0);
+            disconnectedData.put("stateName", "DISCONNECTED");
+            disconnectedData.put("latitude", null);
+            disconnectedData.put("longitude", null);
+            disconnectedData.put("isLastLocationFetched", false);
+            disconnectedData.put("locationWarning", "No hardware connected");
+
+            Map<String, Object> container = new LinkedHashMap<>();
+            container.put("status", "success");
+            container.put("device_connected", false);
+            container.put("data", disconnectedData);
+            container.put("message", "No hardware connected for device: " + targetId);
+            return container;
         }
-        Map<String, Object> container = latestSensorDataContainer.get(deviceId);
+
+        Map<String, Object> container = new LinkedHashMap<>(latestSensorDataContainer.get(targetId));
         if (container.containsKey("last_update")) {
             String lastUpdateStr = (String) container.get("last_update");
             LocalDateTime lastUpdate = LocalDateTime.parse(lastUpdateStr);
             if (java.time.Duration.between(lastUpdate, LocalDateTime.now()).getSeconds() > 15) {
                 container.put("device_connected", false);
+                if (container.get("data") instanceof Map) {
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> innerData = new LinkedHashMap<>((Map<String, Object>) container.get("data"));
+                    innerData.put("beltWorn", false);
+                    innerData.put("heartRate", 0);
+                    innerData.put("spo2", 0);
+                    innerData.put("temperature", 0);
+                    innerData.put("stateName", "DISCONNECTED");
+                    container.put("data", innerData);
+                }
             }
         }
-        return new LinkedHashMap<>(container);
+        return container;
     }
 
     public Map<String, Object> getDeviceStatus() {

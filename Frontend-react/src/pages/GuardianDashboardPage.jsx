@@ -62,17 +62,17 @@ export default function GuardianDashboardPage() {
   const [sensorData, setSensorData] = useState({
     deviceId: 'vois_belt',
     beltType: 'Waist Belt',
-    beltWorn: true,
-    heartRate: 74,
-    spo2: 98,
-    temperature: 36.6,
-    acceleration: 1.05,
-    stateName: 'NORMAL',
+    beltWorn: false,
+    heartRate: 0,
+    spo2: 0,
+    temperature: 0,
+    acceleration: 0,
+    stateName: 'DISCONNECTED',
     latitude: null,
     longitude: null,
     isLastLocationFetched: false,
-    locationWarning: '',
-    received_at: new Date().toLocaleTimeString()
+    locationWarning: 'Hardware disconnected',
+    received_at: ''
   });
 
   // Active Emergency Alerts & Mic Audio Message
@@ -640,17 +640,18 @@ export default function GuardianDashboardPage() {
   const pollLiveTelemetry = async (deviceId) => {
     try {
       const data = await fetchSensorData(deviceId);
-      if (data && data.status === 'success' && data.data) {
+      if (data && data.status === 'success' && data.data && data.device_connected !== false) {
         const d = data.data;
+        const isWorn = d.beltWorn === true || d.beltWorn === 'true';
         setSensorData(prev => ({
-          deviceId: d.deviceId || 'vois_belt',
+          deviceId: d.deviceId || deviceId || 'vois_belt',
           beltType: d.beltType || 'Waist Belt',
-          beltWorn: d.beltWorn !== undefined ? d.beltWorn : true,
-          heartRate: d.heartRate !== undefined ? Math.round(d.heartRate) : 0,
-          spo2: d.spo2 !== undefined ? Math.round(d.spo2) : 0,
-          temperature: d.temperature !== undefined ? Number(d.temperature).toFixed(1) : 0,
-          acceleration: d.acceleration !== undefined ? Number(d.acceleration).toFixed(2) : 1.0,
-          stateName: d.stateName || 'NORMAL',
+          beltWorn: isWorn,
+          heartRate: isWorn ? Math.round(d.heartRate || 0) : 0,
+          spo2: isWorn ? Math.round(d.spo2 || 0) : 0,
+          temperature: isWorn ? Number(d.temperature || 0).toFixed(1) : 0,
+          acceleration: isWorn ? Number(d.acceleration || 0).toFixed(2) : 0,
+          stateName: isWorn ? (d.stateName || 'NORMAL') : 'DISCONNECTED',
           latitude: d.latitude !== undefined && d.latitude !== null ? d.latitude : prev.latitude,
           longitude: d.longitude !== undefined && d.longitude !== null ? d.longitude : prev.longitude,
           isLastLocationFetched: d.isLastLocationFetched !== undefined ? d.isLastLocationFetched : false,
@@ -658,9 +659,30 @@ export default function GuardianDashboardPage() {
           received_at: d.received_at || new Date().toLocaleTimeString(),
           micMessageAudio: d.micMessageAudio
         }));
+      } else {
+        setSensorData(prev => ({
+          ...prev,
+          beltWorn: false,
+          heartRate: 0,
+          spo2: 0,
+          temperature: 0,
+          acceleration: 0,
+          stateName: 'DISCONNECTED',
+          locationWarning: 'Hardware disconnected or offline'
+        }));
       }
     } catch (err) {
       console.error('Error polling live sensor telemetry:', err);
+      setSensorData(prev => ({
+        ...prev,
+        beltWorn: false,
+        heartRate: 0,
+        spo2: 0,
+        temperature: 0,
+        acceleration: 0,
+        stateName: 'DISCONNECTED',
+        locationWarning: 'Hardware disconnected or offline'
+      }));
     }
   };
 
@@ -1171,44 +1193,50 @@ export default function GuardianDashboardPage() {
                   
                   {/* Heart Rate Card */}
                   <div className="hardware-card" style={{
-                    background: 'linear-gradient(135deg, #007AFF, #0056b3)',
+                    background: sensorData.beltWorn ? 'linear-gradient(135deg, #007AFF, #0056b3)' : 'linear-gradient(135deg, #64748b, #475569)',
                     color: 'white',
                     borderRadius: '14px',
                     padding: '16px',
                     textAlign: 'center',
-                    boxShadow: '0 4px 12px rgba(0, 122, 255, 0.25)'
+                    boxShadow: sensorData.beltWorn ? '0 4px 12px rgba(0, 122, 255, 0.25)' : '0 4px 12px rgba(100, 116, 139, 0.25)'
                   }}>
                     <div style={{ fontSize: '10px', opacity: 0.9, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Heart Rate</div>
-                    <div style={{ fontSize: '24px', fontWeight: '800', marginTop: '4px' }}>{sensorData.heartRate} <span style={{ fontSize: '13px', fontWeight: '600' }}>BPM</span></div>
-                    <div style={{ fontSize: '10px', opacity: 0.8, marginTop: '4px' }}>Normal: 60-100</div>
+                    <div style={{ fontSize: '24px', fontWeight: '800', marginTop: '4px' }}>
+                      {sensorData.beltWorn && sensorData.heartRate > 0 ? sensorData.heartRate : '--'} <span style={{ fontSize: '13px', fontWeight: '600' }}>{sensorData.beltWorn && sensorData.heartRate > 0 ? 'BPM' : 'Offline'}</span>
+                    </div>
+                    <div style={{ fontSize: '10px', opacity: 0.8, marginTop: '4px' }}>{sensorData.beltWorn ? 'Normal: 60-100' : 'Hardware Disconnected'}</div>
                   </div>
 
                   {/* Oxygen Card */}
                   <div className="hardware-card" style={{
-                    background: 'linear-gradient(135deg, #34c759, #28a745)',
+                    background: sensorData.beltWorn ? 'linear-gradient(135deg, #34c759, #28a745)' : 'linear-gradient(135deg, #64748b, #475569)',
                     color: 'white',
                     borderRadius: '14px',
                     padding: '16px',
                     textAlign: 'center',
-                    boxShadow: '0 4px 12px rgba(52, 199, 89, 0.25)'
+                    boxShadow: sensorData.beltWorn ? '0 4px 12px rgba(52, 199, 89, 0.25)' : '0 4px 12px rgba(100, 116, 139, 0.25)'
                   }}>
                     <div style={{ fontSize: '10px', opacity: 0.9, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Oxygen (SpO2)</div>
-                    <div style={{ fontSize: '24px', fontWeight: '800', marginTop: '4px' }}>{sensorData.spo2}%</div>
-                    <div style={{ fontSize: '10px', opacity: 0.8, marginTop: '4px' }}>Optimal: &gt;95%</div>
+                    <div style={{ fontSize: '24px', fontWeight: '800', marginTop: '4px' }}>
+                      {sensorData.beltWorn && sensorData.spo2 > 0 ? `${sensorData.spo2}%` : 'Offline'}
+                    </div>
+                    <div style={{ fontSize: '10px', opacity: 0.8, marginTop: '4px' }}>{sensorData.beltWorn ? 'Optimal: >95%' : 'Hardware Disconnected'}</div>
                   </div>
 
                   {/* Temperature Card */}
                   <div className="hardware-card" style={{
-                    background: 'linear-gradient(135deg, #ff9500, #e08500)',
+                    background: sensorData.beltWorn ? 'linear-gradient(135deg, #ff9500, #e08500)' : 'linear-gradient(135deg, #64748b, #475569)',
                     color: 'white',
                     borderRadius: '14px',
                     padding: '16px',
                     textAlign: 'center',
-                    boxShadow: '0 4px 12px rgba(255, 149, 0, 0.25)'
+                    boxShadow: sensorData.beltWorn ? '0 4px 12px rgba(255, 149, 0, 0.25)' : '0 4px 12px rgba(100, 116, 139, 0.25)'
                   }}>
                     <div style={{ fontSize: '10px', opacity: 0.9, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Temperature</div>
-                    <div style={{ fontSize: '24px', fontWeight: '800', marginTop: '4px' }}>{sensorData.temperature}°C</div>
-                    <div style={{ fontSize: '10px', opacity: 0.8, marginTop: '4px' }}>Normal</div>
+                    <div style={{ fontSize: '24px', fontWeight: '800', marginTop: '4px' }}>
+                      {sensorData.beltWorn && Number(sensorData.temperature) > 0 ? `${sensorData.temperature}°C` : 'Offline'}
+                    </div>
+                    <div style={{ fontSize: '10px', opacity: 0.8, marginTop: '4px' }}>{sensorData.beltWorn ? 'Normal' : 'Hardware Disconnected'}</div>
                   </div>
 
                   {/* Belt Status Card */}
