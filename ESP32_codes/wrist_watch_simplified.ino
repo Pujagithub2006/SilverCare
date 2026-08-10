@@ -6,7 +6,7 @@
 #include <mbedtls/gcm.h>
 
 // =========================================================================
-//  SILVERCARE - WRIST BAND HEART SENSOR (ESP32-C3 BLE SERVER)
+//  SILVERCARE - WRIST BAND HEART SENSOR (ESP32 BLE SERVER)
 //  ONLY sends heart data via BLE to waist belt
 // =========================================================================
 
@@ -160,7 +160,7 @@ void setup() {
   Serial.begin(115200);
   delay(1000);
 
-  Wire.begin(8, 9);  // ESP32-C3 default I2C pins
+  Wire.begin(18, 19);  // ESP32 default I2C pins
 
   Serial.println("========================================");
   Serial.println("=== SILVERCARE WRIST BAND HEART SENSOR ===");
