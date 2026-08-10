@@ -116,46 +116,65 @@ export const submitMedicalHistoryCalibration = async (elderlyId, healthHistory) 
   }
 };
 
-export const pairDeviceToElderly = async (macAddress, elderlyId, deviceType = 'Waist Belt') => {
+export const pairDeviceToElderly = async (arg1, arg2, deviceType = 'Waist Belt') => {
+  let elderlyId, macAddress;
+  if (typeof arg1 === 'string' && (arg1.includes(':') || arg1.startsWith('DEV_'))) {
+    macAddress = arg1;
+    elderlyId = arg2;
+  } else {
+    elderlyId = arg1;
+    macAddress = arg2;
+  }
   try {
     const response = await api.post('/api/devices/pair', {
       macAddress,
       elderlyId,
       deviceType,
     });
-    return response.data;
+    return { ok: true, data: response.data?.data || response.data, message: response.data?.message };
   } catch (error) {
-    return { status: 'error', message: 'Device pairing failed' };
+    const errorMsg = error.response?.data?.message || 'Device pairing failed';
+    return { ok: false, message: errorMsg, data: null };
   }
 };
 
-export const unpairDevice = async (deviceId, reason = 'OTHER') => {
+export const unpairDevice = async (arg1, arg2, reason = 'OTHER') => {
+  let elderlyId, deviceId;
+  if (arg2 && typeof arg2 === 'string' && (arg2.startsWith('DEV_') || arg2.includes(':') || arg2.length > 5)) {
+    elderlyId = arg1;
+    deviceId = arg2;
+  } else {
+    deviceId = arg1;
+    reason = arg2 || 'OTHER';
+  }
   try {
     const response = await api.post('/api/devices/unpair', {
       deviceId,
+      elderlyId,
       reason,
     });
-    return response.data;
+    return { ok: true, data: response.data?.data || response.data, message: response.data?.message };
   } catch (error) {
-    return { status: 'error', message: 'Device unpairing failed' };
+    const errorMsg = error.response?.data?.message || 'Device unpairing failed';
+    return { ok: false, message: errorMsg, data: null };
   }
 };
 
 export const getElderlyDevices = async (elderlyId) => {
   try {
     const response = await api.get(`/api/devices/elderly/${elderlyId}`);
-    return response.data;
+    return { ok: true, data: response.data?.data || response.data };
   } catch (error) {
-    return { status: 'error', message: 'Failed to fetch devices' };
+    return { ok: false, message: 'Failed to fetch devices', data: { currentDevices: [], previousDevices: [] } };
   }
 };
 
 export const getDeviceByMac = async (macAddress) => {
   try {
     const response = await api.get(`/api/devices/mac/${macAddress}`);
-    return response.data;
+    return { ok: true, data: response.data?.data || response.data };
   } catch (error) {
-    return { status: 'error', message: 'Device not found' };
+    return { ok: false, message: 'Device not found', data: null };
   }
 };
 

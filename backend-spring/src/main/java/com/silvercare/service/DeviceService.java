@@ -10,7 +10,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Service
@@ -35,6 +38,10 @@ public class DeviceService {
         return deviceRepository.findByDeviceId(deviceId);
     }
 
+    public Optional<Device> getDeviceByMac(String macAddress) {
+        return deviceRepository.findByMacAddress(macAddress);
+    }
+
     public List<Device> getAllDevices() {
         return deviceRepository.findAll();
     }
@@ -45,6 +52,110 @@ public class DeviceService {
 
     public List<Device> getDevicesByElderly(String elderlyId) {
         return deviceRepository.findByAssignedElderlyId(elderlyId);
+    }
+
+    public Map<String, List<Device>> getElderlyDevicesStructured(String elderlyId) {
+        Map<String, List<Device>> result = new HashMap<>();
+        List<Device> currentDevices = deviceRepository.findByAssignedElderlyId(elderlyId);
+        List<Device> previousDevices = deviceRepository.findAll().stream()
+            .filter(d -> d.getAssignedElderlyId() == null || !d.getAssignedElderlyId().equals(elderlyId))
+            .filter(d -> d.getPreviouslyAssignedTo() != null && d.getPreviouslyAssignedTo().contains(elderlyId))
+            .toList();
+
+        result.put("currentDevices", currentDevices != null ? currentDevices : new ArrayList<>());
+        result.put("previousDevices", previousDevices != null ? previousDevices : new ArrayList<>());
+        return result;
+    }
+
+    @Transactional
+    public Device pairDeviceToElderly(String macAddress, String elderlyId, String deviceType) {
+        if (macAddress == null || macAddress.trim().isEmpty()) {
+            throw new RuntimeException("MAC address is required for pairing");
+        }
+
+        String cleanMac = macAddress.trim();
+        Optional<Elderly> elderlyOpt = elderlyRepository.findById(elderlyId);
+        if (elderlyOpt.isEmpty()) {
+            throw new RuntimeException("Elderly not found with ID: " + elderlyId);
+        }
+        Elderly elderly = elderlyOpt.get();
+
+        // Search existing device by MAC or deviceId
+        Optional<Device> deviceOpt = deviceRepository.findByMacAddress(cleanMac);
+        if (deviceOpt.isEmpty()) {
+            deviceOpt = deviceRepository.findByDeviceId(cleanMac);
+        }
+
+        Device device;
+        if (deviceOpt.isPresent()) {
+            device = deviceOpt.get();
+        } else {
+            // Auto-register new device
+            String devId = "DEV_" + cleanMac.replaceAll("[^a-zA-Z0-9]", "").toUpperCase();
+            device = new Device();
+            device.setDeviceId(devId);
+            device.setMacAddress(cleanMac);
+            device.setRegisteredAt(LocalDateTime.now());
+        }
+
+        if (deviceType != null && !deviceType.trim().isEmpty()) {
+            device.setDeviceType(deviceType);
+        } else if (device.getDeviceType() == null) {
+            device.setDeviceType("Waist Belt");
+        }
+
+        // Maintain history if previously assigned elsewhere
+        if (device.getAssignedElderlyId() != null && !device.getAssignedElderlyId().equals(elderlyId)) {
+            String prev = device.getPreviouslyAssignedTo();
+            device.setPreviouslyAssignedTo(prev != null ? prev + "," + device.getAssignedElderlyId() : device.getAssignedElderlyId());
+        }
+
+        device.setAssignedElderlyId(elderlyId);
+        device.setStatus("ACTIVE");
+        device.setPairingDate(LocalDateTime.now());
+        device.setLastSeen(LocalDateTime.now());
+
+        // Update Elderly's primary device info
+        elderly.setPrimaryDeviceId(device.getDeviceId());
+        elderly.setPrimaryBeltType(device.getDeviceType());
+        elderlyRepository.save(elderly);
+
+        return deviceRepository.save(device);
+    }
+
+    @Transactional
+    public Device unpairDeviceWithReason(String deviceId, String elderlyId, String reason) {
+        Optional<Device> deviceOpt = deviceRepository.findByDeviceId(deviceId);
+        if (deviceOpt.isEmpty()) {
+            deviceOpt = deviceRepository.findByMacAddress(deviceId);
+        }
+        if (deviceOpt.isEmpty()) {
+            throw new RuntimeException("Device not found: " + deviceId);
+        }
+
+        Device device = deviceOpt.get();
+        String assignedElderly = device.getAssignedElderlyId() != null ? device.getAssignedElderlyId() : elderlyId;
+
+        if (assignedElderly != null) {
+            String prev = device.getPreviouslyAssignedTo();
+            device.setPreviouslyAssignedTo(prev != null ? prev + "," + assignedElderly : assignedElderly);
+
+            Optional<Elderly> elderlyOpt = elderlyRepository.findById(assignedElderly);
+            if (elderlyOpt.isPresent()) {
+                Elderly elderly = elderlyOpt.get();
+                if (device.getDeviceId().equals(elderly.getPrimaryDeviceId())) {
+                    elderly.setPrimaryDeviceId(null);
+                    elderlyRepository.save(elderly);
+                }
+            }
+        }
+
+        device.setAssignedElderlyId(null);
+        device.setStatus("UNASSIGNED");
+        device.setUnpairingDate(LocalDateTime.now());
+        device.setUnpairingReason(reason != null ? reason : "OTHER");
+
+        return deviceRepository.save(device);
     }
 
     @Transactional

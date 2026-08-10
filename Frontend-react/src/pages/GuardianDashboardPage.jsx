@@ -273,14 +273,15 @@ export default function GuardianDashboardPage() {
     const elderlyId = selectedElderly.elderlyId || selectedElderly.id;
     
     try {
-      const { ok, data } = await pairDeviceToElderly(elderlyId, macAddressInput, deviceTypeInput);
-      if (ok) {
-        showSnackbarMessage('Device paired successfully!', 'success');
+      const res = await pairDeviceToElderly(macAddressInput, elderlyId, deviceTypeInput);
+      if (res.ok) {
+        showSnackbarMessage('Device paired successfully! 🎉', 'success');
         setMacAddressInput('');
         loadElderlyDevicesData(elderlyId);
         loadDeviceData();
+        loadLinkedElderly();
       } else {
-        showSnackbarMessage(`Failed to pair device: ${data?.message || 'Unknown error'}`, 'error');
+        showSnackbarMessage(`Failed to pair device: ${res.message || 'Unknown error'}`, 'error');
       }
     } catch (error) {
       console.error('Error pairing device:', error);
@@ -298,13 +299,14 @@ export default function GuardianDashboardPage() {
     const elderlyId = selectedElderly.elderlyId || selectedElderly.id;
     
     try {
-      const { ok } = await unpairDevice(elderlyId, deviceId);
-      if (ok) {
+      const res = await unpairDevice(deviceId, elderlyId, 'UNPAIRED_BY_GUARDIAN');
+      if (res.ok) {
         showSnackbarMessage('Device unpaired successfully', 'success');
         loadElderlyDevicesData(elderlyId);
         loadDeviceData();
+        loadLinkedElderly();
       } else {
-        showSnackbarMessage('Failed to unpair device', 'error');
+        showSnackbarMessage(`Failed to unpair device: ${res.message || 'Unknown error'}`, 'error');
       }
     } catch (error) {
       console.error('Error unpairing device:', error);

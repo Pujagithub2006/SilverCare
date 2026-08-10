@@ -90,17 +90,72 @@ public class DeviceController {
         }
     }
 
-    @GetMapping("/elderly/{elderlyId}")
-    public ResponseEntity<ApiResponse<List<Device>>> getDevicesByElderly(@PathVariable String elderlyId) {
+    @GetMapping("/mac/{macAddress}")
+    public ResponseEntity<ApiResponse<Device>> getDeviceByMac(@PathVariable String macAddress) {
         try {
-            List<Device> devices = deviceService.getDevicesByElderly(elderlyId);
-            return ResponseEntity.ok(ApiResponse.<List<Device>>builder()
+            return deviceService.getDeviceByMac(macAddress)
+                    .map(device -> ResponseEntity.ok(ApiResponse.<Device>builder()
+                            .status("success")
+                            .data(device)
+                            .build()))
+                    .orElse(ResponseEntity.notFound().build());
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.<Device>error(e.getMessage()));
+        }
+    }
+
+    @GetMapping("/elderly/{elderlyId}")
+    public ResponseEntity<ApiResponse<Map<String, List<Device>>>> getDevicesByElderly(@PathVariable String elderlyId) {
+        try {
+            Map<String, List<Device>> devices = deviceService.getElderlyDevicesStructured(elderlyId);
+            return ResponseEntity.ok(ApiResponse.<Map<String, List<Device>>>builder()
                     .status("success")
                     .data(devices)
                     .build());
         } catch (Exception e) {
             return ResponseEntity.badRequest()
-                    .body(ApiResponse.<List<Device>>error(e.getMessage()));
+                    .body(ApiResponse.<Map<String, List<Device>>>error(e.getMessage()));
+        }
+    }
+
+    @PostMapping("/pair")
+    public ResponseEntity<ApiResponse<Device>> pairDevice(@RequestBody Map<String, String> request) {
+        try {
+            String macAddress = request.get("macAddress");
+            if (macAddress == null) macAddress = request.get("deviceId");
+            String elderlyId = request.get("elderlyId");
+            String deviceType = request.get("deviceType");
+
+            Device device = deviceService.pairDeviceToElderly(macAddress, elderlyId, deviceType);
+            return ResponseEntity.ok(ApiResponse.<Device>builder()
+                    .status("success")
+                    .message("Device paired successfully")
+                    .data(device)
+                    .build());
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.<Device>error(e.getMessage()));
+        }
+    }
+
+    @PostMapping("/unpair")
+    public ResponseEntity<ApiResponse<Device>> unpairDevice(@RequestBody Map<String, String> request) {
+        try {
+            String deviceId = request.get("deviceId");
+            if (deviceId == null) deviceId = request.get("macAddress");
+            String elderlyId = request.get("elderlyId");
+            String reason = request.get("reason");
+
+            Device device = deviceService.unpairDeviceWithReason(deviceId, elderlyId, reason);
+            return ResponseEntity.ok(ApiResponse.<Device>builder()
+                    .status("success")
+                    .message("Device unpaired successfully")
+                    .data(device)
+                    .build());
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.<Device>error(e.getMessage()));
         }
     }
 
