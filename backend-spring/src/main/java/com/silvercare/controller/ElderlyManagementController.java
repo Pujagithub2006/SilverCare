@@ -239,7 +239,47 @@ public class ElderlyManagementController {
         }
     }
 
-    @PostMapping("/api/elderly/{elderlyId}/health-history")
+    private Integer parseSafeInt(Object val) {
+        if (val == null) return null;
+        if (val instanceof Number) return ((Number) val).intValue();
+        try {
+            String str = val.toString().trim();
+            if (str.isEmpty() || "null".equalsIgnoreCase(str) || "undefined".equalsIgnoreCase(str) || "NaN".equalsIgnoreCase(str)) return null;
+            return Integer.parseInt(str);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private Double parseSafeDouble(Object val) {
+        if (val == null) return null;
+        if (val instanceof Number) return ((Number) val).doubleValue();
+        try {
+            String str = val.toString().trim();
+            if (str.isEmpty() || "null".equalsIgnoreCase(str) || "undefined".equalsIgnoreCase(str) || "NaN".equalsIgnoreCase(str)) return null;
+            return Double.parseDouble(str);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private Boolean parseSafeBoolean(Object val) {
+        if (val == null) return null;
+        if (val instanceof Boolean) return (Boolean) val;
+        return "true".equalsIgnoreCase(val.toString().trim());
+    }
+
+    private String parseSafeString(Object val) {
+        if (val == null) return null;
+        if (val instanceof List) {
+            List<?> list = (List<?>) val;
+            return String.join(", ", list.stream().filter(o -> o != null).map(Object::toString).toList());
+        }
+        String str = val.toString().trim();
+        return str.isEmpty() ? null : str;
+    }
+
+    @PostMapping({"/api/elderly/{elderlyId}/health-history", "/elderly/{elderlyId}/health-history"})
     public ResponseEntity<ApiResponse<Object>> updateHealthHistory(
             @PathVariable String elderlyId,
             @RequestBody Map<String, Object> healthData) {
@@ -249,41 +289,101 @@ public class ElderlyManagementController {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error("Elderly not found"));
             }
 
-            // Update health history fields
-            if (healthData.containsKey("age")) {
-                elderly.setAge(((Number) healthData.get("age")).intValue());
-            }
-            if (healthData.containsKey("weight")) {
-                elderly.setWeight(((Number) healthData.get("weight")).doubleValue());
-            }
-            if (healthData.containsKey("height")) {
-                elderly.setHeight(((Number) healthData.get("height")).doubleValue());
-            }
-            if (healthData.containsKey("conditions")) {
-                elderly.setHealthConditions(healthData.get("conditions").toString());
-            }
-            if (healthData.containsKey("mobility")) {
-                elderly.setMobilityLevel(healthData.get("mobility").toString());
-            }
-            if (healthData.containsKey("fallCount")) {
-                elderly.setFallCount(((Number) healthData.get("fallCount")).intValue());
-            }
-            if (healthData.containsKey("lastFallDays")) {
-                elderly.setLastFallDays(((Number) healthData.get("lastFallDays")).intValue());
-            }
-            if (healthData.containsKey("medications")) {
-                elderly.setMedications(healthData.get("medications").toString());
+            if (healthData != null) {
+                // Age
+                if (healthData.containsKey("age")) elderly.setAge(parseSafeInt(healthData.get("age")));
+                
+                // Weight
+                if (healthData.containsKey("weight")) elderly.setWeight(parseSafeDouble(healthData.get("weight")));
+                
+                // Height
+                if (healthData.containsKey("height")) elderly.setHeight(parseSafeDouble(healthData.get("height")));
+                
+                // Conditions / HealthConditions
+                if (healthData.containsKey("conditions")) {
+                    elderly.setHealthConditions(parseSafeString(healthData.get("conditions")));
+                } else if (healthData.containsKey("healthConditions")) {
+                    elderly.setHealthConditions(parseSafeString(healthData.get("healthConditions")));
+                } else if (healthData.containsKey("health_conditions")) {
+                    elderly.setHealthConditions(parseSafeString(healthData.get("health_conditions")));
+                }
+
+                // Mobility / MobilityLevel
+                if (healthData.containsKey("mobility")) {
+                    elderly.setMobilityLevel(parseSafeString(healthData.get("mobility")));
+                } else if (healthData.containsKey("mobilityLevel")) {
+                    elderly.setMobilityLevel(parseSafeString(healthData.get("mobilityLevel")));
+                } else if (healthData.containsKey("mobility_level")) {
+                    elderly.setMobilityLevel(parseSafeString(healthData.get("mobility_level")));
+                }
+
+                // Fall count
+                if (healthData.containsKey("fallCount")) {
+                    elderly.setFallCount(parseSafeInt(healthData.get("fallCount")));
+                } else if (healthData.containsKey("fall_count")) {
+                    elderly.setFallCount(parseSafeInt(healthData.get("fall_count")));
+                }
+
+                // Last fall days
+                if (healthData.containsKey("lastFallDays")) {
+                    elderly.setLastFallDays(parseSafeInt(healthData.get("lastFallDays")));
+                } else if (healthData.containsKey("last_fall_days")) {
+                    elderly.setLastFallDays(parseSafeInt(healthData.get("last_fall_days")));
+                }
+
+                // Medications
+                if (healthData.containsKey("medications")) {
+                    elderly.setMedications(parseSafeString(healthData.get("medications")));
+                }
+
+                // Medical History
+                if (healthData.containsKey("medicalHistory")) {
+                    elderly.setMedicalHistory(parseSafeString(healthData.get("medicalHistory")));
+                } else if (healthData.containsKey("medical_history")) {
+                    elderly.setMedicalHistory(parseSafeString(healthData.get("medical_history")));
+                }
+
+                // Calibration status
+                if (healthData.containsKey("isCalibrated")) {
+                    elderly.setIsCalibrated(parseSafeBoolean(healthData.get("isCalibrated")));
+                } else if (healthData.containsKey("is_calibrated")) {
+                    elderly.setIsCalibrated(parseSafeBoolean(healthData.get("is_calibrated")));
+                }
+
+                if (healthData.containsKey("calibratedAt")) {
+                    elderly.setCalibratedAt(parseSafeString(healthData.get("calibratedAt")));
+                } else if (healthData.containsKey("calibrated_at")) {
+                    elderly.setCalibratedAt(parseSafeString(healthData.get("calibrated_at")));
+                }
             }
 
-            elderlyManagementService.updateElderlyEntity(elderly);
+            Elderly updated = elderlyManagementService.updateElderlyEntity(elderly);
 
-            return ResponseEntity.ok(ApiResponse.success("Health history updated successfully"));
+            Map<String, Object> respData = new LinkedHashMap<>();
+            respData.put("elderlyId", updated.getElderlyId());
+            respData.put("age", updated.getAge());
+            respData.put("weight", updated.getWeight());
+            respData.put("height", updated.getHeight());
+            respData.put("conditions", updated.getHealthConditions());
+            respData.put("mobility", updated.getMobilityLevel());
+            respData.put("fallCount", updated.getFallCount());
+            respData.put("lastFallDays", updated.getLastFallDays());
+            respData.put("medications", updated.getMedications());
+            respData.put("medicalHistory", updated.getMedicalHistory());
+            respData.put("isCalibrated", updated.getIsCalibrated());
+            respData.put("calibratedAt", updated.getCalibratedAt());
+
+            return ResponseEntity.ok(ApiResponse.builder()
+                    .status("success")
+                    .message("Health history updated successfully")
+                    .data(respData)
+                    .build());
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.error(e.getMessage()));
         }
     }
 
-    @GetMapping("/api/elderly/{elderlyId}/health-history")
+    @GetMapping({"/api/elderly/{elderlyId}/health-history", "/elderly/{elderlyId}/health-history"})
     public ResponseEntity<ApiResponse<Object>> getHealthHistory(@PathVariable String elderlyId) {
         try {
             Elderly elderly = elderlyManagementService.getElderly(elderlyId);
@@ -292,6 +392,8 @@ public class ElderlyManagementController {
             }
 
             Map<String, Object> healthData = new LinkedHashMap<>();
+            healthData.put("elderlyId", elderly.getElderlyId());
+            healthData.put("name", elderly.getName());
             healthData.put("age", elderly.getAge());
             healthData.put("weight", elderly.getWeight());
             healthData.put("height", elderly.getHeight());
@@ -300,6 +402,7 @@ public class ElderlyManagementController {
             healthData.put("fallCount", elderly.getFallCount());
             healthData.put("lastFallDays", elderly.getLastFallDays());
             healthData.put("medications", elderly.getMedications());
+            healthData.put("medicalHistory", elderly.getMedicalHistory());
             healthData.put("isCalibrated", elderly.getIsCalibrated());
             healthData.put("calibratedAt", elderly.getCalibratedAt());
 

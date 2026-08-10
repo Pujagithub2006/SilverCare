@@ -81,7 +81,8 @@ While many tracking systems exist, they fall short because:
 ### 🌐 Software Stack
 *   **Frontend:** React.js (Vite, styled with custom Vanilla CSS for modern glassmorphism dashboards)
 *   **Backend:** Spring Boot (Java 17, Maven)
-*   **Database:** PostgreSQL (persistent configuration and history), Firebase (real-time data synchronization)
+*   **Database:** Persistent H2 File Database (`jdbc:h2:file:./silvercaredb;AUTO_SERVER=TRUE`, disk file `silvercaredb.mv.db`)
+*   **Security & Encrypted Storage:** `FirebaseEncryptionService` (Internal AES-256 encrypted storage service using AES/CBC/PKCS5Padding)
 *   **Communication APIs:** Twilio API (voice calling and SMS alerts), GSM serial modules.
 *   **Deployment:** Docker, Docker Compose, Vercel (Frontend), Railway (Backend).
 

@@ -56,6 +56,7 @@ const ElderlyProfilePage = () => {
     setGuardianName(storedGName);
     setGuardianPhone(storedGPhone);
 
+    const targetId = id || 'default_senior';
     if (id) {
       fetchElderlyInfo(id).then((res) => {
         if (res.ok && res.data && res.data.status === 'success') {
@@ -93,6 +94,34 @@ const ElderlyProfilePage = () => {
         }
       }).catch((err) => console.error('Failed to fetch profile:', err));
     }
+
+    // Fetch existing health history
+    fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081'}/api/elderly/${targetId}/health-history`)
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.data) {
+          const hData = data.data;
+          let parsedConditions = [];
+          if (Array.isArray(hData.conditions)) {
+            parsedConditions = hData.conditions;
+          } else if (typeof hData.conditions === 'string' && hData.conditions.trim()) {
+            parsedConditions = hData.conditions.split(',').map(s => s.trim());
+          }
+
+          setHealthData(prev => ({
+            ...prev,
+            age: hData.age !== null && hData.age !== undefined ? String(hData.age) : prev.age,
+            weight: hData.weight !== null && hData.weight !== undefined ? String(hData.weight) : prev.weight,
+            height: hData.height !== null && hData.height !== undefined ? String(hData.height) : prev.height,
+            conditions: parsedConditions.length > 0 ? parsedConditions : prev.conditions,
+            mobility: hData.mobility || prev.mobility,
+            fallCount: hData.fallCount !== null && hData.fallCount !== undefined ? String(hData.fallCount) : prev.fallCount,
+            lastFallDays: hData.lastFallDays !== null && hData.lastFallDays !== undefined ? String(hData.lastFallDays) : prev.lastFallDays,
+            medications: hData.medications || prev.medications
+          }));
+        }
+      })
+      .catch(err => console.error('Failed to load health history:', err));
   }, [changeLanguage]);
 
   const handleLogout = () => {
@@ -110,12 +139,7 @@ const ElderlyProfilePage = () => {
 
   const handleEmergencyContactsSubmit = async (e) => {
     e.preventDefault();
-    const elderlyId = localStorage.getItem('elderly_id');
-    
-    if (!elderlyId) {
-      alert('Error: No elderly ID found. Please log in again.');
-      return;
-    }
+    const elderlyId = localStorage.getItem('elderly_id') || 'default_senior';
     
     console.log('[ElderlyProfile] Saving emergency contacts for elderlyId:', elderlyId);
     console.log('[ElderlyProfile] Emergency contacts data:', emergencyContacts);
@@ -148,34 +172,43 @@ const ElderlyProfilePage = () => {
 
   const handleHealthSubmit = async (e) => {
     e.preventDefault();
-    const elderlyId = localStorage.getItem('elderly_id');
+    const elderlyId = localStorage.getItem('elderly_id') || 'default_senior';
     
-    // Save health data to backend (API call to be implemented)
     try {
+      const pAge = healthData.age ? parseInt(healthData.age, 10) : null;
+      const pWeight = healthData.weight ? parseFloat(healthData.weight) : null;
+      const pHeight = healthData.height ? parseFloat(healthData.height) : null;
+      const pFallCount = healthData.fallCount ? parseInt(healthData.fallCount, 10) : null;
+      const pLastFallDays = healthData.lastFallDays ? parseInt(healthData.lastFallDays, 10) : null;
+
+      const payload = {
+        age: isNaN(pAge) ? null : pAge,
+        weight: isNaN(pWeight) ? null : pWeight,
+        height: isNaN(pHeight) ? null : pHeight,
+        conditions: Array.isArray(healthData.conditions) ? healthData.conditions.join(', ') : (healthData.conditions || ''),
+        mobility: healthData.mobility || '',
+        fallCount: isNaN(pFallCount) ? null : pFallCount,
+        lastFallDays: isNaN(pLastFallDays) ? null : pLastFallDays,
+        medications: healthData.medications || ''
+      };
+
       const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081'}/api/elderly/${elderlyId}/health-history`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          age: parseInt(healthData.age),
-          weight: parseFloat(healthData.weight),
-          height: parseFloat(healthData.height),
-          conditions: healthData.conditions,
-          mobility: healthData.mobility,
-          fallCount: parseInt(healthData.fallCount),
-          lastFallDays: parseInt(healthData.lastFallDays),
-          medications: healthData.medications
-        })
+        body: JSON.stringify(payload)
       });
       
-      if (response.ok) {
-        alert('Health history saved successfully!');
+      const resData = await response.json();
+
+      if (response.ok && (resData.status === 'success' || resData.success)) {
+        alert('Health history saved successfully to backend & database!');
         setShowHealthForm(false);
       } else {
-        alert('Failed to save health history');
+        alert(`Failed to save health history: ${resData.message || resData.error || 'Unknown error'}`);
       }
     } catch (err) {
       console.error('Error saving health history:', err);
-      alert('Error saving health history');
+      alert(`Error saving health history: ${err.message}`);
     }
   };
 
