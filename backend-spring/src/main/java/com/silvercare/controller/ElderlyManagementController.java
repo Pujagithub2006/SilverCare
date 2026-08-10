@@ -779,18 +779,24 @@ public class ElderlyManagementController {
             String source = (String) request.getOrDefault("source", "GPS");
             String deviceId = (String) request.get("deviceId");
 
-            // Check if location is unusual
+            // Check if geofence is enabled and distance exceeds configured radius
             Boolean isUnusual = false;
             String alertType = null;
             
-            // Simple distance check from home (would be enhanced with actual home location from elderly profile)
-            if (latitude != null && longitude != null) {
-                double homeLat = 19.0760; // Example - should come from elderly profile
-                double homeLng = 72.8777;
-                double distance = calculateDistance(latitude, longitude, homeLat, homeLng);
-                if (distance > 5.0) {
-                    isUnusual = true;
-                    alertType = "UNUSUAL_LOCATION";
+            Optional<Elderly> elderlyOpt = elderlyRepository.findById(elderlyId);
+            if (elderlyOpt.isPresent() && latitude != null && longitude != null) {
+                Elderly elderly = elderlyOpt.get();
+                boolean geofenceEnabled = Boolean.TRUE.equals(elderly.getGeofenceEnabled());
+                double radiusKm = elderly.getGeofenceRadiusKm() != null ? elderly.getGeofenceRadiusKm() : 5.0;
+
+                if (geofenceEnabled) {
+                    double homeLat = elderly.getLatitude() != null ? elderly.getLatitude() : 19.0760;
+                    double homeLng = elderly.getLongitude() != null ? elderly.getLongitude() : 72.8777;
+                    double distance = calculateDistance(latitude, longitude, homeLat, homeLng);
+                    if (distance > radiusKm) {
+                        isUnusual = true;
+                        alertType = "UNUSUAL_LOCATION";
+                    }
                 }
             }
 
@@ -814,6 +820,39 @@ public class ElderlyManagementController {
             return ResponseEntity.ok(ApiResponse.builder()
                 .status("success")
                 .message("Location saved successfully")
+                .build());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
+    @PostMapping("/api/elderly/{elderlyId}/geofence")
+    public ResponseEntity<ApiResponse<Object>> updateElderlyGeofence(@PathVariable String elderlyId,
+                                                                    @RequestBody Map<String, Object> request) {
+        try {
+            Optional<Elderly> elderlyOpt = elderlyRepository.findById(elderlyId);
+            if (elderlyOpt.isEmpty()) {
+                return ResponseEntity.notFound().build();
+            }
+
+            Elderly elderly = elderlyOpt.get();
+            if (request.containsKey("geofenceEnabled")) {
+                elderly.setGeofenceEnabled(Boolean.TRUE.equals(request.get("geofenceEnabled")));
+            }
+            if (request.containsKey("geofenceRadiusKm") && request.get("geofenceRadiusKm") != null) {
+                elderly.setGeofenceRadiusKm(Double.valueOf(request.get("geofenceRadiusKm").toString()));
+            }
+
+            Elderly saved = elderlyRepository.save(elderly);
+            Map<String, Object> data = new LinkedHashMap<>();
+            data.put("elderlyId", saved.getElderlyId());
+            data.put("geofenceEnabled", saved.getGeofenceEnabled());
+            data.put("geofenceRadiusKm", saved.getGeofenceRadiusKm());
+
+            return ResponseEntity.ok(ApiResponse.builder()
+                .status("success")
+                .message("Geofence settings updated successfully")
+                .data(data)
                 .build());
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.error(e.getMessage()));

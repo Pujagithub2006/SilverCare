@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { sendSensorTelemetry, getLocationHistory } from '../services/api';
+import { sendSensorTelemetry, getLocationHistory, updateElderlyGeofence } from '../services/api';
 
 // Fix default marker icon issues in Leaflet with Vite
 delete L.Icon.Default.prototype._getIconUrl;
@@ -48,6 +48,7 @@ export default function ElderlyMapModal({ isOpen, onClose, elderly, sensorData }
   const elderlyMarkerRef = useRef(null);
   const guardianMarkerRef = useRef(null);
   const routePolylineRef = useRef(null);
+  const geofenceCircleRef = useRef(null);
 
   const [guardianCoords, setGuardianCoords] = useState(null);
   const [isNavigating, setIsNavigating] = useState(false);
@@ -57,6 +58,11 @@ export default function ElderlyMapModal({ isOpen, onClose, elderly, sensorData }
   const [manualCoords, setManualCoords] = useState(null);
   const [locationHistory, setLocationHistory] = useState([]);
   const [showTrail, setShowTrail] = useState(true);
+
+  // Geofence Configuration State
+  const [geofenceEnabled, setGeofenceEnabled] = useState(elderly?.geofenceEnabled !== false);
+  const [geofenceRadiusKm, setGeofenceRadiusKm] = useState(elderly?.geofenceRadiusKm || 5.0);
+  const [isSavingGeofence, setIsSavingGeofence] = useState(false);
 
   const elderlyId = elderly?.elderlyId || elderly?.id || elderly?.elderly_id || 'default';
   const deviceId = sensorData?.deviceId || elderly?.primaryDeviceId || 'vois_belt';
@@ -345,10 +351,50 @@ export default function ElderlyMapModal({ isOpen, onClose, elderly, sensorData }
         }
       }
 
+      // Render Geofence Circle on Map if enabled
+      if (geofenceEnabled && mapInstanceRef.current) {
+          const radiusMeters = (Number(geofenceRadiusKm) || 5.0) * 1000;
+          if (geofenceCircleRef.current) {
+            geofenceCircleRef.current.setLatLng([lat, lng]);
+            geofenceCircleRef.current.setRadius(radiusMeters);
+          } else {
+            geofenceCircleRef.current = L.circle([lat, lng], {
+              color: '#f59e0b',
+              fillColor: '#fef3c7',
+              fillOpacity: 0.18,
+              weight: 2,
+              dashArray: '6, 6'
+            }).addTo(mapInstanceRef.current);
+          }
+        } else if (!geofenceEnabled && geofenceCircleRef.current && mapInstanceRef.current) {
+          mapInstanceRef.current.removeLayer(geofenceCircleRef.current);
+          geofenceCircleRef.current = null;
+        }
+
     }, 200);
 
     return () => clearTimeout(timer);
-  }, [isOpen, lat, lng, elderlyName, stateName, isEmergency, locationStatusLabel, guardianCoords, sensorData?.gpsHistory, locationHistory, showTrail]);
+  }, [isOpen, lat, lng, elderlyName, stateName, isEmergency, locationStatusLabel, guardianCoords, sensorData?.gpsHistory, locationHistory, showTrail, geofenceEnabled, geofenceRadiusKm]);
+
+  const handleSaveGeofence = async () => {
+    setIsSavingGeofence(true);
+    try {
+      const res = await updateElderlyGeofence(elderlyId, {
+        geofenceEnabled,
+        geofenceRadiusKm: Number(geofenceRadiusKm)
+      });
+      if (res.status === 'success' || res.data) {
+        alert(`✅ Geofence safety settings saved! Safety alerts are ${geofenceEnabled ? 'ENABLED' : 'DISABLED'} with a ${geofenceRadiusKm} km radius.`);
+      } else {
+        alert('Failed to save geofence settings');
+      }
+    } catch (e) {
+      console.error('Error saving geofence:', e);
+      alert('Error saving geofence settings');
+    } finally {
+      setIsSavingGeofence(false);
+    }
+  };
 
   // Clean up when modal closes
   useEffect(() => {
@@ -764,6 +810,106 @@ export default function ElderlyMapModal({ isOpen, onClose, elderly, sensorData }
           fontWeight: '600'
         }}>
           <span>💡 Tip: Click anywhere on the map to manually set senior pin, or use "Test Hardware GPS Fix" to simulate hardware stream.</span>
+        </div>
+
+        {/* ⚙️ Geofence Safety Zone Settings Panel */}
+        <div style={{
+          backgroundColor: '#fffbeb',
+          borderBottom: '1px solid #fde68a',
+          padding: '10px 20px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '12px',
+          flexWrap: 'wrap'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '13px', fontWeight: '800', color: '#92400e' }}>
+              🛡️ Geofence Safety Alert:
+            </span>
+            <button
+              onClick={() => setGeofenceEnabled(!geofenceEnabled)}
+              style={{
+                backgroundColor: geofenceEnabled ? '#10b981' : '#cbd5e1',
+                color: '#ffffff',
+                border: 'none',
+                padding: '4px 12px',
+                borderRadius: '16px',
+                fontSize: '11px',
+                fontWeight: '800',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              {geofenceEnabled ? 'ON (Active)' : 'OFF (Disabled)'}
+            </button>
+          </div>
+
+          {geofenceEnabled && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '12px', fontWeight: '700', color: '#b45309' }}>
+                Radius (km):
+              </span>
+              <input
+                type="number"
+                min="0.5"
+                max="50"
+                step="0.5"
+                value={geofenceRadiusKm}
+                onChange={(e) => setGeofenceRadiusKm(e.target.value)}
+                style={{
+                  width: '60px',
+                  padding: '4px 8px',
+                  borderRadius: '6px',
+                  border: '1px solid #fcd34d',
+                  fontSize: '12px',
+                  fontWeight: '700',
+                  color: '#92400e',
+                  outline: 'none'
+                }}
+              />
+              <div style={{ display: 'flex', gap: '4px' }}>
+                {[1, 2, 5, 10].map(r => (
+                  <button
+                    key={r}
+                    type="button"
+                    onClick={() => setGeofenceRadiusKm(r)}
+                    style={{
+                      backgroundColor: Number(geofenceRadiusKm) === r ? '#f59e0b' : '#ffffff',
+                      color: Number(geofenceRadiusKm) === r ? '#ffffff' : '#92400e',
+                      border: '1px solid #fcd34d',
+                      padding: '3px 8px',
+                      borderRadius: '6px',
+                      fontSize: '10px',
+                      fontWeight: '800',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {r}km
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <button
+            onClick={handleSaveGeofence}
+            disabled={isSavingGeofence}
+            style={{
+              backgroundColor: '#f59e0b',
+              color: '#ffffff',
+              border: 'none',
+              padding: '6px 14px',
+              borderRadius: '8px',
+              fontSize: '12px',
+              fontWeight: '800',
+              cursor: isSavingGeofence ? 'not-allowed' : 'pointer',
+              opacity: isSavingGeofence ? 0.6 : 1,
+              marginLeft: 'auto'
+            }}
+          >
+            {isSavingGeofence ? 'Saving...' : 'Save Geofence Settings ✅'}
+          </button>
         </div>
 
         {geoError && (

@@ -240,6 +240,15 @@ export const getLocationHistory = async (elderlyId, days = 7) => {
   }
 };
 
+export const updateElderlyGeofence = async (elderlyId, geofenceData) => {
+  try {
+    const response = await api.post(`/api/elderly/${elderlyId}/geofence`, geofenceData);
+    return response.data;
+  } catch (error) {
+    return { status: 'error', message: 'Failed to update geofence settings' };
+  }
+};
+
 export const reportUnusualLocation = async (elderlyId, latitude, longitude, alertType) => {
   try {
     const response = await api.post(`/api/location/unusual-alert/${elderlyId}`, {

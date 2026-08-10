@@ -94,6 +94,12 @@ public class Elderly {
     private Double latitude;
     private Double longitude;
 
+    @Column(name = "geofence_enabled")
+    private Boolean geofenceEnabled = true;
+
+    @Column(name = "geofence_radius_km")
+    private Double geofenceRadiusKm = 5.0;
+
     @Column(name = "created_at")
     private String createdAt;
 
@@ -219,6 +225,12 @@ public class Elderly {
     public Double getLongitude() { return longitude; }
     public void setLongitude(Double longitude) { this.longitude = longitude; }
 
+    public Boolean getGeofenceEnabled() { return geofenceEnabled; }
+    public void setGeofenceEnabled(Boolean geofenceEnabled) { this.geofenceEnabled = geofenceEnabled; }
+
+    public Double getGeofenceRadiusKm() { return geofenceRadiusKm; }
+    public void setGeofenceRadiusKm(Double geofenceRadiusKm) { this.geofenceRadiusKm = geofenceRadiusKm; }
+
     public String getCreatedAt() { return createdAt; }
     public void setCreatedAt(String createdAt) { this.createdAt = createdAt; }
 
@@ -239,6 +251,8 @@ public class Elderly {
         private String preferredLanguage = "en";
         private Double latitude;
         private Double longitude;
+        private Boolean geofenceEnabled = true;
+        private Double geofenceRadiusKm = 5.0;
         private String createdAt;
 
         public ElderlyBuilder elderlyId(String elderlyId) { this.elderlyId = elderlyId; return this; }
@@ -255,6 +269,8 @@ public class Elderly {
         public ElderlyBuilder preferredLanguage(String preferredLanguage) { this.preferredLanguage = preferredLanguage; return this; }
         public ElderlyBuilder latitude(Double latitude) { this.latitude = latitude; return this; }
         public ElderlyBuilder longitude(Double longitude) { this.longitude = longitude; return this; }
+        public ElderlyBuilder geofenceEnabled(Boolean geofenceEnabled) { this.geofenceEnabled = geofenceEnabled; return this; }
+        public ElderlyBuilder geofenceRadiusKm(Double geofenceRadiusKm) { this.geofenceRadiusKm = geofenceRadiusKm; return this; }
         public ElderlyBuilder createdAt(String createdAt) { this.createdAt = createdAt; return this; }
 
         public Elderly build() {
@@ -266,6 +282,8 @@ public class Elderly {
             e.setPreferredLanguage(preferredLanguage != null ? preferredLanguage : "en");
             e.setLatitude(latitude);
             e.setLongitude(longitude);
+            e.setGeofenceEnabled(geofenceEnabled != null ? geofenceEnabled : true);
+            e.setGeofenceRadiusKm(geofenceRadiusKm != null ? geofenceRadiusKm : 5.0);
             return e;
         }
     }
