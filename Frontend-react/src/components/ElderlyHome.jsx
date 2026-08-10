@@ -133,9 +133,9 @@ const ElderlyHome = () => {
       const response = await getElderlyInfo(id);
       if (response && response.status === 'success' && response.data) {
         setEmergencyContacts({
-          hospitalPhone: response.data.hospitalPhone || '',
-          ambulancePhone: response.data.ambulancePhone || '',
-          hospitalName: response.data.hospitalName || ''
+          hospitalPhone: response.data.hospitalPhone || response.data.hospital_phone || '',
+          ambulancePhone: response.data.ambulancePhone || response.data.ambulance_phone || '',
+          hospitalName: response.data.hospitalName || response.data.hospital_name || ''
         });
       }
     } catch (err) {
@@ -214,11 +214,14 @@ const ElderlyHome = () => {
   };
 
   const handleEmergencyCall = (phone, type) => {
-    if (!phone) {
-      showToast(`No ${type} number configured`);
+    if (!phone || phone.trim() === '') {
+      if (window.confirm(`No ${type} number saved. Would you like to configure emergency contacts in Profile settings now?`)) {
+        navigate('/profile');
+      }
       return;
     }
-    window.location.href = `tel:${phone}`;
+    const cleanPhone = phone.replace(/[^0-9+]/g, '');
+    window.location.href = `tel:${cleanPhone}`;
   };
 
   const handleLogout = () => {

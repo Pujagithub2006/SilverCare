@@ -80,9 +80,9 @@ const ElderlyProfilePage = () => {
 
             // Load emergency contacts
             setEmergencyContacts({
-              hospitalPhone: profile.hospitalPhone || '',
-              ambulancePhone: profile.ambulancePhone || '',
-              hospitalName: profile.hospitalName || ''
+              hospitalPhone: profile.hospitalPhone || profile.hospital_phone || '',
+              ambulancePhone: profile.ambulancePhone || profile.ambulance_phone || '',
+              hospitalName: profile.hospitalName || profile.hospital_name || ''
             });
 
             const prefLang = profile.preferred_language || res.data.preferred_language;

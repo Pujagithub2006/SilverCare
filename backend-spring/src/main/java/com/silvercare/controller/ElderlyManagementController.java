@@ -196,6 +196,7 @@ public class ElderlyManagementController {
 
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("elderly_id", elderly.getElderlyId());
+        data.put("elderlyId", elderly.getElderlyId());
         data.put("name", elderly.getName());
         data.put("age", elderly.getAge());
         data.put("phone", elderly.getPhone());
@@ -205,6 +206,16 @@ public class ElderlyManagementController {
         data.put("guardian_name", gd.name);
         data.put("guardian_phone", gd.phone);
         data.put("preferred_language", elderly.getPreferredLanguage());
+        data.put("hospitalPhone", elderly.getHospitalPhone());
+        data.put("hospital_phone", elderly.getHospitalPhone());
+        data.put("hospitalName", elderly.getHospitalName());
+        data.put("hospital_name", elderly.getHospitalName());
+        data.put("ambulancePhone", elderly.getAmbulancePhone());
+        data.put("ambulance_phone", elderly.getAmbulancePhone());
+        data.put("secondaryGuardianPhone", elderly.getSecondaryGuardianPhone());
+        data.put("secondaryGuardianName", elderly.getSecondaryGuardianName());
+        data.put("neighborPhone", elderly.getNeighborPhone());
+        data.put("neighborName", elderly.getNeighborName());
 
         return ResponseEntity.ok(ApiResponse.builder()
                 .status("success")
@@ -318,6 +329,12 @@ public class ElderlyManagementController {
             contacts.put("secondaryGuardianName", elderly.getSecondaryGuardianName());
             contacts.put("neighborPhone", elderly.getNeighborPhone());
             contacts.put("neighborName", elderly.getNeighborName());
+            contacts.put("hospitalPhone", elderly.getHospitalPhone());
+            contacts.put("hospital_phone", elderly.getHospitalPhone());
+            contacts.put("hospitalName", elderly.getHospitalName());
+            contacts.put("hospital_name", elderly.getHospitalName());
+            contacts.put("ambulancePhone", elderly.getAmbulancePhone());
+            contacts.put("ambulance_phone", elderly.getAmbulancePhone());
             contacts.put("speakerMessage", "Fall fall! Emergency detected!");
 
             return ResponseEntity.ok(ApiResponse.builder()
@@ -341,24 +358,38 @@ public class ElderlyManagementController {
 
             if (contactData.containsKey("neighborPhone")) {
                 elderly.setNeighborPhone(contactData.get("neighborPhone").toString());
+            } else if (contactData.containsKey("neighbor_phone")) {
+                elderly.setNeighborPhone(contactData.get("neighbor_phone").toString());
             }
             if (contactData.containsKey("neighborName")) {
                 elderly.setNeighborName(contactData.get("neighborName").toString());
+            } else if (contactData.containsKey("neighbor_name")) {
+                elderly.setNeighborName(contactData.get("neighbor_name").toString());
             }
             if (contactData.containsKey("secondaryGuardianPhone")) {
                 elderly.setSecondaryGuardianPhone(contactData.get("secondaryGuardianPhone").toString());
+            } else if (contactData.containsKey("secondary_guardian_phone")) {
+                elderly.setSecondaryGuardianPhone(contactData.get("secondary_guardian_phone").toString());
             }
             if (contactData.containsKey("secondaryGuardianName")) {
                 elderly.setSecondaryGuardianName(contactData.get("secondaryGuardianName").toString());
+            } else if (contactData.containsKey("secondary_guardian_name")) {
+                elderly.setSecondaryGuardianName(contactData.get("secondary_guardian_name").toString());
             }
             if (contactData.containsKey("hospitalPhone")) {
                 elderly.setHospitalPhone(contactData.get("hospitalPhone").toString());
+            } else if (contactData.containsKey("hospital_phone")) {
+                elderly.setHospitalPhone(contactData.get("hospital_phone").toString());
             }
             if (contactData.containsKey("ambulancePhone")) {
                 elderly.setAmbulancePhone(contactData.get("ambulancePhone").toString());
+            } else if (contactData.containsKey("ambulance_phone")) {
+                elderly.setAmbulancePhone(contactData.get("ambulance_phone").toString());
             }
             if (contactData.containsKey("hospitalName")) {
                 elderly.setHospitalName(contactData.get("hospitalName").toString());
+            } else if (contactData.containsKey("hospital_name")) {
+                elderly.setHospitalName(contactData.get("hospital_name").toString());
             }
 
             elderlyManagementService.updateElderlyEntity(elderly);
