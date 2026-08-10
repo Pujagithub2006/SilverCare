@@ -51,6 +51,9 @@ const ElderlyProfilePage = () => {
     const name = localStorage.getItem('elderly_name') || 'Senior Citizen';
     const phone = localStorage.getItem('elderly_phone') || '';
 
+    console.log('[ELDERLY PROFILE] elderly_id from localStorage:', id);
+    console.log('[ELDERLY PROFILE] Using targetId:', id || 'default_senior');
+
     setElderlyName(name);
     setElderlyPhone(phone);
     setGuardianName(storedGName);

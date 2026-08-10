@@ -118,15 +118,22 @@ export const submitMedicalHistoryCalibration = async (elderlyId, healthHistory) 
 
 export const updateHealthHistory = async (elderlyId, payload) => {
   const targetId = elderlyId || 'default_senior';
+  console.log('[API] updateHealthHistory called with elderlyId:', elderlyId);
+  console.log('[API] Using targetId:', targetId);
+  console.log('[API] Payload:', payload);
   try {
     const response = await api.post(`/api/elderly/${targetId}/health-history`, payload);
+    console.log('[API] updateHealthHistory success:', response.data);
     return response.data;
   } catch (error) {
+    console.log('[API] updateHealthHistory primary error:', error.response?.data);
     if (error.response && error.response.data) return error.response.data;
     try {
       const legacy = await axios.post(`${LEGACY_API_BASE}/api/elderly/${targetId}/health-history`, payload);
+      console.log('[API] updateHealthHistory legacy success:', legacy.data);
       return legacy.data;
     } catch (e) {
+      console.log('[API] updateHealthHistory legacy error:', e);
       return { status: 'error', message: error.message || 'Health history update failed' };
     }
   }

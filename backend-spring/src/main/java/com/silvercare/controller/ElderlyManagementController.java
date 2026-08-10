@@ -285,10 +285,20 @@ public class ElderlyManagementController {
             @PathVariable String elderlyId,
             @RequestBody Map<String, Object> healthData) {
         try {
+            System.out.println("[HEALTH HISTORY UPDATE] Received request for elderlyId: " + elderlyId);
+            System.out.println("[HEALTH HISTORY UPDATE] Payload: " + healthData);
+            
             Elderly elderly = elderlyManagementService.getElderly(elderlyId);
             if (elderly == null) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error("Elderly not found"));
+                System.out.println("[HEALTH HISTORY UPDATE] Elderly not found in database: " + elderlyId);
+                System.out.println("[HEALTH HISTORY UPDATE] Available elderly IDs:");
+                elderlyManagementService.getAllElderly().forEach(e -> 
+                    System.out.println("  - " + e.getElderlyId() + " (" + e.getName() + ")")
+                );
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error("Elderly not found with ID: " + elderlyId));
             }
+
+            System.out.println("[HEALTH HISTORY UPDATE] Found elderly: " + elderly.getName() + " (ID: " + elderly.getElderlyId() + ")");
 
             if (healthData != null) {
                 // Age
