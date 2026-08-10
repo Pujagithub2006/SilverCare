@@ -157,10 +157,10 @@ class MyServerCallbacks : public NimBLEServerCallbacks {
 //  SETUP
 // =========================================================================
 void setup() {
-  Serial.begin(115200);
+  Serial.begin(9600);
   delay(1000);
 
-  Wire.begin(18, 19);  // ESP32 default I2C pins
+  Wire.begin(21, 22);  // ESP32 default I2C pins
 
   Serial.println("========================================");
   Serial.println("=== SILVERCARE WRIST BAND HEART SENSOR ===");
