@@ -49,6 +49,7 @@ export default function ElderlyMapModal({ isOpen, onClose, elderly, sensorData }
   const guardianMarkerRef = useRef(null);
   const routePolylineRef = useRef(null);
   const geofenceCircleRef = useRef(null);
+  const hasInitialCenteredRef = useRef(false);
 
   const [guardianCoords, setGuardianCoords] = useState(null);
   const [isNavigating, setIsNavigating] = useState(false);
@@ -210,7 +211,11 @@ export default function ElderlyMapModal({ isOpen, onClose, elderly, sensorData }
         const map = L.map(mapRef.current, {
           center: [lat, lng],
           zoom: 15,
-          zoomControl: true
+          zoomControl: true,
+          scrollWheelZoom: true,
+          dragging: true,
+          tap: true,
+          touchZoom: true
         });
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -225,9 +230,11 @@ export default function ElderlyMapModal({ isOpen, onClose, elderly, sensorData }
         });
 
         mapInstanceRef.current = map;
+        hasInitialCenteredRef.current = true;
       } else {
-        if (!guardianCoords) {
+        if (!hasInitialCenteredRef.current && !guardianCoords) {
           mapInstanceRef.current.setView([lat, lng], 15, { animate: true });
+          hasInitialCenteredRef.current = true;
         }
         mapInstanceRef.current.invalidateSize();
       }
@@ -406,6 +413,7 @@ export default function ElderlyMapModal({ isOpen, onClose, elderly, sensorData }
         guardianMarkerRef.current = null;
         routePolylineRef.current = null;
       }
+      hasInitialCenteredRef.current = false;
       setIsNavigating(false);
       setGuardianCoords(null);
       setDistanceKm(null);
