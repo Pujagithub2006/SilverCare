@@ -1701,7 +1701,19 @@ void updateSimulation() {
             break;
     }
     currentSpo2 = random(95, 100);
-    currentTemp = 36.5 + (random(-5, 5) / 10.0);
+    currentTemp = readTemperatureSensor();
+}
+
+float readTemperatureSensor() {
+    int rawValue = analogRead(DS18B20_PIN);
+    if (rawValue > 100 && rawValue < 4000) {
+        float voltage = (rawValue / 4095.0) * 3.3;
+        float tempC = voltage * 100.0; // Convert voltage to temperature in °C
+        if (tempC >= 25.0 && tempC <= 45.0) {
+            return tempC;
+        }
+    }
+    return 36.5 + (random(-5, 5) / 10.0);
 }
 
 // ===== SEND DATA TO BACKEND =====
