@@ -35,6 +35,7 @@ SoftwareSerial gsmSerial(GSM_RX_PIN, GSM_TX_PIN);
 #define MPU6050_SCL 22       // MPU6050 SCL pin (D22)
 #define GPS_RX_PIN 16        // GPS TX -> ESP32 RX (D16)
 #define GPS_TX_PIN 17        // GPS RX -> ESP32 TX (D17)
+#define DS18B20_PIN 4        // DS18B20 Temperature Sensor Data Pin (D4)
 
 // MAX98357A I2S Speaker Amplifier Pins
 #define I2S_LRC 33           // Speaker LRC (WS) -> D33
