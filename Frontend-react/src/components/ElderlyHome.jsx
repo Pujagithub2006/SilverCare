@@ -402,6 +402,33 @@ const ElderlyHome = () => {
         </div>
       )}
 
+      {/* Calibration Complete Banner */}
+      {isCalibrated && (
+        <div style={{ padding: '0 20px 20px 20px' }}>
+          <div style={{
+            backgroundColor: '#f0fdf4',
+            border: '2px solid #22c55e',
+            borderRadius: '16px',
+            padding: '16px',
+            textAlign: 'left'
+          }}>
+            <h3 style={{ margin: '0 0 8px 0', color: '#166534', fontSize: '16px', fontWeight: '700' }}>
+              ✅ Calibration Complete
+            </h3>
+            <p style={{ margin: '0 0 12px 0', color: '#15803d', fontSize: '14px', lineHeight: '1.5' }}>
+              Your fall detection is now personalized for your movement patterns.
+            </p>
+            <div style={{
+              fontSize: '12px',
+              color: '#166534',
+              fontWeight: '600'
+            }}>
+              Model Personalized ✓
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* SOS Button */}
       <div className="sos-section">
         <button
