@@ -58,6 +58,23 @@ export default function GuardianDashboardPage() {
     loadDeviceData();
   }, [guardianUsername, navigate]);
 
+  useEffect(() => {
+    if (!selectedElderly) return;
+    const elderlyId = selectedElderly.elderlyId || selectedElderly.id || selectedElderly.elderly_id;
+    const deviceId = selectedElderly.deviceId || selectedElderly.macAddress || 'vois_belt';
+    
+    loadElderlyData(elderlyId);
+    pollAlertsForElderly(elderlyId);
+    pollLiveTelemetry(deviceId);
+
+    const timer = setInterval(() => {
+      pollLiveTelemetry(deviceId);
+      pollAlertsForElderly(elderlyId);
+    }, 3000);
+
+    return () => clearInterval(timer);
+  }, [selectedElderly]);
+
   // Live Hardware Telemetry State
   const [sensorData, setSensorData] = useState({
     deviceId: 'vois_belt',
@@ -649,7 +666,7 @@ export default function GuardianDashboardPage() {
           beltWorn: isWorn,
           heartRate: isWorn ? Math.round(d.heartRate || 0) : 0,
           spo2: isWorn ? Math.round(d.spo2 || 0) : 0,
-          temperature: isWorn ? Number(d.temperature || 0).toFixed(1) : 0,
+          temperature: isWorn ? (Number(d.temperature || 0) > 0 ? (Number(d.temperature) > 60 ? Number(d.temperature).toFixed(1) : (Number(d.temperature) * 1.8 + 32).toFixed(1)) : 0) : 0,
           acceleration: isWorn ? Number(d.acceleration || 0).toFixed(2) : 0,
           stateName: isWorn ? (d.stateName || 'NORMAL') : 'DISCONNECTED',
           latitude: d.latitude !== undefined && d.latitude !== null ? d.latitude : prev.latitude,
@@ -1234,9 +1251,9 @@ export default function GuardianDashboardPage() {
                   }}>
                     <div style={{ fontSize: '10px', opacity: 0.9, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Temperature</div>
                     <div style={{ fontSize: '24px', fontWeight: '800', marginTop: '4px' }}>
-                      {sensorData.beltWorn && Number(sensorData.temperature) > 0 ? `${sensorData.temperature}°C` : 'Offline'}
+                      {sensorData.beltWorn && Number(sensorData.temperature) > 0 ? `${sensorData.temperature}°F` : 'Offline'}
                     </div>
-                    <div style={{ fontSize: '10px', opacity: 0.8, marginTop: '4px' }}>{sensorData.beltWorn ? 'Normal' : 'Hardware Disconnected'}</div>
+                    <div style={{ fontSize: '10px', opacity: 0.8, marginTop: '4px' }}>{sensorData.beltWorn ? 'Normal: 97-99°F' : 'Hardware Disconnected'}</div>
                   </div>
 
                   {/* Belt Status Card */}
