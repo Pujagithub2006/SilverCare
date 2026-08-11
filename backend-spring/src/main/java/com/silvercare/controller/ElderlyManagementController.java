@@ -160,7 +160,7 @@ public class ElderlyManagementController {
         }
     }
 
-    @PostMapping("/elderly-register")
+    @PostMapping({"/api/elderly-register", "/elderly-register"})
     public ResponseEntity<ApiResponse<Object>> registerElderly(@RequestBody ElderlyRegisterRequest request) {
         try {
             Elderly elderly = elderlyManagementService.registerElderly(request);
@@ -546,7 +546,7 @@ public class ElderlyManagementController {
         }
     }
 
-    @GetMapping("/guardian-elderly/{guardianUsername}")
+    @GetMapping({"/api/guardian-elderly/{guardianUsername}", "/guardian-elderly/{guardianUsername}"})
     public ResponseEntity<ApiResponse<Object>> getGuardianElderly(@PathVariable String guardianUsername) {
         List<Elderly> list = elderlyManagementService.getElderlyByGuardian(guardianUsername);
         ApiResponse<Object> response = ApiResponse.builder()
