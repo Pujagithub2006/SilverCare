@@ -183,17 +183,29 @@ public class Elderly {
     public String getGuardianUsername() { return guardianUsername; }
     public void setGuardianUsername(String guardianUsername) { this.guardianUsername = guardianUsername; }
 
-    public String getNeighbourName() { return neighbourName; }
-    public void setNeighbourName(String neighbourName) { this.neighbourName = neighbourName; }
+    public String getNeighbourName() { return neighbourName != null ? neighbourName : neighborName; }
+    public void setNeighbourName(String neighbourName) { 
+        this.neighbourName = neighbourName; 
+        if (this.neighborName == null) this.neighborName = neighbourName;
+    }
 
-    public String getNeighbourPhone() { return neighbourPhone; }
-    public void setNeighbourPhone(String neighbourPhone) { this.neighbourPhone = neighbourPhone; }
+    public String getNeighbourPhone() { return neighbourPhone != null ? neighbourPhone : neighborPhone; }
+    public void setNeighbourPhone(String neighbourPhone) { 
+        this.neighbourPhone = neighbourPhone; 
+        if (this.neighborPhone == null) this.neighborPhone = neighbourPhone;
+    }
 
-    public String getNeighborPhone() { return neighborPhone; }
-    public void setNeighborPhone(String neighborPhone) { this.neighborPhone = neighborPhone; }
+    public String getNeighborPhone() { return neighborPhone != null ? neighborPhone : neighbourPhone; }
+    public void setNeighborPhone(String neighborPhone) { 
+        this.neighborPhone = neighborPhone; 
+        this.neighbourPhone = neighborPhone;
+    }
 
-    public String getNeighborName() { return neighborName; }
-    public void setNeighborName(String neighborName) { this.neighborName = neighborName; }
+    public String getNeighborName() { return neighborName != null ? neighborName : neighbourName; }
+    public void setNeighborName(String neighborName) { 
+        this.neighborName = neighborName; 
+        this.neighbourName = neighborName;
+    }
 
     public String getSecondaryGuardianPhone() { return secondaryGuardianPhone; }
     public void setSecondaryGuardianPhone(String secondaryGuardianPhone) { this.secondaryGuardianPhone = secondaryGuardianPhone; }

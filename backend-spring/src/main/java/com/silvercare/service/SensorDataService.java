@@ -119,11 +119,11 @@ public class SensorDataService {
         
         latestSensorDataContainer.put(deviceId, container);
 
-        connectedDevices.put(deviceId, new DeviceStatus(deviceId, beltType, stateName, request.getBeltWorn()));
+        connectedDevices.put(deviceId, new DeviceStatus(deviceId, beltType, stateName, beltWornVal));
 
         System.out.printf("📡 [HARDWARE %s] Data from %s | State: %s | Worn: %s | HR: %.1f | SpO2: %.1f | Temp: %.1f%n",
-                beltType, deviceId, stateName, request.getBeltWorn() ? "YES" : "NO",
-                request.getHeartRate(), request.getSpo2(), request.getTemperature());
+                beltType, deviceId, stateName, beltWornVal ? "YES" : "NO",
+                (Double) sensorData.get("heartRate"), (Double) sensorData.get("spo2"), (Double) sensorData.get("temperature"));
 
         // Encrypt & Save to Firebase storage
         try {

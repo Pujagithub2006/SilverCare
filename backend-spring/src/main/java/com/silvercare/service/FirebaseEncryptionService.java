@@ -2,7 +2,6 @@ package com.silvercare.service;
 
 import org.springframework.stereotype.Service;
 import javax.crypto.Cipher;
-import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;

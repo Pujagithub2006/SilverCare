@@ -1,15 +1,11 @@
 {
-  "liveServer.settings.port": 8080,
-  "liveServer.settings.root": "/frontend",
-  "liveServer.settings.host": "localhost",
-  "liveServer.settings.NoBrowser": false,
-  "liveServer.settings.CustomBrowser": "chrome",
-  "files.exclude": {
-    "**/__pycache__": true,
-    "**/.venv": true,
-    "**/node_modules": true,
-    "**/*.pyc": true
-  },
-  "python.defaultInterpreterPath": "./.venv/Scripts/python.exe",
-  "python.terminal.activateEnvironment": true
+  "python.defaultInterpreterPath": "ml-service/.venv/Scripts/python.exe",
+  "python.venvPath": "ml-service",
+  "pyright.venv": ".venv",
+  "python.analysis.extraPaths": [
+    "${workspaceFolder}/ml-service",
+    "${workspaceFolder}/ml-service/api",
+    "${workspaceFolder}/ml-service/training",
+    "${workspaceFolder}/ml-service/models"
+  ]
 }

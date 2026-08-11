@@ -1,6 +1,7 @@
 package com.silvercare.service;
 
 import com.silvercare.entity.Medicine;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -8,6 +9,9 @@ import java.util.*;
 
 @Service
 public class ElderlyNotificationService {
+
+    @Autowired(required = false)
+    private TwilioService twilioService;
 
     public static class ElderlySession {
         private String elderlyId;
@@ -88,7 +92,10 @@ public class ElderlyNotificationService {
     }
 
     public void sendEmergencySMS(String phoneNumber, String message) {
-        // TODO: Implement Twilio SMS sending for emergency notifications
-        System.out.println("[EMERGENCY SMS] Would send to " + phoneNumber + ": " + message);
+        if (twilioService != null) {
+            twilioService.sendSms(phoneNumber, message);
+        } else {
+            System.out.println("[EMERGENCY SMS] Would send to " + phoneNumber + ": " + message);
+        }
     }
 }

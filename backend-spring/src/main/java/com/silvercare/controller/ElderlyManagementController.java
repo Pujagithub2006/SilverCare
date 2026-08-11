@@ -188,7 +188,7 @@ public class ElderlyManagementController {
         }
     }
 
-    @GetMapping("/elderly-info/{elderlyId}")
+    @GetMapping({"/elderly-info/{elderlyId}", "/api/elderly-info/{elderlyId}", "/api/elderly/{elderlyId}"})
     public ResponseEntity<ApiResponse<Object>> getElderlyInfo(@PathVariable String elderlyId) {
         Elderly elderly = elderlyManagementService.getElderly(elderlyId);
         if (elderly == null) {
@@ -228,6 +228,36 @@ public class ElderlyManagementController {
                 .preferred_language(elderly.getPreferredLanguage())
                 .data(data)
                 .build());
+    }
+
+    @PostMapping({"/api/elderly/calibrate", "/elderly/calibrate"})
+    public ResponseEntity<ApiResponse<Object>> calibrateElderly(@RequestBody Map<String, Object> payload) {
+        try {
+            String elderlyId = payload.get("elderlyId") != null ? payload.get("elderlyId").toString() :
+                              (payload.get("elderly_id") != null ? payload.get("elderly_id").toString() : "default_senior");
+
+            Elderly elderly = elderlyManagementService.getElderly(elderlyId);
+            if (elderly == null) {
+                elderly = elderlyManagementService.createElderlyForId(elderlyId);
+            }
+
+            elderly.setIsCalibrated(true);
+            elderly.setCalibratedAt(LocalDateTime.now().toString());
+            elderlyManagementService.updateElderlyEntity(elderly);
+
+            Map<String, Object> respData = new LinkedHashMap<>();
+            respData.put("elderlyId", elderly.getElderlyId());
+            respData.put("isCalibrated", true);
+            respData.put("calibratedAt", elderly.getCalibratedAt());
+
+            return ResponseEntity.ok(ApiResponse.builder()
+                    .status("success")
+                    .message("Elderly movement baseline calibrated successfully")
+                    .data(respData)
+                    .build());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.error("Calibration failed: " + e.getMessage()));
+        }
     }
 
     @PostMapping("/elderly-update")
@@ -1027,7 +1057,6 @@ public class ElderlyManagementController {
                 Double.valueOf(request.get("spo2").toString()) : null;
             Double temperature = request.get("temperature") != null ? 
                 Double.valueOf(request.get("temperature").toString()) : null;
-            String deviceId = (String) request.get("deviceId");
 
             // Determine severity based on vitals
             boolean isCritical = false;

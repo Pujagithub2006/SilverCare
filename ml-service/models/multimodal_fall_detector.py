@@ -92,8 +92,9 @@ class PersonalizationLayer(nn.Module):
         self.personalization_fc = nn.Linear(input_dim * 2, output_dim)
         
     def forward(self, features: torch.Tensor, user_id: torch.Tensor) -> torch.Tensor:
-        # Get user embedding
-        user_emb = self.user_embedding(user_id)
+        # Get user embedding safely
+        bounded_user_id = torch.abs(user_id) % self.user_embedding.num_embeddings
+        user_emb = self.user_embedding(bounded_user_id)
         # Concatenate with features
         combined = torch.cat([features, user_emb], dim=-1)
         # Apply personalization

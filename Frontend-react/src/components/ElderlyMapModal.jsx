@@ -614,21 +614,87 @@ export default function ElderlyMapModal({ isOpen, onClose, elderly, sensorData }
       left: 0,
       right: 0,
       bottom: 0,
-      backgroundColor: 'rgba(0, 0, 0, 0.65)',
+      backgroundColor: 'rgba(0, 0, 0, 0.7)',
       backdropFilter: 'blur(8px)',
       WebkitBackdropFilter: 'blur(8px)',
       zIndex: 9999,
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      padding: '16px',
+      padding: '10px',
       boxSizing: 'border-box'
     }}>
-      <div style={{
+      <style>{`
+        .elderly-map-scroll {
+          overflow-y: auto !important;
+          overflow-x: hidden !important;
+          -webkit-overflow-scrolling: touch !important;
+        }
+        .elderly-map-scroll::-webkit-scrollbar {
+          width: 8px;
+        }
+        .elderly-map-scroll::-webkit-scrollbar-track {
+          background: #f1f5f9;
+          border-radius: 4px;
+        }
+        .elderly-map-scroll::-webkit-scrollbar-thumb {
+          background: #94a3b8;
+          border-radius: 4px;
+        }
+        .elderly-map-scroll::-webkit-scrollbar-thumb:hover {
+          background: #64748b;
+        }
+        @media (max-width: 640px) {
+          .map-modal-card {
+            max-height: 96vh !important;
+            border-radius: 16px !important;
+            margin: 4px !important;
+          }
+          .map-modal-header {
+            padding: 12px 14px !important;
+            flex-wrap: wrap !important;
+            gap: 8px !important;
+          }
+          .map-modal-metrics {
+            grid-template-columns: repeat(2, 1fr) !important;
+            padding: 8px 12px !important;
+            gap: 6px !important;
+          }
+          .map-modal-geofence {
+            padding: 8px 12px !important;
+            flex-direction: column !important;
+            align-items: stretch !important;
+          }
+          .map-modal-geofence-actions {
+            width: 100% !important;
+            justify-content: space-between !important;
+          }
+          .map-container-box {
+            min-height: 280px !important;
+            height: 280px !important;
+          }
+          .map-modal-footer {
+            padding: 10px 12px !important;
+            flex-direction: column !important;
+            align-items: stretch !important;
+            gap: 8px !important;
+          }
+          .map-modal-footer-btns {
+            width: 100% !important;
+            flex-direction: column !important;
+          }
+          .map-modal-footer-btns button {
+            width: 100% !important;
+            justify-content: center !important;
+          }
+        }
+      `}</style>
+
+      <div className="map-modal-card" style={{
         backgroundColor: '#ffffff',
         width: '100%',
         maxWidth: '920px',
-        maxHeight: '95vh',
+        maxHeight: '92vh',
         borderRadius: '24px',
         boxShadow: '0 20px 40px rgba(0, 0, 0, 0.25)',
         display: 'flex',
@@ -637,14 +703,15 @@ export default function ElderlyMapModal({ isOpen, onClose, elderly, sensorData }
         border: '1px solid rgba(255, 255, 255, 0.2)'
       }}>
         
-        {/* Header Bar */}
-        <div style={{
+        {/* Fixed Header Bar */}
+        <div className="map-modal-header" style={{
           padding: '16px 24px',
           background: '#ffffff',
           borderBottom: '1px solid #e5e5e7',
           display: 'flex',
           justifyContent: 'space-between',
-          alignItems: 'center'
+          alignItems: 'center',
+          flexShrink: 0
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <div style={{
@@ -660,7 +727,7 @@ export default function ElderlyMapModal({ isOpen, onClose, elderly, sensorData }
               📍
             </div>
             <div>
-              <h2 style={{ margin: 0, fontSize: '19px', fontWeight: '800', color: '#1c1c1e' }}>
+              <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: '#1c1c1e' }}>
                 See Elderly Person - Location Tracker
               </h2>
               <p style={{ margin: '2px 0 0 0', fontSize: '13px', color: '#6c6c70' }}>
@@ -669,7 +736,7 @@ export default function ElderlyMapModal({ isOpen, onClose, elderly, sensorData }
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div className="map-modal-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <button
               onClick={handleSimulateHardwareGps}
               disabled={isSimulating}
@@ -711,309 +778,314 @@ export default function ElderlyMapModal({ isOpen, onClose, elderly, sensorData }
           </div>
         </div>
 
-        {/* Status Metrics Cards Grid */}
-        <div style={{
-          padding: '12px 20px',
-          backgroundColor: '#f8fafc',
-          borderBottom: '1px solid #e2e8f0',
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-          gap: '10px'
-        }}>
-          {/* Coordinates Card */}
-          <div style={{
-            background: '#ffffff',
-            padding: '10px 14px',
-            borderRadius: '12px',
-            border: '1px solid #e2e8f0'
-          }}>
-            <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '600', textTransform: 'uppercase' }}>
-              📍 Coordinates
-            </div>
-            <div style={{ fontSize: '14px', fontWeight: '700', color: '#0f172a', marginTop: '2px' }}>
-              {lat.toFixed(4)}° N, {lng.toFixed(4)}° E
-            </div>
-            <div style={{
-              fontSize: '11px',
-              fontWeight: '700',
-              marginTop: '2px',
-              color: locationStatusType === 'LIVE' ? '#16a34a' : locationStatusType === 'STORED' ? '#d97706' : '#2563eb'
-            }}>
-              {locationStatusLabel}
-            </div>
-          </div>
-
-          {/* Safety Status */}
-          <div style={{
-            background: '#ffffff',
-            padding: '10px 14px',
-            borderRadius: '12px',
-            border: '1px solid #e2e8f0'
-          }}>
-            <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '600', textTransform: 'uppercase' }}>
-              🛡️ Safety Status
-            </div>
-            <div style={{
-              display: 'inline-block',
-              marginTop: '4px',
-              padding: '2px 8px',
-              borderRadius: '8px',
-              fontSize: '13px',
-              fontWeight: '800',
-              backgroundColor: isEmergency ? '#ffebee' : '#e8f5e8',
-              color: isEmergency ? '#ff3b30' : '#34c759'
-            }}>
-              {isEmergency ? `🚨 ${stateName}` : '✅ Safe & Normal'}
-            </div>
-          </div>
-
-          {/* Connected Device */}
-          <div style={{
-            background: '#ffffff',
-            padding: '10px 14px',
-            borderRadius: '12px',
-            border: '1px solid #e2e8f0'
-          }}>
-            <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '600', textTransform: 'uppercase' }}>
-              📟 Wearable Device
-            </div>
-            <div style={{ fontSize: '14px', fontWeight: '700', color: '#0f172a', marginTop: '2px' }}>
-              {deviceId}
-            </div>
-            <div style={{ fontSize: '11px', color: sensorData?.beltWorn ? '#16a34a' : '#dc2626', fontWeight: '600', marginTop: '2px' }}>
-              {sensorData?.beltWorn ? '🟢 Belt Worn' : '🔴 Belt Off'}
-            </div>
-          </div>
-
-          {/* Travel Distance Card */}
-          <div style={{
-            background: isNavigating ? 'linear-gradient(135deg, #10b981, #059669)' : '#ffffff',
-            color: isNavigating ? '#ffffff' : '#0f172a',
-            padding: '10px 14px',
-            borderRadius: '12px',
-            border: '1px solid #e2e8f0'
-          }}>
-            <div style={{ fontSize: '11px', color: isNavigating ? 'rgba(255,255,255,0.9)' : '#64748b', fontWeight: '600', textTransform: 'uppercase' }}>
-              🚗 Travel Route Distance
-            </div>
-            <div style={{ fontSize: '14px', fontWeight: '800', marginTop: '2px' }}>
-              {distanceKm ? `~${distanceKm} km away` : 'Not navigating'}
-            </div>
-            <div style={{ fontSize: '11px', opacity: 0.9, marginTop: '2px' }}>
-              {isNavigating ? '🟢 Live Route Plotted' : 'Click "Start Traveling" below'}
-            </div>
-          </div>
-        </div>
-
-        {/* Location Information Banner */}
-        <div style={{
-          backgroundColor: '#f0f9ff',
-          borderBottom: '1px solid #bae6fd',
-          padding: '8px 20px',
+        {/* 📜 Scrollable Modal Body (Contains Metrics, Banner, Geofence, Map & Footer) */}
+        <div className="elderly-map-scroll" style={{
+          flex: 1,
           display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          fontSize: '12px',
-          color: '#0369a1',
-          fontWeight: '600'
+          flexDirection: 'column'
         }}>
-          <span>💡 Tip: Click anywhere on the map to manually set senior pin, or use "Test Hardware GPS Fix" to simulate hardware stream.</span>
-        </div>
+          
+          {/* Status Metrics Cards Grid */}
+          <div className="map-modal-metrics" style={{
+            padding: '12px 20px',
+            backgroundColor: '#f8fafc',
+            borderBottom: '1px solid #e2e8f0',
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))',
+            gap: '10px'
+          }}>
+            {/* Coordinates Card */}
+            <div style={{
+              background: '#ffffff',
+              padding: '10px 14px',
+              borderRadius: '12px',
+              border: '1px solid #e2e8f0'
+            }}>
+              <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '600', textTransform: 'uppercase' }}>
+                📍 Coordinates
+              </div>
+              <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a', marginTop: '2px' }}>
+                {lat.toFixed(4)}° N, {lng.toFixed(4)}° E
+              </div>
+              <div style={{
+                fontSize: '11px',
+                fontWeight: '700',
+                marginTop: '2px',
+                color: locationStatusType === 'LIVE' ? '#16a34a' : locationStatusType === 'STORED' ? '#d97706' : '#2563eb'
+              }}>
+                {locationStatusLabel}
+              </div>
+            </div>
 
-        {/* ⚙️ Geofence Safety Zone Settings Panel */}
-        <div style={{
-          backgroundColor: '#fffbeb',
-          borderBottom: '1px solid #fde68a',
-          padding: '10px 20px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '12px',
-          flexWrap: 'wrap'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '13px', fontWeight: '800', color: '#92400e' }}>
-              🛡️ Geofence Safety Alert:
-            </span>
+            {/* Safety Status */}
+            <div style={{
+              background: '#ffffff',
+              padding: '10px 14px',
+              borderRadius: '12px',
+              border: '1px solid #e2e8f0'
+            }}>
+              <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '600', textTransform: 'uppercase' }}>
+                🛡️ Safety Status
+              </div>
+              <div style={{
+                display: 'inline-block',
+                marginTop: '4px',
+                padding: '2px 8px',
+                borderRadius: '8px',
+                fontSize: '12px',
+                fontWeight: '800',
+                backgroundColor: isEmergency ? '#ffebee' : '#e8f5e8',
+                color: isEmergency ? '#ff3b30' : '#34c759'
+              }}>
+                {isEmergency ? `🚨 ${stateName}` : '✅ Safe & Normal'}
+              </div>
+            </div>
+
+            {/* Connected Device */}
+            <div style={{
+              background: '#ffffff',
+              padding: '10px 14px',
+              borderRadius: '12px',
+              border: '1px solid #e2e8f0'
+            }}>
+              <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '600', textTransform: 'uppercase' }}>
+                📟 Wearable Device
+              </div>
+              <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a', marginTop: '2px' }}>
+                {deviceId}
+              </div>
+              <div style={{ fontSize: '11px', color: sensorData?.beltWorn ? '#16a34a' : '#dc2626', fontWeight: '600', marginTop: '2px' }}>
+                {sensorData?.beltWorn ? '🟢 Belt Worn' : '🔴 Belt Off'}
+              </div>
+            </div>
+
+            {/* Travel Distance Card */}
+            <div style={{
+              background: isNavigating ? 'linear-gradient(135deg, #10b981, #059669)' : '#ffffff',
+              color: isNavigating ? '#ffffff' : '#0f172a',
+              padding: '10px 14px',
+              borderRadius: '12px',
+              border: '1px solid #e2e8f0'
+            }}>
+              <div style={{ fontSize: '11px', color: isNavigating ? 'rgba(255,255,255,0.9)' : '#64748b', fontWeight: '600', textTransform: 'uppercase' }}>
+                🚗 Route Distance
+              </div>
+              <div style={{ fontSize: '13px', fontWeight: '800', marginTop: '2px' }}>
+                {distanceKm ? `~${distanceKm} km away` : 'Not navigating'}
+              </div>
+              <div style={{ fontSize: '10px', opacity: 0.9, marginTop: '2px' }}>
+                {isNavigating ? '🟢 Live Route Plotted' : 'Click "Start Traveling" below'}
+              </div>
+            </div>
+          </div>
+
+          {/* Location Information Banner */}
+          <div style={{
+            backgroundColor: '#f0f9ff',
+            borderBottom: '1px solid #bae6fd',
+            padding: '8px 20px',
+            fontSize: '12px',
+            color: '#0369a1',
+            fontWeight: '600'
+          }}>
+            💡 Tip: Click anywhere on the map to set pin manually, or use "Test Hardware GPS Fix" to test streaming.
+          </div>
+
+          {/* ⚙️ Geofence Safety Zone Settings Panel */}
+          <div className="map-modal-geofence" style={{
+            backgroundColor: '#fffbeb',
+            borderBottom: '1px solid #fde68a',
+            padding: '10px 20px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '12px',
+            flexWrap: 'wrap'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '12px', fontWeight: '800', color: '#92400e' }}>
+                🛡️ Geofence Safety Alert:
+              </span>
+              <button
+                onClick={() => setGeofenceEnabled(!geofenceEnabled)}
+                style={{
+                  backgroundColor: geofenceEnabled ? '#10b981' : '#cbd5e1',
+                  color: '#ffffff',
+                  border: 'none',
+                  padding: '4px 12px',
+                  borderRadius: '16px',
+                  fontSize: '11px',
+                  fontWeight: '800',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                {geofenceEnabled ? 'ON (Active)' : 'OFF (Disabled)'}
+              </button>
+            </div>
+
+            {geofenceEnabled && (
+              <div className="map-modal-geofence-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '12px', fontWeight: '700', color: '#b45309' }}>
+                  Radius (km):
+                </span>
+                <input
+                  type="number"
+                  min="0.5"
+                  max="50"
+                  step="0.5"
+                  value={geofenceRadiusKm}
+                  onChange={(e) => setGeofenceRadiusKm(e.target.value)}
+                  style={{
+                    width: '60px',
+                    padding: '4px 8px',
+                    borderRadius: '6px',
+                    border: '1px solid #fcd34d',
+                    fontSize: '12px',
+                    fontWeight: '700',
+                    color: '#92400e',
+                    outline: 'none'
+                  }}
+                />
+                <div style={{ display: 'flex', gap: '4px' }}>
+                  {[1, 2, 5, 10].map(r => (
+                    <button
+                      key={r}
+                      type="button"
+                      onClick={() => setGeofenceRadiusKm(r)}
+                      style={{
+                        backgroundColor: Number(geofenceRadiusKm) === r ? '#f59e0b' : '#ffffff',
+                        color: Number(geofenceRadiusKm) === r ? '#ffffff' : '#92400e',
+                        border: '1px solid #fcd34d',
+                        padding: '3px 8px',
+                        borderRadius: '6px',
+                        fontSize: '10px',
+                        fontWeight: '800',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {r}km
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <button
-              onClick={() => setGeofenceEnabled(!geofenceEnabled)}
+              onClick={handleSaveGeofence}
+              disabled={isSavingGeofence}
               style={{
-                backgroundColor: geofenceEnabled ? '#10b981' : '#cbd5e1',
+                backgroundColor: '#f59e0b',
                 color: '#ffffff',
                 border: 'none',
-                padding: '4px 12px',
-                borderRadius: '16px',
-                fontSize: '11px',
+                padding: '6px 14px',
+                borderRadius: '8px',
+                fontSize: '12px',
                 fontWeight: '800',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease'
+                cursor: isSavingGeofence ? 'not-allowed' : 'pointer',
+                opacity: isSavingGeofence ? 0.6 : 1
               }}
             >
-              {geofenceEnabled ? 'ON (Active)' : 'OFF (Disabled)'}
+              {isSavingGeofence ? 'Saving...' : 'Save Geofence Settings ✅'}
             </button>
           </div>
 
-          {geofenceEnabled && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-              <span style={{ fontSize: '12px', fontWeight: '700', color: '#b45309' }}>
-                Radius (km):
-              </span>
-              <input
-                type="number"
-                min="0.5"
-                max="50"
-                step="0.5"
-                value={geofenceRadiusKm}
-                onChange={(e) => setGeofenceRadiusKm(e.target.value)}
-                style={{
-                  width: '60px',
-                  padding: '4px 8px',
-                  borderRadius: '6px',
-                  border: '1px solid #fcd34d',
-                  fontSize: '12px',
-                  fontWeight: '700',
-                  color: '#92400e',
-                  outline: 'none'
-                }}
-              />
-              <div style={{ display: 'flex', gap: '4px' }}>
-                {[1, 2, 5, 10].map(r => (
-                  <button
-                    key={r}
-                    type="button"
-                    onClick={() => setGeofenceRadiusKm(r)}
-                    style={{
-                      backgroundColor: Number(geofenceRadiusKm) === r ? '#f59e0b' : '#ffffff',
-                      color: Number(geofenceRadiusKm) === r ? '#ffffff' : '#92400e',
-                      border: '1px solid #fcd34d',
-                      padding: '3px 8px',
-                      borderRadius: '6px',
-                      fontSize: '10px',
-                      fontWeight: '800',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    {r}km
-                  </button>
-                ))}
-              </div>
+          {geoError && (
+            <div style={{
+              backgroundColor: '#fef2f2',
+              borderBottom: '1px solid #fecaca',
+              padding: '8px 20px',
+              fontSize: '12px',
+              color: '#dc2626',
+              fontWeight: '600'
+            }}>
+              ⚠️ {geoError}
             </div>
           )}
 
-          <button
-            onClick={handleSaveGeofence}
-            disabled={isSavingGeofence}
-            style={{
-              backgroundColor: '#f59e0b',
-              color: '#ffffff',
-              border: 'none',
-              padding: '6px 14px',
-              borderRadius: '8px',
-              fontSize: '12px',
-              fontWeight: '800',
-              cursor: isSavingGeofence ? 'not-allowed' : 'pointer',
-              opacity: isSavingGeofence ? 0.6 : 1,
-              marginLeft: 'auto'
-            }}
-          >
-            {isSavingGeofence ? 'Saving...' : 'Save Geofence Settings ✅'}
-          </button>
-        </div>
+          {/* Leaflet Map Container (Responsive Height) */}
+          <div className="map-container-box" style={{ width: '100%', minHeight: '340px', height: '360px', position: 'relative', flexShrink: 0 }}>
+            <div ref={mapRef} style={{ width: '100%', height: '100%' }} />
+          </div>
 
-        {geoError && (
-          <div style={{
-            backgroundColor: '#fef2f2',
-            borderBottom: '1px solid #fecaca',
-            padding: '8px 20px',
-            fontSize: '12px',
-            color: '#dc2626',
-            fontWeight: '600'
+          {/* Footer Action Bar with Navigation & Map Buttons */}
+          <div className="map-modal-footer" style={{
+            padding: '14px 20px',
+            background: '#ffffff',
+            borderTop: '1px solid #e5e5e7',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: '12px',
+            flexWrap: 'wrap'
           }}>
-            ⚠️ {geoError}
+            <div style={{ fontSize: '12px', color: '#6c6c70' }}>
+              Location for <strong>{elderlyName}</strong> ({lat.toFixed(4)}°, {lng.toFixed(4)}°)
+            </div>
+
+            <div className="map-modal-footer-btns" style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+              <button
+                onClick={() => setShowTrail(!showTrail)}
+                style={{
+                  backgroundColor: showTrail ? 'rgba(59, 130, 246, 0.1)' : '#f2f2f7',
+                  color: showTrail ? '#3b82f6' : '#6c6c70',
+                  border: showTrail ? '1px solid rgba(59, 130, 246, 0.25)' : '1px solid #e5e5e7',
+                  padding: '10px 16px',
+                  borderRadius: '12px',
+                  fontSize: '13px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+              >
+                {showTrail ? '🛤️ Hide Trail' : '🛤️ Show Trail'}
+              </button>
+
+              <button
+                onClick={handleRecenter}
+                style={{
+                  backgroundColor: 'rgba(0, 122, 255, 0.1)',
+                  color: '#007AFF',
+                  border: '1px solid rgba(0, 122, 255, 0.2)',
+                  padding: '10px 16px',
+                  borderRadius: '12px',
+                  fontSize: '13px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+              >
+                🎯 Recenter Pin
+              </button>
+
+              {/* 🚗 Primary Button to Start Traveling towards Senior */}
+              <button
+                onClick={handleStartTraveling}
+                style={{
+                  backgroundColor: '#10b981',
+                  color: '#ffffff',
+                  border: 'none',
+                  padding: '10px 20px',
+                  borderRadius: '12px',
+                  fontSize: '14px',
+                  fontWeight: '800',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  boxShadow: '0 4px 14px rgba(16, 185, 129, 0.35)',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                🚗 Start Traveling (Get Directions)
+              </button>
+            </div>
           </div>
-        )}
 
-        {/* Leaflet Map Container */}
-        <div style={{ flex: 1, minHeight: '380px', position: 'relative', width: '100%' }}>
-          <div ref={mapRef} style={{ width: '100%', height: '100%', minHeight: '380px' }} />
-        </div>
-
-        {/* Footer Action Bar with Navigation Button */}
-        <div style={{
-          padding: '14px 20px',
-          background: '#ffffff',
-          borderTop: '1px solid #e5e5e7',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          gap: '12px',
-          flexWrap: 'wrap'
-        }}>
-          <div style={{ fontSize: '12px', color: '#6c6c70' }}>
-            Location for <strong>{elderlyName}</strong> ({lat.toFixed(4)}°, {lng.toFixed(4)}°)
-          </div>
-
-          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-            <button
-              onClick={() => setShowTrail(!showTrail)}
-              style={{
-                backgroundColor: showTrail ? 'rgba(59, 130, 246, 0.1)' : '#f2f2f7',
-                color: showTrail ? '#3b82f6' : '#6c6c70',
-                border: showTrail ? '1px solid rgba(59, 130, 246, 0.25)' : '1px solid #e5e5e7',
-                padding: '10px 16px',
-                borderRadius: '12px',
-                fontSize: '13px',
-                fontWeight: '700',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px'
-              }}
-            >
-              {showTrail ? '🛤️ Hide Trail' : '🛤️ Show Trail'}
-            </button>
-
-            <button
-              onClick={handleRecenter}
-              style={{
-                backgroundColor: 'rgba(0, 122, 255, 0.1)',
-                color: '#007AFF',
-                border: '1px solid rgba(0, 122, 255, 0.2)',
-                padding: '10px 16px',
-                borderRadius: '12px',
-                fontSize: '13px',
-                fontWeight: '700',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px'
-              }}
-            >
-              🎯 Recenter Pin
-            </button>
-
-            {/* 🚗 Primary Button to Start Traveling towards Senior */}
-            <button
-              onClick={handleStartTraveling}
-              style={{
-                backgroundColor: '#10b981',
-                color: '#ffffff',
-                border: 'none',
-                padding: '10px 20px',
-                borderRadius: '12px',
-                fontSize: '14px',
-                fontWeight: '800',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                boxShadow: '0 4px 14px rgba(16, 185, 129, 0.35)',
-                transition: 'all 0.2s ease'
-              }}
-            >
-              🚗 Start Traveling (Get Directions)
-            </button>
-          </div>
         </div>
 
       </div>

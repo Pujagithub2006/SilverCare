@@ -47,13 +47,13 @@ public class TwilioService {
         }
 
         try {
-            String bodyText = String.format("SILVERCARE ALERT: Fall detected for %s at %s (Device: %s). Please check on them immediately.",
+            String bodyText = String.format(
+                    "SILVERCARE ALERT: Fall detected for %s at %s (Device: %s). Please check on them immediately.",
                     elderlyName, location, deviceId);
             Message message = Message.creator(
                     new PhoneNumber(guardianPhone),
                     new PhoneNumber(fromPhone),
-                    bodyText
-            ).create();
+                    bodyText).create();
 
             System.out.println("[SMS] Fall alert SMS sent! SID: " + message.getSid());
             return true;
@@ -70,13 +70,13 @@ public class TwilioService {
         }
 
         try {
-            String bodyText = String.format("URGENT SILVERCARE ALERT: %s has NOT RESPONDED to fall alert at %s! This is an emergency. Please call them immediately or check on them. Device: %s",
+            String bodyText = String.format(
+                    "URGENT SILVERCARE ALERT: %s has NOT RESPONDED to fall alert at %s! This is an emergency. Please call them immediately or check on them. Device: %s",
                     elderlyName, location, deviceId);
             Message message = Message.creator(
                     new PhoneNumber(guardianPhone),
                     new PhoneNumber(fromPhone),
-                    bodyText
-            ).create();
+                    bodyText).create();
 
             System.out.println("[SMS] URGENT alert SMS sent! SID: " + message.getSid());
             return true;
@@ -110,8 +110,7 @@ public class TwilioService {
             Call call = Call.creator(
                     new PhoneNumber(guardianPhone),
                     new PhoneNumber(fromPhone),
-                    new Twiml(twimlXml)
-            ).create();
+                    new Twiml(twimlXml)).create();
 
             System.out.println("[TWILIO] Emergency call initiated! SID: " + call.getSid());
             return true;
@@ -150,13 +149,31 @@ public class TwilioService {
             Call call = Call.creator(
                     new PhoneNumber(guardianPhone),
                     new PhoneNumber(fromPhone),
-                    new Twiml(twimlXml)
-            ).create();
+                    new Twiml(twimlXml)).create();
 
             System.out.println("[TWILIO] URGENT call initiated! SID: " + call.getSid());
             return true;
         } catch (Exception e) {
             System.err.println("[TWILIO] Error making urgent call: " + e.getMessage());
+            return false;
+        }
+    }
+
+    public boolean sendSms(String toPhone, String messageText) {
+        if (!twilioEnabled) {
+            System.out.println("[SMS] Mock SMS to: " + toPhone + " | Message: " + messageText);
+            return true;
+        }
+        try {
+            Message message = Message.creator(
+                    new PhoneNumber(toPhone),
+                    new PhoneNumber(fromPhone),
+                    messageText
+            ).create();
+            System.out.println("[SMS] Emergency SMS sent! SID: " + message.getSid());
+            return true;
+        } catch (Exception e) {
+            System.err.println("[SMS] Error sending SMS: " + e.getMessage());
             return false;
         }
     }

@@ -1,0 +1,10 @@
+{
+  "venvPath": "ml-service",
+  "venv": ".venv",
+  "extraPaths": [
+    "ml-service",
+    "ml-service/api",
+    "ml-service/training",
+    "ml-service/models"
+  ]
+}

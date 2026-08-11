@@ -7,7 +7,6 @@ import com.silvercare.service.FallDetectionService;
 import com.silvercare.service.SensorDataService;
 import com.silvercare.service.TwilioService;
 import com.silvercare.service.ElderlyManagementService;
-import com.silvercare.repository.ElderlyRepository;
 import com.silvercare.entity.Elderly;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -30,9 +29,6 @@ public class SensorHardwareController {
 
     @Autowired
     private TwilioService twilioService;
-
-    @Autowired
-    private ElderlyRepository elderlyRepository;
 
     @Autowired
     private ElderlyManagementService elderlyManagementService;

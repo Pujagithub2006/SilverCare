@@ -10,8 +10,12 @@ from torch.utils.data import Dataset, DataLoader
 import numpy as np
 from typing import Dict, List, Tuple
 import os
+import sys
 import json
 from datetime import datetime
+
+# Add parent directory to path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from models.multimodal_fall_detector import MultimodalFallDetector, create_model
 from data.preprocessing import DataPipeline
@@ -30,8 +34,13 @@ class FallDetectionDataset(Dataset):
         return len(self.labels)
     
     def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
-        # Transpose sensor data from (timesteps, channels) to (channels, timesteps)
-        sensor = torch.FloatTensor(self.sensor_data[idx]).transpose(0, 1)
+        # Ensure sensor data shape is (channels=6, timesteps)
+        raw_sensor = torch.FloatTensor(self.sensor_data[idx])
+        if raw_sensor.dim() == 2 and raw_sensor.shape[0] != 6 and raw_sensor.shape[1] == 6:
+            sensor = raw_sensor.transpose(0, 1)
+        else:
+            sensor = raw_sensor
+            
         return {
             'sensor_data': sensor,
             'vitals_data': torch.FloatTensor(self.vitals_data[idx]),
@@ -83,8 +92,8 @@ class Trainer:
         for batch in dataloader:
             sensor_data = batch['sensor_data'].to(self.device)
             vitals_data = batch['vitals_data'].to(self.device)
-            user_ids = batch['user_id'].squeeze().to(self.device)
-            labels = batch['label'].squeeze().to(self.device)
+            user_ids = batch['user_id'].view(-1).to(self.device)
+            labels = batch['label'].view(-1).to(self.device)
             
             # Forward pass
             self.optimizer.zero_grad()
@@ -117,8 +126,8 @@ class Trainer:
             for batch in dataloader:
                 sensor_data = batch['sensor_data'].to(self.device)
                 vitals_data = batch['vitals_data'].to(self.device)
-                user_ids = batch['user_id'].squeeze().to(self.device)
-                labels = batch['label'].squeeze().to(self.device)
+                user_ids = batch['user_id'].view(-1).to(self.device)
+                labels = batch['label'].view(-1).to(self.device)
                 
                 outputs = self.model(sensor_data, vitals_data, user_ids)
                 loss = self.criterion(outputs, labels)

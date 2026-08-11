@@ -203,8 +203,14 @@ class ContinuousLearningSystem:
         self.model.eval()
         
         with torch.no_grad():
-            # Prepare input
-            sensor_tensor = torch.FloatTensor(sensor_data).unsqueeze(0).transpose(1, 2).to(self.device)
+            # Prepare input tensor safely
+            s_tensor = torch.FloatTensor(sensor_data)
+            if s_tensor.dim() == 2:
+                if s_tensor.shape[0] != 6 and s_tensor.shape[1] == 6:
+                    s_tensor = s_tensor.transpose(0, 1)
+                s_tensor = s_tensor.unsqueeze(0)
+            sensor_tensor = s_tensor.to(self.device)
+
             vitals_tensor = torch.FloatTensor(vitals).unsqueeze(0).to(self.device)
             user_id = hash(self.elderly_id) % 1000
             user_id_tensor = torch.LongTensor([user_id]).to(self.device)

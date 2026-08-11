@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.silvercare.dto.MedicineAddRequest;
 import com.silvercare.dto.MedicineConfirmRequest;
 import com.silvercare.dto.SuggestionRequest;
-import com.silvercare.entity.Elderly;
 import com.silvercare.entity.GuardianSuggestion;
 import com.silvercare.entity.Medicine;
 import com.silvercare.entity.MedicineConfirmationHistory;
@@ -36,9 +35,6 @@ public class MedicineService {
     private ElderlyNotificationService elderlyNotificationService;
 
     @Autowired
-    private FallDetectionService fallDetectionService;
-
-    @Autowired
     private FirebaseEncryptionService firebaseEncryptionService;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -47,11 +43,11 @@ public class MedicineService {
     private final Map<String, LocalDateTime> snoozedReminders = new ConcurrentHashMap<>();
 
     public Medicine addMedicine(MedicineAddRequest request) {
-        String guardianUsername = request.getGuardianUsername().trim();
         String elderlyId = request.getElderlyId().trim();
 
-        Elderly elderly = elderlyRepository.findByElderlyId(elderlyId)
-                .orElseThrow(() -> new IllegalArgumentException("Elderly person '" + elderlyId + "' is not registered in database. Please register the elderly person first."));
+        if (elderlyRepository.findByElderlyId(elderlyId).isEmpty()) {
+            throw new IllegalArgumentException("Elderly person '" + elderlyId + "' is not registered in database. Please register the elderly person first.");
+        }
 
         Medicine medicine = Medicine.builder()
                 .elderlyId(elderlyId)

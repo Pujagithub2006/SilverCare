@@ -262,7 +262,6 @@ public class DeviceService {
         }
 
         Device oldDevice = oldDeviceOpt.get();
-        Device newDevice = newDeviceOpt.get();
 
         if (oldDevice.getAssignedElderlyId() == null) {
             throw new RuntimeException("Old device is not assigned to any elderly");

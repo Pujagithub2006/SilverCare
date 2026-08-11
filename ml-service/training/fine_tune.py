@@ -30,10 +30,26 @@ def load_calibration_data(calibration_file: str):
     labels = []
     user_ids = []
     
-    for sample in data['samples']:
+    for sample in data.get('samples', []):
         # Combine accelerometer and gyroscope
-        accel = np.array(sample['accelerometer'])
-        gyro = np.array(sample['gyroscope'])
+        accel = np.array(sample.get('accelerometer', []))
+        gyro = np.array(sample.get('gyroscope', []))
+
+        if accel.ndim == 1:
+            accel = np.expand_dims(accel, axis=0)
+        if gyro.ndim == 1:
+            gyro = np.expand_dims(gyro, axis=0)
+
+        if accel.ndim == 2 and accel.shape[1] != 3 and accel.shape[0] == 3:
+            accel = accel.T
+        if gyro.ndim == 2 and gyro.shape[1] != 3 and gyro.shape[0] == 3:
+            gyro = gyro.T
+
+        if accel.size == 0:
+            accel = np.zeros((50, 3))
+        if gyro.size == 0:
+            gyro = np.zeros((50, 3))
+
         combined = np.concatenate([accel, gyro], axis=1)
         
         # Ensure window size
@@ -46,19 +62,21 @@ def load_calibration_data(calibration_file: str):
         
         sensor_data.append(combined)
         
-        # Vitals
+        # Vitals parsing with fallback keys
+        vitals_dict = sample.get('vitals', {})
         vitals = np.array([
-            sample['vitals']['heartRate'],
-            sample['vitals']['spo2'],
-            sample['vitals']['temperature']
-        ])
+            vitals_dict.get('heartRate', vitals_dict.get('heart_rate', 72.0)),
+            vitals_dict.get('spo2', 98.0),
+            vitals_dict.get('temperature', 36.6)
+        ], dtype=np.float32)
         vitals_data.append(vitals)
         
         # Labels (all calibration data is NORMAL)
         labels.append(0)
         
         # User ID
-        user_id = hash(data['elderlyId']) % 1000
+        e_id = data.get('elderlyId', data.get('elderly_id', 'senior_user'))
+        user_id = abs(hash(e_id)) % 1000
         user_ids.append(user_id)
     
     return {

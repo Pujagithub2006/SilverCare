@@ -1129,12 +1129,12 @@ export default function GuardianDashboardPage() {
                     }}
                     title="Manage emergency contacts"
                   >
-                    Contacts
+                    📞 Contacts
                   </button>
                   <button
-                    onClick={() => setShowMapModal(true)}
+                    onClick={handleOpenDevicePairingModal}
                     style={{
-                      backgroundColor: '#007AFF',
+                      backgroundColor: '#8b5cf6',
                       color: '#ffffff',
                       border: 'none',
                       padding: '10px 16px',
@@ -1145,12 +1145,12 @@ export default function GuardianDashboardPage() {
                       display: 'flex',
                       alignItems: 'center',
                       gap: '6px',
-                      boxShadow: '0 4px 12px rgba(0, 122, 255, 0.25)',
+                      boxShadow: '0 4px 12px rgba(139, 92, 246, 0.25)',
                       transition: 'all 0.2s ease'
                     }}
-                    title="View elderly person map location"
+                    title="Pair & manage wearable devices"
                   >
-                    Location
+                    📟 Pair Device
                   </button>
                 </div>
               </div>
@@ -1279,61 +1279,59 @@ export default function GuardianDashboardPage() {
                 </div>
               </div>
 
-              {/* Main Action Buttons */}
+              {/* 2x2 Main Action Grid Below GPS Tab */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px', marginBottom: '20px' }}>
                 <button
                   onClick={() => setShowMapModal(true)}
                   style={{
                     backgroundColor: '#007AFF', color: '#ffffff', border: 'none',
-                    padding: '14px', borderRadius: '12px', fontSize: '14px',
+                    padding: '14px 10px', borderRadius: '12px', fontSize: '13px',
                     fontWeight: '700', cursor: 'pointer', display: 'flex',
-                    alignItems: 'center', justifyContent: 'center', gap: '8px',
+                    alignItems: 'center', justifyContent: 'center', gap: '6px',
                     boxShadow: '0 4px 12px rgba(0,122,255,0.25)',
                     transition: 'all 0.2s ease'
                   }}
                 >
-                  Location
-                </button>
-                <button
-                  onClick={handleOpenDevicePairingModal}
-                  style={{
-                    backgroundColor: '#8b5cf6', color: '#ffffff', border: 'none',
-                    padding: '14px', borderRadius: '12px', fontSize: '14px',
-                    fontWeight: '700', cursor: 'pointer', display: 'flex',
-                    alignItems: 'center', justifyContent: 'center', gap: '8px',
-                    boxShadow: '0 4px 12px rgba(139,92,246,0.25)',
-                    transition: 'all 0.2s ease'
-                  }}
-                >
-                  Pair Device
-                </button>
-                <button
-                  onClick={handleRequestLocation}
-                  disabled={locationRequestLoading}
-                  style={{
-                    backgroundColor: '#f59e0b', color: '#ffffff', border: 'none',
-                    padding: '14px', borderRadius: '12px', fontSize: '14px',
-                    fontWeight: '700', cursor: locationRequestLoading ? 'not-allowed' : 'pointer', display: 'flex',
-                    alignItems: 'center', justifyContent: 'center', gap: '8px',
-                    boxShadow: '0 4px 12px rgba(245,158,11,0.25)',
-                    opacity: locationRequestLoading ? 0.6 : 1,
-                    transition: 'all 0.2s ease'
-                  }}
-                >
-                  {locationRequestLoading ? 'Requesting...' : 'Ask Location'}
+                  🗺️ Location Map
                 </button>
                 <button
                   onClick={() => setShowSuggestionModal(true)}
                   style={{
                     backgroundColor: '#10b981', color: '#ffffff', border: 'none',
-                    padding: '14px', borderRadius: '12px', fontSize: '14px',
+                    padding: '14px 10px', borderRadius: '12px', fontSize: '13px',
                     fontWeight: '700', cursor: 'pointer', display: 'flex',
-                    alignItems: 'center', justifyContent: 'center', gap: '8px',
+                    alignItems: 'center', justifyContent: 'center', gap: '6px',
                     boxShadow: '0 4px 12px rgba(16,185,129,0.25)',
                     transition: 'all 0.2s ease'
                   }}
                 >
-                  Add Suggestion
+                  💡 Add Suggestion
+                </button>
+                <button
+                  onClick={() => setShowAddModal(true)}
+                  style={{
+                    backgroundColor: '#f59e0b', color: '#ffffff', border: 'none',
+                    padding: '14px 10px', borderRadius: '12px', fontSize: '13px',
+                    fontWeight: '700', cursor: 'pointer', display: 'flex',
+                    alignItems: 'center', justifyContent: 'center', gap: '6px',
+                    boxShadow: '0 4px 12px rgba(245,158,11,0.25)',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  💊 Add Medicines
+                </button>
+                <button
+                  onClick={() => setShowCalendarModal(true)}
+                  style={{
+                    backgroundColor: '#6366f1', color: '#ffffff', border: 'none',
+                    padding: '14px 10px', borderRadius: '12px', fontSize: '13px',
+                    fontWeight: '700', cursor: 'pointer', display: 'flex',
+                    alignItems: 'center', justifyContent: 'center', gap: '6px',
+                    boxShadow: '0 4px 12px rgba(99,102,241,0.25)',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  📅 Reminders Calendar
                 </button>
               </div>
 
@@ -1407,106 +1405,113 @@ export default function GuardianDashboardPage() {
                       </div>
                     </div>
                   </div>
-
-                  {/* Health Reports */}
-                  <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #e2e8f0' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '6px' }}>
-                      <div style={{ fontWeight: '700', color: '#1e293b', fontSize: '14px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                        📋 Health Reports
-                      </div>
-                      <div style={{ display: 'flex', gap: '6px' }}>
-                        <button
-                          onClick={handleGenerateDailyReport}
-                          disabled={reportLoading}
-                          style={{
-                            backgroundColor: '#10b981', color: '#ffffff',
-                            border: 'none', padding: '6px 10px', borderRadius: '8px',
-                            fontSize: '11px', fontWeight: '700', cursor: reportLoading ? 'not-allowed' : 'pointer',
-                            opacity: reportLoading ? 0.6 : 1
-                          }}
-                        >
-                          + Daily
-                        </button>
-                        <button
-                          onClick={handleGenerateWeeklyReport}
-                          disabled={reportLoading}
-                          style={{
-                            backgroundColor: '#8b5cf6', color: '#ffffff',
-                            border: 'none', padding: '6px 10px', borderRadius: '8px',
-                            fontSize: '11px', fontWeight: '700', cursor: reportLoading ? 'not-allowed' : 'pointer',
-                            opacity: reportLoading ? 0.6 : 1
-                          }}
-                        >
-                          + Weekly
-                        </button>
-                        <button
-                          onClick={handleLoadHealthReports}
-                          disabled={reportLoading}
-                          style={{
-                            backgroundColor: '#007AFF', color: '#ffffff',
-                            border: 'none', padding: '6px 10px', borderRadius: '8px',
-                            fontSize: '11px', fontWeight: '700', cursor: reportLoading ? 'not-allowed' : 'pointer',
-                            opacity: reportLoading ? 0.6 : 1
-                          }}
-                        >
-                          🔄 {reportLoading ? '...' : 'Refresh'}
-                        </button>
-                      </div>
-                    </div>
-                    {healthReports.length > 0 ? (
-                      <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
-                        {healthReports.map((report) => (
-                          <div
-                            key={report.id}
-                            style={{
-                              backgroundColor: '#f8fafc',
-                              padding: '12px',
-                              borderRadius: '8px',
-                              border: '1px solid #e2e8f0',
-                              marginBottom: '8px',
-                              display: 'flex',
-                              justifyContent: 'space-between',
-                              alignItems: 'center'
-                            }}
-                          >
-                            <div>
-                              <div style={{ fontSize: '13px', fontWeight: '700', color: '#1f2937' }}>
-                                📄 {report.reportType} Health Report
-                              </div>
-                              <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
-                                {report.reportDate ? new Date(report.reportDate).toLocaleDateString() : 'Recent'} • {report.totalFalls || 0} Falls recorded
-                              </div>
-                            </div>
-                            <button
-                              onClick={() => handleDownloadReport(report.id, report.reportType)}
-                              style={{
-                                backgroundColor: '#10b981', color: '#ffffff',
-                                border: 'none', padding: '6px 12px', borderRadius: '6px',
-                                fontSize: '11px', fontWeight: '700', cursor: 'pointer',
-                                display: 'flex', alignItems: 'center', gap: '4px'
-                              }}
-                            >
-                              📥 PDF
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div style={{
-                        backgroundColor: '#f8fafc',
-                        padding: '16px',
-                        borderRadius: '8px',
-                        border: '1px dashed #d1d5db',
-                        textAlign: 'center',
-                        color: '#64748b',
-                        fontSize: '12px'
-                      }}>
-                        No reports generated yet. Click <strong>+ Daily</strong> or <strong>+ Weekly</strong> above to create one now!
-                      </div>
-                    )}
-                  </div>
                 </div>
               )}
+
+              {/* 📋 Health Reports Section (Permanently Visible) */}
+              <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #cbd5e1', marginBottom: '20px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '6px' }}>
+                  <div>
+                    <div style={{ fontWeight: '800', color: '#0f172a', fontSize: '15px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      📋 Health Reports & PDF Downloads
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+                      Automated PDF report generator & Doctor assessment summary
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <button
+                      onClick={handleGenerateDailyReport}
+                      disabled={reportLoading}
+                      style={{
+                        backgroundColor: '#10b981', color: '#ffffff',
+                        border: 'none', padding: '7px 12px', borderRadius: '8px',
+                        fontSize: '12px', fontWeight: '700', cursor: reportLoading ? 'not-allowed' : 'pointer',
+                        opacity: reportLoading ? 0.6 : 1,
+                        boxShadow: '0 2px 6px rgba(16, 185, 129, 0.2)'
+                      }}
+                    >
+                      + Daily PDF
+                    </button>
+                    <button
+                      onClick={handleGenerateWeeklyReport}
+                      disabled={reportLoading}
+                      style={{
+                        backgroundColor: '#8b5cf6', color: '#ffffff',
+                        border: 'none', padding: '7px 12px', borderRadius: '8px',
+                        fontSize: '12px', fontWeight: '700', cursor: reportLoading ? 'not-allowed' : 'pointer',
+                        opacity: reportLoading ? 0.6 : 1,
+                        boxShadow: '0 2px 6px rgba(139, 92, 246, 0.2)'
+                      }}
+                    >
+                      + Weekly PDF
+                    </button>
+                    <button
+                      onClick={handleLoadHealthReports}
+                      disabled={reportLoading}
+                      style={{
+                        backgroundColor: '#007AFF', color: '#ffffff',
+                        border: 'none', padding: '7px 12px', borderRadius: '8px',
+                        fontSize: '12px', fontWeight: '700', cursor: reportLoading ? 'not-allowed' : 'pointer',
+                        opacity: reportLoading ? 0.6 : 1
+                      }}
+                    >
+                      🔄 {reportLoading ? '...' : 'Refresh'}
+                    </button>
+                  </div>
+                </div>
+                {healthReports.length > 0 ? (
+                  <div style={{ maxHeight: '220px', overflowY: 'auto' }}>
+                    {healthReports.map((report) => (
+                      <div
+                        key={report.id}
+                        style={{
+                          backgroundColor: '#f8fafc',
+                          padding: '12px 14px',
+                          borderRadius: '10px',
+                          border: '1px solid #e2e8f0',
+                          marginBottom: '8px',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center'
+                        }}
+                      >
+                        <div>
+                          <div style={{ fontSize: '13px', fontWeight: '800', color: '#1f2937' }}>
+                            📄 {report.reportType} Health & Vitals Report
+                          </div>
+                          <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
+                            Date: <strong>{report.reportDate ? new Date(report.reportDate).toLocaleDateString() : 'Recent'}</strong> • Falls Logged: <strong>{report.totalFalls || 0}</strong>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleDownloadReport(report.id, report.reportType)}
+                          style={{
+                            backgroundColor: '#10b981', color: '#ffffff',
+                            border: 'none', padding: '6px 12px', borderRadius: '6px',
+                            fontSize: '12px', fontWeight: '800', cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', gap: '4px'
+                          }}
+                        >
+                          📥 Download PDF
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{
+                    backgroundColor: '#f8fafc',
+                    padding: '16px',
+                    borderRadius: '10px',
+                    border: '1px dashed #cbd5e1',
+                    textAlign: 'center',
+                    color: '#64748b',
+                    fontSize: '12px'
+                  }}>
+                    No PDF health reports generated yet. Click <strong>+ Daily PDF</strong> or <strong>+ Weekly PDF</strong> above to create one instantly!
+                  </div>
+                )}
+              </div>
 
               {/* Medicine Reminders & Compliance Dashboard Section */}
               <div className="info-section" style={{ marginBottom: '16px', background: '#f8fafc', padding: '16px', borderRadius: '16px', border: '1px solid #cbd5e1' }}>
@@ -2516,7 +2521,7 @@ export default function GuardianDashboardPage() {
         </div>
       )}
 
-      {/* Device Pairing Modal */}
+      {/* 📟 Device Management & Pairing Modal Overlay */}
       {showDevicePairingModal && (
         <div style={{
           position: 'fixed',
@@ -2533,7 +2538,7 @@ export default function GuardianDashboardPage() {
             backgroundColor: '#ffffff',
             borderRadius: '24px',
             padding: '24px',
-            maxWidth: '500px',
+            maxWidth: '540px',
             width: '100%',
             maxHeight: '90vh',
             overflowY: 'auto',
@@ -2542,11 +2547,11 @@ export default function GuardianDashboardPage() {
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
               <div>
-                <h2 style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', margin: 0 }}>
-                  Device Pairing
+                <h2 style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  📟 Wearable Device Management & Pairing
                 </h2>
                 <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
-                  Pair a device to {selectedElderly?.name || 'senior'}
+                  Senior Ward: <strong>{selectedElderly?.name || 'Senior Citizen'}</strong>
                 </div>
               </div>
               <button
@@ -2561,115 +2566,179 @@ export default function GuardianDashboardPage() {
               </button>
             </div>
 
-            <div style={{ marginBottom: '16px' }}>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
-                Device Type
-              </label>
-              <select
-                value={deviceTypeInput}
-                onChange={(e) => setDeviceTypeInput(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '10px 12px',
-                  border: '1px solid #d1d5db',
-                  borderRadius: '8px',
-                  fontSize: '14px'
-                }}
-              >
-                <option value="Waist Belt">Waist Belt</option>
-                <option value="Wrist Watch">Wrist Watch</option>
-              </select>
+            {/* 📊 Device Health Summary Banner */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(2, 1fr)',
+              gap: '10px',
+              marginBottom: '16px'
+            }}>
+              <div style={{ backgroundColor: '#f0fdf4', padding: '12px', borderRadius: '12px', border: '1px solid #bbf7d0', textAlign: 'center' }}>
+                <div style={{ fontSize: '20px', fontWeight: '800', color: '#166534' }}>
+                  {elderlyDevices.currentDevices.length}
+                </div>
+                <div style={{ fontSize: '11px', fontWeight: '700', color: '#15803d', textTransform: 'uppercase' }}>
+                  Active Paired Devices
+                </div>
+              </div>
+              <div style={{ backgroundColor: '#eff6ff', padding: '12px', borderRadius: '12px', border: '1px solid #bfdbfe', textAlign: 'center' }}>
+                <div style={{ fontSize: '20px', fontWeight: '800', color: '#1e40af' }}>
+                  {elderlyDevices.previousDevices.length}
+                </div>
+                <div style={{ fontSize: '11px', fontWeight: '700', color: '#1d4ed8', textTransform: 'uppercase' }}>
+                  Previous Device History
+                </div>
+              </div>
             </div>
 
-            <div style={{ marginBottom: '16px' }}>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
-                MAC Address *
-              </label>
-              <input
-                type="text"
-                value={macAddressInput}
-                onChange={(e) => setMacAddressInput(e.target.value)}
-                placeholder="e.g., AA:BB:CC:DD:EE:FF"
-                required
-                style={{
-                  width: '100%',
-                  padding: '10px 12px',
-                  border: '1px solid #d1d5db',
-                  borderRadius: '8px',
-                  fontSize: '14px'
-                }}
-              />
-            </div>
-
-            <div style={{ marginBottom: '20px' }}>
-              <div style={{ fontSize: '13px', fontWeight: '700', color: '#334155', marginBottom: '8px' }}>
-                Current Devices
+            {/* 1. Currently Paired Devices Section */}
+            <div style={{ marginBottom: '20px', backgroundColor: '#f8fafc', padding: '14px', borderRadius: '14px', border: '1px solid #e2e8f0' }}>
+              <div style={{ fontSize: '13px', fontWeight: '800', color: '#0f172a', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                📱 Currently Assigned Devices
               </div>
               {elderlyDevices.currentDevices.length > 0 ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   {elderlyDevices.currentDevices.map((device) => (
                     <div
-                      key={device.id}
+                      key={device.id || device.deviceId}
                       style={{
                         display: 'flex',
                         justifyContent: 'space-between',
                         alignItems: 'center',
-                        padding: '10px 14px',
-                        backgroundColor: '#f0fdf4',
-                        borderRadius: '8px',
-                        border: '1px solid #bbf7d0'
+                        padding: '12px 14px',
+                        backgroundColor: '#ffffff',
+                        borderRadius: '10px',
+                        border: '1px solid #cbd5e1',
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.03)'
                       }}
                     >
                       <div>
-                        <div style={{ fontSize: '13px', fontWeight: '700', color: '#166534' }}>
-                          {device.deviceType || 'Device'}
+                        <div style={{ fontSize: '14px', fontWeight: '800', color: '#15803d' }}>
+                          📟 {device.deviceType || 'Wearable Sensor'}
                         </div>
-                        <div style={{ fontSize: '11px', color: '#15803d' }}>
-                          {device.macAddress || device.deviceId}
+                        <div style={{ fontSize: '12px', color: '#475569', marginTop: '2px' }}>
+                          MAC: <strong>{device.macAddress || device.deviceId}</strong>
+                        </div>
+                        <div style={{ fontSize: '10px', color: '#16a34a', fontWeight: '700', marginTop: '2px' }}>
+                          🟢 Status: Active & Synced
                         </div>
                       </div>
                       <button
                         onClick={() => handleUnpairDevice(device.id || device.deviceId)}
                         style={{
-                          backgroundColor: '#dc2626',
-                          color: 'white',
+                          backgroundColor: '#ef4444',
+                          color: '#ffffff',
                           border: 'none',
-                          padding: '6px 12px',
-                          borderRadius: '6px',
-                          fontSize: '11px',
-                          fontWeight: '700',
-                          cursor: 'pointer'
+                          padding: '6px 14px',
+                          borderRadius: '8px',
+                          fontSize: '12px',
+                          fontWeight: '800',
+                          cursor: 'pointer',
+                          boxShadow: '0 2px 6px rgba(239, 68, 68, 0.25)'
                         }}
                       >
-                        Unpair
+                        Unpair Device
                       </button>
                     </div>
                   ))}
                 </div>
               ) : (
-                <div style={{ fontSize: '12px', color: '#64748b', fontStyle: 'italic' }}>
-                  No devices paired yet
+                <div style={{ fontSize: '12px', color: '#64748b', fontStyle: 'italic', textAlign: 'center', padding: '12px', backgroundColor: '#ffffff', borderRadius: '8px', border: '1px dashed #cbd5e1' }}>
+                  No active devices paired to this senior ward yet. Use the form below to pair one!
                 </div>
               )}
             </div>
 
+            {/* 2. Pair New Device Section */}
+            <div style={{ marginBottom: '20px', backgroundColor: '#ffffff', padding: '14px', borderRadius: '14px', border: '1px solid #cbd5e1' }}>
+              <div style={{ fontSize: '13px', fontWeight: '800', color: '#0f172a', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                ⚡ Pair New Device
+              </div>
+              <div style={{ marginBottom: '14px' }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+                  Device Type
+                </label>
+                <select
+                  value={deviceTypeInput}
+                  onChange={(e) => setDeviceTypeInput(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    backgroundColor: '#ffffff',
+                    fontWeight: '600'
+                  }}
+                >
+                  <option value="Waist Belt">Waist Belt (Smart Fall Detection)</option>
+                  <option value="Wrist Watch">Wrist Watch (Vital Monitoring)</option>
+                </select>
+              </div>
+
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+                  Hardware MAC Address *
+                </label>
+                <input
+                  type="text"
+                  value={macAddressInput}
+                  onChange={(e) => setMacAddressInput(e.target.value)}
+                  placeholder="e.g., AA:BB:CC:DD:EE:FF"
+                  required
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+
+              <button
+                onClick={handlePairDevice}
+                disabled={pairingLoading}
+                style={{
+                  width: '100%',
+                  backgroundColor: '#8b5cf6',
+                  color: '#ffffff',
+                  border: 'none',
+                  padding: '12px',
+                  borderRadius: '10px',
+                  fontSize: '14px',
+                  fontWeight: '800',
+                  cursor: pairingLoading ? 'not-allowed' : 'pointer',
+                  opacity: pairingLoading ? 0.6 : 1,
+                  boxShadow: '0 4px 12px rgba(139, 92, 246, 0.25)'
+                }}
+              >
+                {pairingLoading ? 'Pairing Hardware...' : 'Pair Device to Senior 🚀'}
+              </button>
+            </div>
+
+            {/* 3. Previous Device History Section */}
+            {elderlyDevices.previousDevices.length > 0 && (
+              <div style={{ backgroundColor: '#f8fafc', padding: '12px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                <div style={{ fontSize: '12px', fontWeight: '700', color: '#64748b', marginBottom: '8px', textTransform: 'uppercase' }}>
+                  📜 Previous Device History
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {elderlyDevices.previousDevices.map((prev, idx) => (
+                    <div key={idx} style={{ fontSize: '11px', color: '#64748b', backgroundColor: '#ffffff', padding: '8px 10px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                      <strong>{prev.deviceType || 'Device'}</strong> ({prev.macAddress || prev.deviceId}) • Status: {prev.status || 'RETIRED'}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <button
-              onClick={handlePairDevice}
-              disabled={pairingLoading}
-              style={{
-                width: '100%',
-                backgroundColor: '#8b5cf6',
-                color: '#ffffff',
-                border: 'none',
-                padding: '14px',
-                borderRadius: '12px',
-                fontSize: '15px',
-                fontWeight: '700',
-                cursor: pairingLoading ? 'not-allowed' : 'pointer',
-                opacity: pairingLoading ? 0.6 : 1
-              }}
+              onClick={() => setShowDevicePairingModal(false)}
+              style={{ width: '100%', marginTop: '16px', padding: '12px', border: '1px solid #cbd5e1', borderRadius: '12px', backgroundColor: '#f1f5f9', color: '#334155', fontWeight: '700', cursor: 'pointer' }}
             >
-              {pairingLoading ? 'Pairing...' : 'Pair Device'}
+              Done & Close
             </button>
           </div>
         </div>

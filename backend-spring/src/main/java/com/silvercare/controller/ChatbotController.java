@@ -54,7 +54,9 @@ public class ChatbotController {
                 if (payload.get("spo2") != null) spo2 = Integer.valueOf(String.valueOf(payload.get("spo2")));
 
                 if (payload.get("history") instanceof List) {
-                    history = (List<Map<String, String>>) payload.get("history");
+                    @SuppressWarnings("unchecked")
+                    List<Map<String, String>> historyList = (List<Map<String, String>>) payload.get("history");
+                    history = historyList;
                 }
             }
 
