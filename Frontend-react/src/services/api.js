@@ -489,14 +489,14 @@ export const elderlyLogin = async (name, phone) => {
 
 export const elderlyRegister = async (elderlyData) => {
   try {
-    const response = await api.post('/api/elderly-register', elderlyData);
+    const response = await api.post('/elderly-register', elderlyData);
     return response.data;
   } catch (error) {
     if (error.response && error.response.data) {
       return error.response.data;
     }
     try {
-      const legacyResponse = await axios.post(`${LEGACY_API_BASE}/api/elderly-register`, elderlyData);
+      const legacyResponse = await axios.post(`${LEGACY_API_BASE}/elderly-register`, elderlyData);
       return legacyResponse.data;
     } catch (e) {
       return e.response?.data || { status: 'error', message: 'Registration failed. Check guardian username & password.' };
@@ -697,14 +697,14 @@ export async function guardianRegister(userData) {
 
 export async function fetchLinkedElderly(guardianUsername) {
   try {
-    const response = await api.get(`/api/guardian-elderly/${guardianUsername}`);
+    const response = await api.get(`/guardian-elderly/${guardianUsername}`);
     return { ok: true, data: response.data };
   } catch (error) {
     if (error.response && error.response.data) {
       return { ok: false, data: error.response.data };
     }
     try {
-      const legacyResponse = await fetch(`${LEGACY_API_BASE}/api/guardian-elderly/${guardianUsername}`);
+      const legacyResponse = await fetch(`${LEGACY_API_BASE}/guardian-elderly/${guardianUsername}`);
       return { ok: legacyResponse.ok, data: await legacyResponse.json() };
     } catch (e) {
       return { ok: false, data: { status: 'error', message: 'Backend connection failed' } };
