@@ -241,6 +241,20 @@ public class ElderlyManagementController {
                 elderly = elderlyManagementService.createElderlyForId(elderlyId);
             }
 
+            // Extract sensor data for model personalization
+            @SuppressWarnings("unchecked")
+            java.util.List<Map<String, Object>> sensorData = payload.get("sensorData") != null 
+                ? (java.util.List<Map<String, Object>>) payload.get("sensorData") 
+                : new java.util.ArrayList<>();
+            
+            @SuppressWarnings("unchecked")
+            java.util.List<Map<String, Object>> vitalsData = payload.get("vitalsData") != null 
+                ? (java.util.List<Map<String, Object>>) payload.get("vitalsData") 
+                : new java.util.ArrayList<>();
+
+            // Process sensor data for baseline calculation (placeholder for ML model)
+            Map<String, Object> baseline = calculateMovementBaseline(sensorData, vitalsData);
+
             elderly.setIsCalibrated(true);
             elderly.setCalibratedAt(LocalDateTime.now().toString());
             elderlyManagementService.updateElderlyEntity(elderly);
@@ -249,15 +263,78 @@ public class ElderlyManagementController {
             respData.put("elderlyId", elderly.getElderlyId());
             respData.put("isCalibrated", true);
             respData.put("calibratedAt", elderly.getCalibratedAt());
+            respData.put("baseline", baseline);
+            respData.put("samplesProcessed", sensorData.size());
 
             return ResponseEntity.ok(ApiResponse.builder()
                     .status("success")
-                    .message("Elderly movement baseline calibrated successfully")
+                    .message("Elderly movement baseline calibrated successfully with " + sensorData.size() + " samples")
                     .data(respData)
                     .build());
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.error("Calibration failed: " + e.getMessage()));
         }
+    }
+
+    private Map<String, Object> calculateMovementBaseline(java.util.List<Map<String, Object>> sensorData, 
+                                                          java.util.List<Map<String, Object>> vitalsData) {
+        Map<String, Object> baseline = new LinkedHashMap<>();
+        
+        if (sensorData.isEmpty()) {
+            baseline.put("status", "no_data");
+            baseline.put("message", "No sensor data provided for baseline calculation");
+            return baseline;
+        }
+
+        // Calculate baseline metrics from sensor data
+        double totalAccelX = 0, totalAccelY = 0, totalAccelZ = 0;
+        double totalGyroX = 0, totalGyroY = 0, totalGyroZ = 0;
+        double totalHeartRate = 0, totalSpo2 = 0, totalTemp = 0;
+        int count = sensorData.size();
+
+        for (Map<String, Object> data : sensorData) {
+            @SuppressWarnings("unchecked")
+            java.util.List<java.util.List<Double>> accel = (java.util.List<java.util.List<Double>>) data.get("accelerometer");
+            @SuppressWarnings("unchecked")
+            java.util.List<java.util.List<Double>> gyro = (java.util.List<java.util.List<Double>>) data.get("gyroscope");
+            
+            if (accel != null && !accel.isEmpty()) {
+                totalAccelX += accel.get(0).get(0);
+                totalAccelY += accel.get(0).get(1);
+                totalAccelZ += accel.get(0).get(2);
+            }
+            if (gyro != null && !gyro.isEmpty()) {
+                totalGyroX += gyro.get(0).get(0);
+                totalGyroY += gyro.get(0).get(1);
+                totalGyroZ += gyro.get(0).get(2);
+            }
+        }
+
+        for (Map<String, Object> vitals : vitalsData) {
+            totalHeartRate += ((Number) vitals.getOrDefault("heartRate", 70)).doubleValue();
+            totalSpo2 += ((Number) vitals.getOrDefault("spo2", 97)).doubleValue();
+            totalTemp += ((Number) vitals.getOrDefault("temperature", 36.5)).doubleValue();
+        }
+
+        baseline.put("status", "calculated");
+        baseline.put("accelerometer", Map.of(
+            "avgX", totalAccelX / count,
+            "avgY", totalAccelY / count,
+            "avgZ", totalAccelZ / count
+        ));
+        baseline.put("gyroscope", Map.of(
+            "avgX", totalGyroX / count,
+            "avgY", totalGyroY / count,
+            "avgZ", totalGyroZ / count
+        ));
+        baseline.put("vitals", Map.of(
+            "avgHeartRate", vitalsData.isEmpty() ? 70 : totalHeartRate / vitalsData.size(),
+            "avgSpo2", vitalsData.isEmpty() ? 97 : totalSpo2 / vitalsData.size(),
+            "avgTemperature", vitalsData.isEmpty() ? 36.5 : totalTemp / vitalsData.size()
+        ));
+        baseline.put("samples", count);
+        
+        return baseline;
     }
 
     @PostMapping("/elderly-update")
