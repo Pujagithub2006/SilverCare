@@ -155,25 +155,20 @@ export const fetchHealthHistory = async (elderlyId) => {
   }
 };
 
-export const pairDeviceToElderly = async (arg1, arg2, deviceType = 'Waist Belt') => {
-  let elderlyId, macAddress;
-  if (typeof arg1 === 'string' && (arg1.includes(':') || arg1.startsWith('DEV_'))) {
-    macAddress = arg1;
-    elderlyId = arg2;
-  } else {
-    elderlyId = arg1;
-    macAddress = arg2;
-  }
+export const pairDeviceToElderly = async (macAddress, deviceType, elderlyId, guardianUsername) => {
   try {
-    const response = await api.post('/api/devices/pair', {
+    const response = await api.post('/api/device/pair', {
       macAddress,
-      elderlyId,
       deviceType,
+      elderlyId,
+      guardianUsername
     });
-    return { ok: true, data: response.data?.data || response.data, message: response.data?.message };
+    console.log('[API] Device pairing success:', response.data);
+    return response.data;
   } catch (error) {
-    const errorMsg = error.response?.data?.message || 'Device pairing failed';
-    return { ok: false, message: errorMsg, data: null };
+    console.log('[API] Device pairing error:', error);
+    if (error.response && error.response.data) return error.response.data;
+    return { status: 'error', message: 'Device pairing failed' };
   }
 };
 

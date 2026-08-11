@@ -88,6 +88,9 @@ public class Elderly {
     @Column(name = "primary_device_id")
     private String primaryDeviceId; // e.g. vois_belt / esp32c3_wrist
 
+    @Column(name = "primary_device_mac")
+    private String primaryDeviceMac; // MAC address of assigned device for direct connection
+
     @Column(name = "preferred_language")
     private String preferredLanguage = "en";
 
@@ -215,6 +218,9 @@ public class Elderly {
 
     public String getPrimaryDeviceId() { return primaryDeviceId; }
     public void setPrimaryDeviceId(String primaryDeviceId) { this.primaryDeviceId = primaryDeviceId; }
+
+    public String getPrimaryDeviceMac() { return primaryDeviceMac; }
+    public void setPrimaryDeviceMac(String primaryDeviceMac) { this.primaryDeviceMac = primaryDeviceMac; }
 
     public String getPreferredLanguage() { return preferredLanguage; }
     public void setPreferredLanguage(String preferredLanguage) { this.preferredLanguage = preferredLanguage; }

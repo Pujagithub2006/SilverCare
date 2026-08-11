@@ -3,7 +3,8 @@ package com.silvercare.controller;
 import com.silvercare.dto.*;
 import com.silvercare.entity.AlertRecord;
 import com.silvercare.entity.Device;
-import com.silvercare.entity.Elderly;
+import com.silvercare.dto.DevicePairingRequest;
+import com.silvercare.dto.ElderlyLoginRequest;
 import com.silvercare.entity.Guardian;
 import com.silvercare.entity.GuardianElderlyLink;
 import com.silvercare.entity.HealthReport;
@@ -289,13 +290,19 @@ public class ElderlyManagementController {
             System.out.println("[HEALTH HISTORY UPDATE] Payload: " + healthData);
             
             Elderly elderly = elderlyManagementService.getElderly(elderlyId);
+            
+            // EMERGENCY FIX: Auto-create elderly if not found
             if (elderly == null) {
-                System.out.println("[HEALTH HISTORY UPDATE] Elderly not found in database: " + elderlyId);
-                System.out.println("[HEALTH HISTORY UPDATE] Available elderly IDs:");
-                elderlyManagementService.getAllElderly().forEach(e -> 
-                    System.out.println("  - " + e.getElderlyId() + " (" + e.getName() + ")")
-                );
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error("Elderly not found with ID: " + elderlyId));
+                System.out.println("[HEALTH HISTORY UPDATE] Elderly not found, auto-creating: " + elderlyId);
+                elderly = Elderly.builder()
+                        .elderlyId(elderlyId)
+                        .name(elderlyId.replace("_", " ").substring(0, 1).toUpperCase() + elderlyId.replace("_", " ").substring(1))
+                        .age(65)
+                        .phone("")
+                        .location("Home")
+                        .build();
+                elderly = elderlyManagementService.updateElderlyEntity(elderly);
+                System.out.println("[HEALTH HISTORY UPDATE] Auto-created elderly: " + elderly.getName());
             }
 
             System.out.println("[HEALTH HISTORY UPDATE] Found elderly: " + elderly.getName() + " (ID: " + elderly.getElderlyId() + ")");
@@ -469,13 +476,19 @@ public class ElderlyManagementController {
             System.out.println("[CONTACTS UPDATE] Payload: " + contactData);
             
             Elderly elderly = elderlyManagementService.getElderly(elderlyId);
+            
+            // EMERGENCY FIX: Auto-create elderly if not found
             if (elderly == null) {
-                System.out.println("[CONTACTS UPDATE] Elderly not found in database: " + elderlyId);
-                System.out.println("[CONTACTS UPDATE] Available elderly IDs:");
-                elderlyManagementService.getAllElderly().forEach(e -> 
-                    System.out.println("  - " + e.getElderlyId() + " (" + e.getName() + ")")
-                );
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error("Elderly not found with ID: " + elderlyId));
+                System.out.println("[CONTACTS UPDATE] Elderly not found, auto-creating: " + elderlyId);
+                elderly = Elderly.builder()
+                        .elderlyId(elderlyId)
+                        .name(elderlyId.replace("_", " ").substring(0, 1).toUpperCase() + elderlyId.replace("_", " ").substring(1))
+                        .age(65)
+                        .phone("")
+                        .location("Home")
+                        .build();
+                elderly = elderlyManagementService.updateElderlyEntity(elderly);
+                System.out.println("[CONTACTS UPDATE] Auto-created elderly: " + elderly.getName());
             }
 
             System.out.println("[CONTACTS UPDATE] Found elderly: " + elderly.getName() + " (ID: " + elderly.getElderlyId() + ")");
@@ -586,6 +599,104 @@ public class ElderlyManagementController {
             return ResponseEntity.ok(ApiResponse.success("Session unregistered successfully"));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
+    @PostMapping("/api/device/pair")
+    public ResponseEntity<ApiResponse<Object>> pairDevice(@RequestBody DevicePairingRequest request) {
+        try {
+            System.out.println("[DEVICE PAIRING] Pairing request - MAC: " + request.getMacAddress() + 
+                             ", Type: " + request.getDeviceType() + 
+                             ", Elderly: " + request.getElderlyId() + 
+                             ", Guardian: " + request.getGuardianUsername());
+
+            // Validate guardian
+            Guardian guardian = guardianRepository.findByUsername(request.getGuardianUsername())
+                    .orElseThrow(() -> new IllegalArgumentException("Guardian not found: " + request.getGuardianUsername()));
+
+            // Get or create elderly
+            Elderly elderly = elderlyManagementService.getElderly(request.getElderlyId());
+            if (elderly == null) {
+                System.out.println("[DEVICE PAIRING] Auto-creating elderly: " + request.getElderlyId());
+                elderly = Elderly.builder()
+                        .elderlyId(request.getElderlyId())
+                        .name(request.getElderlyId().replace("_", " ").substring(0, 1).toUpperCase() + 
+                               request.getElderlyId().replace("_", " ").substring(1))
+                        .age(65)
+                        .phone("")
+                        .location("Home")
+                        .guardianUsername(request.getGuardianUsername())
+                        .build();
+                elderly = elderlyManagementService.updateElderlyEntity(elderly);
+            }
+
+            // Ensure guardian-elderly link exists
+            List<GuardianElderlyLink> existingLinks = guardianElderlyLinkRepository.findByElderlyId(request.getElderlyId());
+            if (existingLinks.isEmpty()) {
+                GuardianElderlyLink link = new GuardianElderlyLink();
+                link.setGuardian(guardian);
+                link.setElderlyId(request.getElderlyId());
+                link.setLinkedAt(LocalDateTime.now());
+                guardianElderlyLinkRepository.save(link);
+                System.out.println("[DEVICE PAIRING] Created guardian-elderly link");
+            }
+
+            // Find or create device by MAC address
+            Device device = deviceRepository.findByMacAddress(request.getMacAddress()).orElse(null);
+            if (device == null) {
+                // Generate deviceId from MAC
+                String deviceId = "device_" + request.getMacAddress().replace(":", "").toLowerCase();
+                device = Device.builder()
+                        .deviceId(deviceId)
+                        .deviceType(request.getDeviceType())
+                        .macAddress(request.getMacAddress())
+                        .status("ACTIVE")
+                        .assignedElderlyId(request.getElderlyId())
+                        .pairingDate(LocalDateTime.now())
+                        .build();
+                System.out.println("[DEVICE PAIRING] Created new device: " + deviceId);
+            } else {
+                // Update existing device
+                device.setAssignedElderlyId(request.getElderlyId());
+                device.setStatus("ACTIVE");
+                device.setDeviceType(request.getDeviceType());
+                device.setPairingDate(LocalDateTime.now());
+                System.out.println("[DEVICE PAIRING] Updated existing device: " + device.getDeviceId());
+            }
+
+            device = deviceRepository.save(device);
+
+            // Update elderly with device info
+            elderly.setPrimaryDeviceId(device.getDeviceId());
+            elderly.setPrimaryDeviceMac(request.getMacAddress());
+            elderly.setPrimaryBeltType(request.getDeviceType());
+            elderly.setGuardianUsername(request.getGuardianUsername());
+            elderly = elderlyManagementService.updateElderlyEntity(elderly);
+
+            System.out.println("[DEVICE PAIRING] Successfully paired - Elderly: " + elderly.getName() + 
+                             ", Device: " + device.getDeviceId() + 
+                             ", MAC: " + request.getMacAddress());
+
+            Map<String, Object> responseData = new LinkedHashMap<>();
+            responseData.put("elderlyId", elderly.getElderlyId());
+            responseData.put("elderlyName", elderly.getName());
+            responseData.put("deviceId", device.getDeviceId());
+            responseData.put("macAddress", device.getMacAddress());
+            responseData.put("deviceType", device.getDeviceType());
+            responseData.put("guardianUsername", guardian.getUsername());
+            responseData.put("status", "PAIRED");
+
+            return ResponseEntity.ok(ApiResponse.builder()
+                    .status("success")
+                    .message("Device paired successfully")
+                    .data(responseData)
+                    .build());
+
+        } catch (Exception e) {
+            System.out.println("[DEVICE PAIRING] Error: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("Device pairing failed: " + e.getMessage()));
         }
     }
 

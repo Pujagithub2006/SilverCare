@@ -80,18 +80,18 @@ public class SensorHardwareController {
             
             Elderly elderly = elderlyManagementService.getElderly(elderlyId);
             
+            // EMERGENCY FIX: Auto-create elderly if not found
             if (elderly == null) {
-                System.out.println("[HARDWARE DATA] Elderly not found: " + elderlyId);
-                Map<String, Object> data = new LinkedHashMap<>();
-                data.put("heartRate", 0);
-                data.put("oxygenLevel", 0);
-                data.put("temperature", 0);
-                data.put("beltConnected", false);
-                data.put("bandConnected", false);
-                data.put("beltLastSeen", "");
-                data.put("lastUpdate", LocalDateTime.now().toString());
-                data.put("message", "Elderly not found");
-                return ResponseEntity.ok(ApiResponse.builder().status("success").data(data).build());
+                System.out.println("[HARDWARE DATA] Elderly not found, auto-creating: " + elderlyId);
+                elderly = Elderly.builder()
+                        .elderlyId(elderlyId)
+                        .name(elderlyId.replace("_", " ").substring(0, 1).toUpperCase() + elderlyId.replace("_", " ").substring(1))
+                        .age(65)
+                        .phone("")
+                        .location("Home")
+                        .build();
+                elderly = elderlyManagementService.updateElderlyEntity(elderly);
+                System.out.println("[HARDWARE DATA] Auto-created elderly: " + elderly.getName());
             }
             
             String deviceId = elderly.getPrimaryDeviceId();
