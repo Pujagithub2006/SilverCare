@@ -115,7 +115,7 @@ const CalibrationPage = () => {
     
     // Send calibration data to ML service
     try {
-      const response = await fetch('http://localhost:8000/calibrate', {
+      const response = await fetch('https://silvercare-production-3455.up.railway.app/api/calibrate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
