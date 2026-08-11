@@ -273,8 +273,8 @@ export default function GuardianDashboardPage() {
     const elderlyId = selectedElderly.elderlyId || selectedElderly.id;
     
     try {
-      const res = await pairDeviceToElderly(macAddressInput, elderlyId, deviceTypeInput);
-      if (res.ok) {
+      const res = await pairDeviceToElderly(macAddressInput, deviceTypeInput, elderlyId, guardianUsername);
+      if (res.status === 'success') {
         showSnackbarMessage('Device paired successfully! 🎉', 'success');
         setMacAddressInput('');
         loadElderlyDevicesData(elderlyId);

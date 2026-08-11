@@ -27,8 +27,8 @@ const ElderlyHome = () => {
   });
 
   // Device Status Realtime State
-  const [beltWornRealtime, setBeltWornRealtime] = useState(true);
-  const [wristBandWornRealtime, setWristBandWornRealtime] = useState(true);
+  const [beltWornRealtime, setBeltWornRealtime] = useState(false);
+  const [wristBandWornRealtime, setWristBandWornRealtime] = useState(false);
 
   // Dynamic Quote State (Translated via API)
   const [quoteTitle, setQuoteTitle] = useState('Daily Inspiration 💖');
@@ -92,9 +92,18 @@ const ElderlyHome = () => {
       console.log('[DEVICE STATUS] Polling for elderlyId:', id);
       const response = await fetchHardwareData(id);
       console.log('[DEVICE STATUS] Response:', response);
-      if (response && response.ok && response.data && response.data.status === 'success' && response.data.data) {
-        const beltConnected = response.data.data.beltConnected !== false;
-        const bandConnected = response.data.data.bandConnected !== false;
+      
+      // Handle different response structures
+      let data = null;
+      if (response && response.data && response.data.data) {
+        data = response.data.data;
+      } else if (response && response.data) {
+        data = response.data;
+      }
+      
+      if (data) {
+        const beltConnected = data.beltConnected !== false;
+        const bandConnected = data.bandConnected !== false;
         console.log('[DEVICE STATUS] beltConnected:', beltConnected, 'bandConnected:', bandConnected);
         setBeltWornRealtime(beltConnected);
         setWristBandWornRealtime(bandConnected);

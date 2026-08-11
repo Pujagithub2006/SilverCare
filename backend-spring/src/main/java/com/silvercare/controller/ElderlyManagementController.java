@@ -300,6 +300,7 @@ public class ElderlyManagementController {
                         .age(65)
                         .phone("")
                         .location("Home")
+                        .primaryDeviceId("default_device") // Set default device ID
                         .build();
                 elderly = elderlyManagementService.updateElderlyEntity(elderly);
                 System.out.println("[HEALTH HISTORY UPDATE] Auto-created elderly: " + elderly.getName());
@@ -486,6 +487,7 @@ public class ElderlyManagementController {
                         .age(65)
                         .phone("")
                         .location("Home")
+                        .primaryDeviceId("default_device") // Set default device ID
                         .build();
                 elderly = elderlyManagementService.updateElderlyEntity(elderly);
                 System.out.println("[CONTACTS UPDATE] Auto-created elderly: " + elderly.getName());
