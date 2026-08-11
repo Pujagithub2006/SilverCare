@@ -89,15 +89,22 @@ const ElderlyHome = () => {
     try {
       const id = elderlyId || localStorage.getItem('elderly_id');
       if (!id) return;
+      console.log('[DEVICE STATUS] Polling for elderlyId:', id);
       const response = await fetchHardwareData(id);
+      console.log('[DEVICE STATUS] Response:', response);
       if (response && response.ok && response.data && response.data.status === 'success' && response.data.data) {
-        setBeltWornRealtime(response.data.data.beltConnected !== false);
-        setWristBandWornRealtime(response.data.data.beltConnected !== false);
+        const beltConnected = response.data.data.beltConnected !== false;
+        const bandConnected = response.data.data.bandConnected !== false;
+        console.log('[DEVICE STATUS] beltConnected:', beltConnected, 'bandConnected:', bandConnected);
+        setBeltWornRealtime(beltConnected);
+        setWristBandWornRealtime(bandConnected);
       } else {
-        setBeltWornRealtime(true);
-        setWristBandWornRealtime(true);
+        console.log('[DEVICE STATUS] No valid response, defaulting to disconnected');
+        setBeltWornRealtime(false);
+        setWristBandWornRealtime(false);
       }
     } catch (err) {
+      console.log('[DEVICE STATUS] Error polling device status:', err);
       setBeltWornRealtime(false);
       setWristBandWornRealtime(false);
     }

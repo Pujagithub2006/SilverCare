@@ -465,10 +465,20 @@ public class ElderlyManagementController {
             @PathVariable String elderlyId,
             @RequestBody Map<String, Object> contactData) {
         try {
+            System.out.println("[CONTACTS UPDATE] Received request for elderlyId: " + elderlyId);
+            System.out.println("[CONTACTS UPDATE] Payload: " + contactData);
+            
             Elderly elderly = elderlyManagementService.getElderly(elderlyId);
             if (elderly == null) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error("Elderly not found"));
+                System.out.println("[CONTACTS UPDATE] Elderly not found in database: " + elderlyId);
+                System.out.println("[CONTACTS UPDATE] Available elderly IDs:");
+                elderlyManagementService.getAllElderly().forEach(e -> 
+                    System.out.println("  - " + e.getElderlyId() + " (" + e.getName() + ")")
+                );
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error("Elderly not found with ID: " + elderlyId));
             }
+
+            System.out.println("[CONTACTS UPDATE] Found elderly: " + elderly.getName() + " (ID: " + elderly.getElderlyId() + ")");
 
             if (contactData.containsKey("neighborPhone")) {
                 elderly.setNeighborPhone(contactData.get("neighborPhone").toString());
@@ -528,8 +538,12 @@ public class ElderlyManagementController {
     @PostMapping({"/elderly/login", "/elderly-login"})
     public ResponseEntity<ApiResponse<Object>> elderlyLogin(@RequestBody ElderlyLoginRequest request) {
         try {
+            System.out.println("[ELDERLY LOGIN] Login request for name: " + request.getName() + ", phone: " + request.getPhone());
+            
             Elderly elderly = elderlyManagementService.loginElderly(request);
             GuardianDetails gd = resolveGuardianDetails(elderly);
+
+            System.out.println("[ELDERLY LOGIN] Found elderly: " + elderly.getName() + " with ID: " + elderly.getElderlyId());
 
             ApiResponse<Object> response = ApiResponse.builder()
                     .status("success")
@@ -542,8 +556,11 @@ public class ElderlyManagementController {
                     .guardian_phone(gd.phone)
                     .preferred_language(elderly.getPreferredLanguage())
                     .build();
+            
+            System.out.println("[ELDERLY LOGIN] Returning response with elderly_id: " + elderly.getElderlyId());
             return ResponseEntity.ok(response);
         } catch (Exception e) {
+            System.out.println("[ELDERLY LOGIN] Error: " + e.getMessage());
             return ResponseEntity.ok(ApiResponse.builder()
                     .status("error")
                     .message(e.getMessage() != null ? e.getMessage() : "Login failed")
