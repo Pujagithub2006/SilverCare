@@ -40,6 +40,13 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- PostgreSQL for production (Railway) -->
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
         <!-- Twilio SDK for Emergency Calls and SMS -->
         <dependency>
             <groupId>com.twilio.sdk</groupId>
