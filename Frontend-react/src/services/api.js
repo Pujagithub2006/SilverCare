@@ -11,8 +11,8 @@ const resolveBaseUrl = (fallback) => {
 };
 
 // Backend Base URLs
-const API_BASE = resolveBaseUrl('http://localhost:8081');
-const LEGACY_API_BASE = resolveBaseUrl('http://127.0.0.1:8081');
+const API_BASE = resolveBaseUrl('https://silvercare-production-3455.up.railway.app');
+const LEGACY_API_BASE = resolveBaseUrl('https://silvercare-production-3455.up.railway.app');
 
 const api = axios.create({
   baseURL: API_BASE,

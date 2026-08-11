@@ -121,7 +121,7 @@ const ElderlyHome = () => {
 
   const checkCalibrationStatus = async (id) => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081'}/api/elderly/${id}/health-history`);
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'https://silvercare-production-3455.up.railway.app'}/api/elderly/${id}/health-history`);
       if (response.ok) {
         const data = await response.json();
         setIsCalibrated(data.data?.isCalibrated || false);
