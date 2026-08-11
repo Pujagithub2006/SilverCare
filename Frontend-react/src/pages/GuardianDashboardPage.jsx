@@ -540,7 +540,8 @@ export default function GuardianDashboardPage() {
     const pollInterval = setInterval(() => {
       if (selectedElderly) {
         const elderlyId = selectedElderly.elderlyId || selectedElderly.id || selectedElderly.elderly_id;
-        const deviceId = selectedElderly.primaryDeviceId || selectedElderly.deviceId;
+        // Use primaryDeviceId if set, otherwise default to 'vois_belt' which hardware uses
+        const deviceId = selectedElderly.primaryDeviceId || selectedElderly.deviceId || 'vois_belt';
         pollLiveTelemetry(deviceId);
         pollAlertsForElderly(elderlyId);
         loadElderlyData(elderlyId);
