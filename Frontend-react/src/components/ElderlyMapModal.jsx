@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { sendSensorTelemetry, getLocationHistory, updateElderlyGeofence } from '../services/api';
+import { sendSensorTelemetry, getLocationHistory, updateElderlyGeofence, requestLocation } from '../services/api';
 
 // Fix default marker icon issues in Leaflet with Vite
 delete L.Icon.Default.prototype._getIconUrl;
@@ -93,10 +93,32 @@ export default function ElderlyMapModal({ isOpen, onClose, elderly, sensorData }
     }
   }, [hasLiveCoords, rawLat, rawLng, storageKeyElderly, storageKeyDevice, deviceId, sensorData?.received_at]);
 
-  // 2. Resolve final coordinates to display (Priority: Manual Override -> Live Hardware -> Stored Cache -> Backend Entity -> Profile City -> Default)
+  // GSM/SMS Fallback & Out of Contact State
+  const [isRequestingSmsLocation, setIsRequestingSmsLocation] = useState(false);
+  const [smsFallbackPayload, setSmsFallbackPayload] = useState(null);
+  const [isOutOfContactSimulated, setIsOutOfContactSimulated] = useState(false);
+
+  const handleRequestSmsFallbackLocation = async () => {
+    setIsRequestingSmsLocation(true);
+    try {
+      const res = await requestLocation(elderlyId);
+      if (res.status === 'success' && res.data) {
+        setSmsFallbackPayload(res.data);
+        if (res.data.latitude && res.data.longitude) {
+          setManualCoords(null);
+        }
+      }
+    } catch (err) {
+      console.error('Error requesting location fallback:', err);
+    } finally {
+      setIsRequestingSmsLocation(false);
+    }
+  };
+
+  // 2. Resolve final coordinates to display (Priority: Manual Override -> GSM/SMS Fallback -> Live Hardware -> Stored Cache -> Backend Entity -> Profile City -> Default)
   let lat = 18.5204;
   let lng = 73.8567;
-  let locationStatusType = 'DEFAULT'; // 'MANUAL', 'LIVE', 'STORED', 'PROFILE', 'DEFAULT'
+  let locationStatusType = 'DEFAULT'; // 'MANUAL', 'SMS_FALLBACK', 'LIVE', 'STORED', 'PROFILE', 'DEFAULT'
   let locationStatusLabel = '📍 Standard Base Location';
   let timestampLabel = null;
 
@@ -105,7 +127,13 @@ export default function ElderlyMapModal({ isOpen, onClose, elderly, sensorData }
     lng = manualCoords.lng;
     locationStatusType = 'MANUAL';
     locationStatusLabel = '📌 Custom Set Pin';
-  } else if (hasLiveCoords) {
+  } else if (smsFallbackPayload?.latitude && smsFallbackPayload?.longitude) {
+    lat = Number(smsFallbackPayload.latitude);
+    lng = Number(smsFallbackPayload.longitude);
+    locationStatusType = 'SMS_FALLBACK';
+    locationStatusLabel = '📡 GPS Location Received via GSM/SMS Fallback';
+    timestampLabel = smsFallbackPayload.requestTime;
+  } else if (hasLiveCoords && !isOutOfContactSimulated) {
     lat = Number(rawLat);
     lng = Number(rawLng);
     locationStatusType = 'LIVE';
@@ -736,7 +764,24 @@ export default function ElderlyMapModal({ isOpen, onClose, elderly, sensorData }
             </div>
           </div>
 
-          <div className="map-modal-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div className="map-modal-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <button
+              onClick={() => setIsOutOfContactSimulated(!isOutOfContactSimulated)}
+              style={{
+                backgroundColor: isOutOfContactSimulated ? '#fee2e2' : '#fef3c7',
+                color: isOutOfContactSimulated ? '#991b1b' : '#92400e',
+                border: isOutOfContactSimulated ? '1px solid #fecaca' : '1px solid #fde68a',
+                padding: '6px 12px',
+                borderRadius: '10px',
+                fontSize: '12px',
+                fontWeight: '700',
+                cursor: 'pointer'
+              }}
+              title="Toggle simulated connection loss / low bandwidth"
+            >
+              {isOutOfContactSimulated ? '🔴 Connection Lost (Simulated)' : '⚠️ Test Out of Contact'}
+            </button>
+
             <button
               onClick={handleSimulateHardwareGps}
               disabled={isSimulating}
@@ -784,7 +829,125 @@ export default function ElderlyMapModal({ isOpen, onClose, elderly, sensorData }
           display: 'flex',
           flexDirection: 'column'
         }}>
-          
+
+          {/* 📡 Communication Channels Distinction Banner */}
+          <div style={{
+            padding: '12px 20px',
+            backgroundColor: isOutOfContactSimulated || stateName === 'OUT_OF_CONTACT' ? '#fffbeb' : '#f0fdf4',
+            borderBottom: '1px solid #cbd5e1',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: '12px',
+            flexWrap: 'wrap'
+          }}>
+            <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap', flex: 1, alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase' }}>Primary Channel:</span>
+                <span style={{
+                  padding: '3px 10px', borderRadius: '8px', fontSize: '11px', fontWeight: '800',
+                  backgroundColor: isOutOfContactSimulated || stateName === 'OUT_OF_CONTACT' ? '#fee2e2' : '#dcfce7',
+                  color: isOutOfContactSimulated || stateName === 'OUT_OF_CONTACT' ? '#991b1b' : '#166534'
+                }}>
+                  {isOutOfContactSimulated || stateName === 'OUT_OF_CONTACT' ? '🔴 Internet Stream Offline (Low Bandwidth)' : '🟢 Internet Telemetry Live'}
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase' }}>Fallback Channel:</span>
+                <span style={{
+                  padding: '3px 10px', borderRadius: '8px', fontSize: '11px', fontWeight: '800',
+                  backgroundColor: locationStatusType === 'SMS_FALLBACK' ? '#fef3c7' : '#e0f2fe',
+                  color: locationStatusType === 'SMS_FALLBACK' ? '#92400e' : '#0369a1'
+                }}>
+                  {locationStatusType === 'SMS_FALLBACK' ? '⚡ GPS + GSM/SMS Fallback Active' : '🟡 GPS + GSM/SMS Standby'}
+                </span>
+              </div>
+            </div>
+
+            <button
+              onClick={handleRequestSmsFallbackLocation}
+              disabled={isRequestingSmsLocation}
+              style={{
+                backgroundColor: '#f59e0b',
+                color: '#ffffff',
+                border: 'none',
+                padding: '8px 14px',
+                borderRadius: '10px',
+                fontSize: '12px',
+                fontWeight: '800',
+                cursor: isRequestingSmsLocation ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                boxShadow: '0 2px 8px rgba(245, 158, 11, 0.3)',
+                opacity: isRequestingSmsLocation ? 0.7 : 1
+              }}
+            >
+              {isRequestingSmsLocation ? '⏳ Dispatched SMS Ping...' : '📍 Request Current Location (SMS Fallback)'}
+            </button>
+          </div>
+
+          {/* ⚠️ Geofence-Style Out of Contact Alert Banner */}
+          {(isOutOfContactSimulated || stateName === 'OUT_OF_CONTACT') && (
+            <div style={{
+              backgroundColor: '#fffbeb',
+              borderBottom: '2px solid #f59e0b',
+              padding: '14px 20px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '12px',
+              flexWrap: 'wrap'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '24px' }}>⚠️</span>
+                <div>
+                  <div style={{ fontSize: '14px', fontWeight: '800', color: '#b45309' }}>
+                    OUT OF CONTACT ALERT: Wearable Internet Telemetry Disconnected
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#78350f', marginTop: '2px' }}>
+                    Senior wearable lost internet connectivity. Use the <strong>GPS + GSM/SMS Fallback</strong> to obtain live coordinates via SMS.
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={handleRequestSmsFallbackLocation}
+                disabled={isRequestingSmsLocation}
+                style={{
+                  backgroundColor: '#d97706',
+                  color: '#ffffff',
+                  border: 'none',
+                  padding: '8px 16px',
+                  borderRadius: '10px',
+                  fontSize: '12px',
+                  fontWeight: '800',
+                  cursor: isRequestingSmsLocation ? 'not-allowed' : 'pointer'
+                }}
+              >
+                {isRequestingSmsLocation ? '⏳ Requesting...' : '📍 Request Location via SMS'}
+              </button>
+            </div>
+          )}
+
+          {/* 📩 GSM/SMS Fallback Dispatch Confirmation Banner */}
+          {smsFallbackPayload && (
+            <div style={{
+              backgroundColor: '#ecfdf5',
+              borderBottom: '1px solid #a7f3d0',
+              padding: '12px 20px',
+              fontSize: '12px',
+              color: '#065f46'
+            }}>
+              <div style={{ fontWeight: '800', fontSize: '13px', marginBottom: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                ✅ Location Received via GSM/SMS Fallback Channel
+              </div>
+              <div>
+                SMS Dispatched to Guardian: <strong>{smsFallbackPayload.smsRecipient || '9876543210'}</strong> • Coordinates: <strong>{smsFallbackPayload.latitude}° N, {smsFallbackPayload.longitude}° E</strong>
+              </div>
+            </div>
+          )}
+
           {/* Status Metrics Cards Grid */}
           <div className="map-modal-metrics" style={{
             padding: '12px 20px',

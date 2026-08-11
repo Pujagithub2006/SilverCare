@@ -126,9 +126,10 @@ export default function GuardianDashboardPage() {
   const [elderlyDevices, setElderlyDevices] = useState({ currentDevices: [], previousDevices: [] });
   const [pairingLoading, setPairingLoading] = useState(false);
 
-  // Location Request State
+  // Location Request & Connection State
   const [locationRequestLoading, setLocationRequestLoading] = useState(false);
   const [locationHistory, setLocationHistory] = useState([]);
+  const [isOutOfContactSimulated, setIsOutOfContactSimulated] = useState(false);
 
   // Health Report State
   const [healthReports, setHealthReports] = useState([]);
@@ -1152,8 +1153,95 @@ export default function GuardianDashboardPage() {
                   >
                     📟 Pair Device
                   </button>
+                  <button
+                    onClick={() => setIsOutOfContactSimulated(!isOutOfContactSimulated)}
+                    style={{
+                      backgroundColor: isOutOfContactSimulated ? '#fee2e2' : '#fef3c7',
+                      color: isOutOfContactSimulated ? '#991b1b' : '#92400e',
+                      border: isOutOfContactSimulated ? '1px solid #fecaca' : '1px solid #fde68a',
+                      padding: '10px 16px',
+                      borderRadius: '12px',
+                      fontSize: '13px',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      transition: 'all 0.2s ease'
+                    }}
+                    title="Simulate loss of internet connection for wearable device"
+                  >
+                    {isOutOfContactSimulated ? '🔴 Connection Lost (Simulated)' : '⚠️ Test Out of Contact'}
+                  </button>
                 </div>
               </div>
+
+              {/* ⚠️ Geofence-Style Out of Contact Alert Banner */}
+              {(isOutOfContactSimulated || sensorData.stateName === 'OUT_OF_CONTACT' || !sensorData.beltWorn) && (
+                <div style={{
+                  backgroundColor: '#fffbeb',
+                  border: '2px solid #f59e0b',
+                  borderRadius: '16px',
+                  padding: '16px',
+                  marginBottom: '20px',
+                  boxShadow: '0 4px 16px rgba(245, 158, 11, 0.2)'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span style={{ fontSize: '26px' }}>⚠️</span>
+                      <div>
+                        <h4 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#b45309' }}>
+                          OUT OF CONTACT ALERT: Wearable Internet Connection Lost
+                        </h4>
+                        <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#78350f' }}>
+                          Primary HTTP/WebSocket data stream is offline. Tap below to obtain location via <strong>GPS + GSM/SMS Fallback</strong>.
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={handleRequestLocation}
+                      disabled={locationRequestLoading}
+                      style={{
+                        backgroundColor: '#f59e0b',
+                        color: '#ffffff',
+                        border: 'none',
+                        padding: '10px 18px',
+                        borderRadius: '12px',
+                        fontSize: '13px',
+                        fontWeight: '800',
+                        cursor: locationRequestLoading ? 'not-allowed' : 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        boxShadow: '0 4px 12px rgba(245, 158, 11, 0.3)',
+                        opacity: locationRequestLoading ? 0.7 : 1
+                      }}
+                    >
+                      {locationRequestLoading ? '⏳ Requesting Location via SMS...' : '📍 Request Current Location (SMS Fallback)'}
+                    </button>
+                  </div>
+
+                  {/* Communication Channels Distinction Cards */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px' }}>
+                    <div style={{ backgroundColor: '#fee2e2', padding: '10px 12px', borderRadius: '10px', border: '1px solid #fecaca' }}>
+                      <div style={{ fontSize: '11px', fontWeight: '800', color: '#991b1b', textTransform: 'uppercase' }}>
+                        🔴 Primary Channel (Internet Stream)
+                      </div>
+                      <div style={{ fontSize: '12px', fontWeight: '800', color: '#7f1d1d', marginTop: '2px' }}>
+                        OFFLINE / Low Bandwidth
+                      </div>
+                    </div>
+                    <div style={{ backgroundColor: '#dcfce7', padding: '10px 12px', borderRadius: '10px', border: '1px solid #bbf7d0' }}>
+                      <div style={{ fontSize: '11px', fontWeight: '800', color: '#166534', textTransform: 'uppercase' }}>
+                        🟢 Fallback Channel (GPS + GSM/SMS)
+                      </div>
+                      <div style={{ fontSize: '12px', fontWeight: '800', color: '#14532d', marginTop: '2px' }}>
+                        READY & OPERATIONAL
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Quick Info Grid */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px', marginBottom: '20px' }}>
