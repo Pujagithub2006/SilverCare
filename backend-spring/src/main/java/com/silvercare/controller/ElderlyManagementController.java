@@ -3,6 +3,7 @@ package com.silvercare.controller;
 import com.silvercare.dto.*;
 import com.silvercare.entity.AlertRecord;
 import com.silvercare.entity.Device;
+import com.silvercare.entity.Elderly;
 import com.silvercare.dto.DevicePairingRequest;
 import com.silvercare.dto.ElderlyLoginRequest;
 import com.silvercare.entity.Guardian;
@@ -434,7 +435,7 @@ public class ElderlyManagementController {
         }
     }
 
-    @GetMapping("/api/elderly/{elderlyId}/contacts")
+    @GetMapping({"/api/elderly/{elderlyId}/contacts", "/elderly/{elderlyId}/contacts"})
     public ResponseEntity<ApiResponse<Object>> getContacts(@PathVariable String elderlyId) {
         try {
             Elderly elderly = elderlyManagementService.getElderly(elderlyId);
@@ -468,7 +469,7 @@ public class ElderlyManagementController {
         }
     }
 
-    @PostMapping("/api/elderly/{elderlyId}/contacts")
+    @PostMapping({"/api/elderly/{elderlyId}/contacts", "/elderly/{elderlyId}/contacts"})
     public ResponseEntity<ApiResponse<Object>> updateContacts(
             @PathVariable String elderlyId,
             @RequestBody Map<String, Object> contactData) {
@@ -638,7 +639,7 @@ public class ElderlyManagementController {
                 GuardianElderlyLink link = new GuardianElderlyLink();
                 link.setGuardian(guardian);
                 link.setElderlyId(request.getElderlyId());
-                link.setLinkedAt(LocalDateTime.now());
+                link.setCreatedAt(LocalDateTime.now());
                 guardianElderlyLinkRepository.save(link);
                 System.out.println("[DEVICE PAIRING] Created guardian-elderly link");
             }

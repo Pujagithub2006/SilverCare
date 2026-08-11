@@ -20,6 +20,12 @@ public class SensorDataRequest {
     @JsonProperty("beltWorn")
     private Boolean beltWorn;
 
+    @JsonProperty("bandConnected")
+    private Boolean bandConnected;
+
+    @JsonProperty("wristBandWorn")
+    private Boolean wristBandWorn;
+
     @JsonProperty("beltType")
     private String beltType; // Waist Belt vs Wrist Belt
 
@@ -66,6 +72,12 @@ public class SensorDataRequest {
 
     public Boolean getBeltWorn() { return beltWorn; }
     public void setBeltWorn(Boolean beltWorn) { this.beltWorn = beltWorn; }
+
+    public Boolean getBandConnected() { return bandConnected; }
+    public void setBandConnected(Boolean bandConnected) { this.bandConnected = bandConnected; }
+
+    public Boolean getWristBandWorn() { return wristBandWorn; }
+    public void setWristBandWorn(Boolean wristBandWorn) { this.wristBandWorn = wristBandWorn; }
 
     public String getBeltType() { return beltType; }
     public void setBeltType(String beltType) { this.beltType = beltType; }

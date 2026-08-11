@@ -95,41 +95,48 @@ public class SensorHardwareController {
                 System.out.println("[HARDWARE DATA] Auto-created elderly: " + elderly.getName());
             }
             
-            String deviceId = elderly.getPrimaryDeviceId();
+            String deviceId = (elderly.getPrimaryDeviceId() != null && !elderly.getPrimaryDeviceId().trim().isEmpty())
+                    ? elderly.getPrimaryDeviceId() : "vois_belt";
             System.out.println("[HARDWARE DATA] Found elderly: " + elderly.getName() + ", deviceId: " + deviceId);
-
-            if (deviceId == null || deviceId.trim().isEmpty()) {
-                Map<String, Object> data = new LinkedHashMap<>();
-                data.put("heartRate", 0);
-                data.put("oxygenLevel", 0);
-                data.put("temperature", 0);
-                data.put("beltConnected", true); // Show as connected when elderly exists
-                data.put("bandConnected", true); // Show as connected when elderly exists
-                data.put("beltLastSeen", "");
-                data.put("lastUpdate", LocalDateTime.now().toString());
-                data.put("message", "Default device assigned");
-                return ResponseEntity.ok(ApiResponse.builder().status("success").data(data).build());
-            }
 
             Map<String, Object> sensorData = sensorDataService.getLatestSensorData(deviceId);
             if (sensorData == null) sensorData = new LinkedHashMap<>();
 
-            Object hr = sensorData.get("heartRate");
-            Object spo2 = sensorData.get("spo2");
-            Object temp = sensorData.get("temperature");
-            Object connected = sensorData.get("device_connected");
+            boolean isDeviceConnected = Boolean.TRUE.equals(sensorData.get("device_connected"));
             Object lastSeen = sensorData.get("last_update");
             Object msg = sensorData.get("message");
+
+            @SuppressWarnings("unchecked")
+            Map<String, Object> innerData = (sensorData.get("data") instanceof Map) 
+                    ? (Map<String, Object>) sensorData.get("data") : null;
+
+            Object hr = innerData != null ? innerData.get("heartRate") : sensorData.get("heartRate");
+            Object spo2 = innerData != null ? innerData.get("spo2") : sensorData.get("spo2");
+            Object temp = innerData != null ? innerData.get("temperature") : sensorData.get("temperature");
+
+            boolean beltConnected = isDeviceConnected;
+            if (innerData != null && innerData.containsKey("beltWorn")) {
+                beltConnected = isDeviceConnected && Boolean.TRUE.equals(innerData.get("beltWorn"));
+            }
+
+            boolean bandConnected = isDeviceConnected;
+            if (innerData != null && innerData.containsKey("bandConnected")) {
+                bandConnected = isDeviceConnected && Boolean.TRUE.equals(innerData.get("bandConnected"));
+            } else if (innerData != null && innerData.containsKey("wristBandWorn")) {
+                bandConnected = isDeviceConnected && Boolean.TRUE.equals(innerData.get("wristBandWorn"));
+            }
 
             Map<String, Object> data = new LinkedHashMap<>();
             data.put("heartRate", hr != null ? hr : 0);
             data.put("oxygenLevel", spo2 != null ? spo2 : 0);
             data.put("temperature", temp != null ? temp : 0);
-            data.put("beltConnected", connected != null ? connected : false);
-            data.put("bandConnected", connected != null ? connected : false);
+            data.put("beltConnected", beltConnected);
+            data.put("bandConnected", bandConnected);
+            data.put("beltWorn", beltConnected);
+            data.put("bandWorn", bandConnected);
             data.put("beltLastSeen", lastSeen != null ? lastSeen.toString() : "");
             data.put("lastUpdate", lastSeen != null ? lastSeen.toString() : LocalDateTime.now().toString());
-            data.put("message", msg != null ? msg.toString() : "Hardware connected");
+            data.put("message", msg != null ? msg.toString() : (isDeviceConnected ? "Hardware connected" : "Hardware disconnected"));
 
             return ResponseEntity.ok(ApiResponse.builder()
                     .status("success")

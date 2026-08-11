@@ -102,8 +102,8 @@ const ElderlyHome = () => {
       }
       
       if (data) {
-        const beltConnected = data.beltConnected !== false;
-        const bandConnected = data.bandConnected !== false;
+        const beltConnected = Boolean(data.beltConnected === true || data.beltWorn === true);
+        const bandConnected = Boolean(data.bandConnected === true || data.bandWorn === true || data.wristBandWorn === true);
         console.log('[DEVICE STATUS] beltConnected:', beltConnected, 'bandConnected:', bandConnected);
         setBeltWornRealtime(beltConnected);
         setWristBandWornRealtime(bandConnected);

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
-import { fetchElderlyInfo, fetchHealthHistory, updateHealthHistory } from '../services/api';
+import { fetchElderlyInfo, fetchHealthHistory, updateHealthHistory, fetchElderlyContacts, updateElderlyContacts } from '../services/api';
 import '../styles.css';
 
 const ElderlyProfilePage = () => {
@@ -98,6 +98,18 @@ const ElderlyProfilePage = () => {
       }).catch((err) => console.error('Failed to fetch profile:', err));
     }
 
+    // Fetch emergency contacts using API service
+    fetchElderlyContacts(targetId).then(res => {
+      if (res && res.data) {
+        const cData = res.data;
+        setEmergencyContacts({
+          hospitalPhone: cData.hospitalPhone || cData.hospital_phone || '',
+          ambulancePhone: cData.ambulancePhone || cData.ambulance_phone || '',
+          hospitalName: cData.hospitalName || cData.hospital_name || ''
+        });
+      }
+    }).catch(err => console.error('Failed to load emergency contacts:', err));
+
     // Fetch existing health history using API service
     fetchHealthHistory(targetId).then(data => {
       if (data && data.data) {
@@ -145,20 +157,14 @@ const ElderlyProfilePage = () => {
     console.log('[ElderlyProfile] Emergency contacts data:', emergencyContacts);
     
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081'}/api/elderly/${elderlyId}/contacts`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          hospitalPhone: emergencyContacts.hospitalPhone,
-          ambulancePhone: emergencyContacts.ambulancePhone,
-          hospitalName: emergencyContacts.hospitalName
-        })
+      const responseData = await updateElderlyContacts(elderlyId, {
+        hospitalPhone: emergencyContacts.hospitalPhone,
+        ambulancePhone: emergencyContacts.ambulancePhone,
+        hospitalName: emergencyContacts.hospitalName
       });
-      
-      const responseData = await response.json();
       console.log('[ElderlyProfile] Save response:', responseData);
       
-      if (response.ok) {
+      if (responseData && (responseData.status === 'success' || responseData.success)) {
         alert('Emergency contacts saved successfully!');
         setShowEmergencyForm(false);
       } else {

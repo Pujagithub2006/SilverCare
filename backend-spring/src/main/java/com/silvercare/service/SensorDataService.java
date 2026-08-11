@@ -97,7 +97,11 @@ public class SensorDataService {
         sensorData.put("heartRate", request.getHeartRate() != null ? request.getHeartRate() : 72.0);
         sensorData.put("spo2", request.getSpo2() != null ? request.getSpo2() : 98.0);
         sensorData.put("temperature", request.getTemperature() != null ? request.getTemperature() : 36.6);
-        sensorData.put("beltWorn", request.getBeltWorn() != null ? request.getBeltWorn() : true);
+        boolean beltWornVal = request.getBeltWorn() != null ? request.getBeltWorn() : true;
+        boolean bandConnectedVal = request.getBandConnected() != null ? request.getBandConnected() : (request.getWristBandWorn() != null ? request.getWristBandWorn() : true);
+        sensorData.put("beltWorn", beltWornVal);
+        sensorData.put("bandConnected", bandConnectedVal);
+        sensorData.put("wristBandWorn", bandConnectedVal);
         sensorData.put("acceleration", request.getAcceleration() != null ? request.getAcceleration() : 1.0);
         sensorData.put("latitude", lat);
         sensorData.put("longitude", lng);
@@ -155,6 +159,8 @@ public class SensorDataService {
             disconnectedData.put("deviceId", targetId);
             disconnectedData.put("beltType", "Waist Belt");
             disconnectedData.put("beltWorn", false);
+            disconnectedData.put("bandConnected", false);
+            disconnectedData.put("wristBandWorn", false);
             disconnectedData.put("heartRate", 0);
             disconnectedData.put("spo2", 0);
             disconnectedData.put("temperature", 0);
@@ -183,6 +189,8 @@ public class SensorDataService {
                     @SuppressWarnings("unchecked")
                     Map<String, Object> innerData = new LinkedHashMap<>((Map<String, Object>) container.get("data"));
                     innerData.put("beltWorn", false);
+                    innerData.put("bandConnected", false);
+                    innerData.put("wristBandWorn", false);
                     innerData.put("heartRate", 0);
                     innerData.put("spo2", 0);
                     innerData.put("temperature", 0);

@@ -1818,6 +1818,8 @@ void sendDataToBackend() {
         payload += "\"spo2\":" + String(currentSpo2) + ",";
         payload += "\"temperature\":" + String(currentTemp) + ",";
         payload += "\"beltWorn\":true,";
+        payload += "\"bandConnected\":" + String(dataReceivedFromWrist ? "true" : "false") + ",";
+        payload += "\"wristBandWorn\":" + String(dataReceivedFromWrist ? "true" : "false") + ",";
         payload += "\"accelX\":" + String(accelX) + ",";
         payload += "\"accelY\":" + String(accelY) + ",";
         payload += "\"accelZ\":" + String(accelZ) + ",";
