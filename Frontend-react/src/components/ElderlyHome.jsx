@@ -55,11 +55,11 @@ const ElderlyHome = () => {
     checkCalibrationStatus(id);
     fetchEmergencyContacts(id);
 
-    // Realtime polling interval every 3 seconds
+    // Realtime polling interval every 1 second
     const interval = setInterval(() => {
       checkNotifications(id);
       pollDeviceStatus();
-    }, 3000);
+    }, 1000);
 
     return () => clearInterval(interval);
   }, [navigate]);

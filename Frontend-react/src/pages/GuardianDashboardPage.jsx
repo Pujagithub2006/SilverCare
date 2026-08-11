@@ -535,7 +535,7 @@ export default function GuardianDashboardPage() {
     };
   };
 
-  // Poll real-time sensor hardware telemetry, active emergency alerts, and medicine data every 2 seconds
+  // Poll real-time sensor hardware telemetry, active emergency alerts, and medicine data every 1 second
   useEffect(() => {
     const pollInterval = setInterval(() => {
       if (selectedElderly) {
@@ -546,7 +546,7 @@ export default function GuardianDashboardPage() {
         pollAlertsForElderly(elderlyId);
         loadElderlyData(elderlyId);
       }
-    }, 2000);
+    }, 1000);
     return () => clearInterval(pollInterval);
   }, [selectedElderly]);
 
