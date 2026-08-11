@@ -155,7 +155,6 @@ export const fetchHealthHistory = async (elderlyId) => {
   }
 };
 
-
 export const pairDeviceToElderly = async (macAddress, deviceType, elderlyId, guardianUsername) => {
   try {
     const response = await api.post('/api/device/pair', {
@@ -370,14 +369,13 @@ export const acknowledgeAlert = async (alertId, guardianUsername, responseMessag
 };
 
 export const fetchElderlyContacts = async (elderlyId) => {
-  const targetId = elderlyId || 'default_senior';
   try {
-    const response = await api.get(`/api/elderly/${targetId}/contacts`);
+    const response = await api.get(`/api/elderly/${elderlyId}/contacts`);
     return response.data;
   } catch (error) {
     if (error.response && error.response.data) return error.response.data;
     try {
-      const legacy = await axios.get(`${LEGACY_API_BASE}/api/elderly/${targetId}/contacts`);
+      const legacy = await axios.get(`${LEGACY_API_BASE}/api/elderly/${elderlyId}/contacts`);
       return legacy.data;
     } catch (e) {
       return { status: 'error', message: 'Failed to fetch contacts' };
@@ -386,14 +384,13 @@ export const fetchElderlyContacts = async (elderlyId) => {
 };
 
 export const getElderlyInfo = async (elderlyId) => {
-  const targetId = elderlyId || 'default_senior';
   try {
-    const response = await api.get(`/api/elderly/${targetId}`);
+    const response = await api.get(`/api/elderly/${elderlyId}`);
     return response.data;
   } catch (error) {
     if (error.response && error.response.data) return error.response.data;
     try {
-      const legacy = await axios.get(`${LEGACY_API_BASE}/api/elderly/${targetId}`);
+      const legacy = await axios.get(`${LEGACY_API_BASE}/api/elderly/${elderlyId}`);
       return legacy.data;
     } catch (e) {
       return { status: 'error', message: 'Failed to fetch elderly info' };
@@ -402,14 +399,13 @@ export const getElderlyInfo = async (elderlyId) => {
 };
 
 export const updateElderlyContacts = async (elderlyId, contactData) => {
-  const targetId = elderlyId || 'default_senior';
   try {
-    const response = await api.post(`/api/elderly/${targetId}/contacts`, contactData);
+    const response = await api.post(`/api/elderly/${elderlyId}/contacts`, contactData);
     return response.data;
   } catch (error) {
     if (error.response && error.response.data) return error.response.data;
     try {
-      const legacy = await axios.post(`${LEGACY_API_BASE}/api/elderly/${targetId}/contacts`, contactData);
+      const legacy = await axios.post(`${LEGACY_API_BASE}/api/elderly/${elderlyId}/contacts`, contactData);
       return legacy.data;
     } catch (e) {
       return { status: 'error', message: 'Failed to update contacts' };
