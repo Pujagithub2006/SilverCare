@@ -58,23 +58,6 @@ export default function GuardianDashboardPage() {
     loadDeviceData();
   }, [guardianUsername, navigate]);
 
-  useEffect(() => {
-    if (!selectedElderly) return;
-    const elderlyId = selectedElderly.elderlyId || selectedElderly.id || selectedElderly.elderly_id;
-    const deviceId = selectedElderly.deviceId || selectedElderly.macAddress || 'vois_belt';
-    
-    loadElderlyData(elderlyId);
-    pollAlertsForElderly(elderlyId);
-    pollLiveTelemetry(deviceId);
-
-    const timer = setInterval(() => {
-      pollLiveTelemetry(deviceId);
-      pollAlertsForElderly(elderlyId);
-    }, 3000);
-
-    return () => clearInterval(timer);
-  }, [selectedElderly]);
-
   // Live Hardware Telemetry State
   const [sensorData, setSensorData] = useState({
     deviceId: 'vois_belt',

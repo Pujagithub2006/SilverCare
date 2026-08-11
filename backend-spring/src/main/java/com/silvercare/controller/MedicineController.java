@@ -1,10 +1,6 @@
 package com.silvercare.controller;
 
-import com.silvercare.dto.ApiResponse;
-import com.silvercare.dto.MedicineAddRequest;
-import com.silvercare.dto.MedicineConfirmRequest;
-import com.silvercare.dto.MedicineResponseRequest;
-import com.silvercare.dto.SuggestionRequest;
+import com.silvercare.dto.*;
 import com.silvercare.entity.GuardianSuggestion;
 import com.silvercare.entity.Medicine;
 import com.silvercare.service.ElderlyNotificationService;
