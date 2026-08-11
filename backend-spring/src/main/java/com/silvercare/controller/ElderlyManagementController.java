@@ -192,7 +192,7 @@ public class ElderlyManagementController {
     public ResponseEntity<ApiResponse<Object>> getElderlyInfo(@PathVariable String elderlyId) {
         Elderly elderly = elderlyManagementService.getElderly(elderlyId);
         if (elderly == null) {
-            elderly = elderlyManagementService.createElderlyForId(elderlyId);
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error("Elderly profile not found"));
         }
 
         GuardianDetails gd = resolveGuardianDetails(elderly);
@@ -426,7 +426,7 @@ public class ElderlyManagementController {
         try {
             Elderly elderly = elderlyManagementService.getElderly(elderlyId);
             if (elderly == null) {
-                elderly = elderlyManagementService.createElderlyForId(elderlyId);
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error("Elderly not found"));
             }
 
             Map<String, Object> healthData = new LinkedHashMap<>();
@@ -458,7 +458,7 @@ public class ElderlyManagementController {
         try {
             Elderly elderly = elderlyManagementService.getElderly(elderlyId);
             if (elderly == null) {
-                elderly = elderlyManagementService.createElderlyForId(elderlyId);
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error("Elderly not found"));
             }
 
             GuardianDetails gd = resolveGuardianDetails(elderly);
