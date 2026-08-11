@@ -76,8 +76,26 @@ public class SensorHardwareController {
     @GetMapping({"/hardware-data/{elderlyId}", "/api/hardware-data/{elderlyId}"})
     public ResponseEntity<ApiResponse<Object>> getHardwareData(@PathVariable String elderlyId) {
         try {
+            System.out.println("[HARDWARE DATA] Request for elderlyId: " + elderlyId);
+            
             Elderly elderly = elderlyManagementService.getElderly(elderlyId);
-            String deviceId = elderly != null ? elderly.getPrimaryDeviceId() : null;
+            
+            if (elderly == null) {
+                System.out.println("[HARDWARE DATA] Elderly not found: " + elderlyId);
+                Map<String, Object> data = new LinkedHashMap<>();
+                data.put("heartRate", 0);
+                data.put("oxygenLevel", 0);
+                data.put("temperature", 0);
+                data.put("beltConnected", false);
+                data.put("bandConnected", false);
+                data.put("beltLastSeen", "");
+                data.put("lastUpdate", LocalDateTime.now().toString());
+                data.put("message", "Elderly not found");
+                return ResponseEntity.ok(ApiResponse.builder().status("success").data(data).build());
+            }
+            
+            String deviceId = elderly.getPrimaryDeviceId();
+            System.out.println("[HARDWARE DATA] Found elderly: " + elderly.getName() + ", deviceId: " + deviceId);
 
             if (deviceId == null || deviceId.trim().isEmpty()) {
                 Map<String, Object> data = new LinkedHashMap<>();
@@ -85,6 +103,7 @@ public class SensorHardwareController {
                 data.put("oxygenLevel", 0);
                 data.put("temperature", 0);
                 data.put("beltConnected", false);
+                data.put("bandConnected", false);
                 data.put("beltLastSeen", "");
                 data.put("lastUpdate", LocalDateTime.now().toString());
                 data.put("message", "No hardware connected");
@@ -106,6 +125,7 @@ public class SensorHardwareController {
             data.put("oxygenLevel", spo2 != null ? spo2 : 0);
             data.put("temperature", temp != null ? temp : 0);
             data.put("beltConnected", connected != null ? connected : false);
+            data.put("bandConnected", connected != null ? connected : false);
             data.put("beltLastSeen", lastSeen != null ? lastSeen.toString() : "");
             data.put("lastUpdate", lastSeen != null ? lastSeen.toString() : LocalDateTime.now().toString());
             data.put("message", msg != null ? msg.toString() : "Hardware connected");
@@ -115,11 +135,14 @@ public class SensorHardwareController {
                     .data(data)
                     .build());
         } catch (Exception e) {
+            System.out.println("[HARDWARE DATA] Error: " + e.getMessage());
+            e.printStackTrace();
             Map<String, Object> data = new LinkedHashMap<>();
             data.put("heartRate", 0);
             data.put("oxygenLevel", 0);
             data.put("temperature", 0);
             data.put("beltConnected", false);
+            data.put("bandConnected", false);
             data.put("beltLastSeen", "");
             data.put("lastUpdate", LocalDateTime.now().toString());
             data.put("message", "Error loading hardware data: " + e.getMessage());
