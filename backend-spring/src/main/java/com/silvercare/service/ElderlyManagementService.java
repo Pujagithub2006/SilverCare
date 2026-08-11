@@ -129,7 +129,7 @@ public class ElderlyManagementService {
         if (elderlyId == null || elderlyId.trim().isEmpty()) {
             List<Elderly> all = elderlyRepository.findAll();
             if (!all.isEmpty()) return all.get(0);
-            return createDefaultElderly();
+            return createElderlyForId("default_senior");
         }
 
         String cleanedId = elderlyId.trim();
@@ -146,23 +146,37 @@ public class ElderlyManagementService {
         Optional<Elderly> byDerived = elderlyRepository.findByElderlyId(derivedId);
         if (byDerived.isPresent()) return byDerived.get();
 
-        List<Elderly> all = elderlyRepository.findAll();
-        if (!all.isEmpty()) return all.get(0);
-
-        return createDefaultElderly();
+        return createElderlyForId(derivedId);
     }
 
-    private Elderly createDefaultElderly() {
-        Elderly defaultElderly = Elderly.builder()
-                .elderlyId("default_senior")
-                .name("Anil Shinde")
-                .age(70)
-                .phone("7776956902")
+    public Elderly createElderlyForId(String elderlyId) {
+        String cleanId = (elderlyId != null && !elderlyId.trim().isEmpty()) ? elderlyId.trim().toLowerCase().replaceAll("\\s+", "_") : "default_senior";
+        String displayName = cleanId.replace("_", " ");
+        if (displayName.length() > 0) {
+            displayName = displayName.substring(0, 1).toUpperCase() + displayName.substring(1);
+        } else {
+            displayName = "Senior Member";
+        }
+
+        Elderly newElderly = Elderly.builder()
+                .elderlyId(cleanId)
+                .name(displayName)
+                .age(65)
+                .phone("")
                 .location("Home")
-                .guardianUsername("sourabh")
+                .primaryDeviceId(cleanId.equals("default_senior") ? "vois_belt" : cleanId)
                 .createdAt(LocalDateTime.now().toString())
                 .build();
-        return elderlyRepository.saveAndFlush(defaultElderly);
+        try {
+            return elderlyRepository.saveAndFlush(newElderly);
+        } catch (Exception e) {
+            System.err.println("[ELDERLY SERVICE] Could not save new elderly record: " + e.getMessage());
+            Optional<Elderly> existing = elderlyRepository.findByElderlyId(cleanId);
+            if (existing.isPresent()) return existing.get();
+            List<Elderly> all = elderlyRepository.findAll();
+            if (!all.isEmpty()) return all.get(0);
+            return newElderly;
+        }
     }
 
     public Elderly loginElderly(ElderlyLoginRequest request) {

@@ -282,7 +282,7 @@ public class ElderlyManagementController {
         return str.isEmpty() ? null : str;
     }
 
-    @PostMapping({"/api/elderly/{elderlyId}/health-history", "/elderly/{elderlyId}/health-history"})
+    @RequestMapping(value = {"/api/elderly/{elderlyId}/health-history", "/elderly/{elderlyId}/health-history"}, method = {RequestMethod.POST, RequestMethod.PUT})
     public ResponseEntity<ApiResponse<Object>> updateHealthHistory(
             @PathVariable String elderlyId,
             @RequestBody Map<String, Object> healthData) {
@@ -291,20 +291,8 @@ public class ElderlyManagementController {
             System.out.println("[HEALTH HISTORY UPDATE] Payload: " + healthData);
             
             Elderly elderly = elderlyManagementService.getElderly(elderlyId);
-            
-            // EMERGENCY FIX: Auto-create elderly if not found
             if (elderly == null) {
-                System.out.println("[HEALTH HISTORY UPDATE] Elderly not found, auto-creating: " + elderlyId);
-                elderly = Elderly.builder()
-                        .elderlyId(elderlyId)
-                        .name(elderlyId.replace("_", " ").substring(0, 1).toUpperCase() + elderlyId.replace("_", " ").substring(1))
-                        .age(65)
-                        .phone("")
-                        .location("Home")
-                        .primaryDeviceId("default_device") // Set default device ID
-                        .build();
-                elderly = elderlyManagementService.updateElderlyEntity(elderly);
-                System.out.println("[HEALTH HISTORY UPDATE] Auto-created elderly: " + elderly.getName());
+                elderly = elderlyManagementService.createElderlyForId(elderlyId);
             }
 
             System.out.println("[HEALTH HISTORY UPDATE] Found elderly: " + elderly.getName() + " (ID: " + elderly.getElderlyId() + ")");
@@ -469,7 +457,7 @@ public class ElderlyManagementController {
         }
     }
 
-    @PostMapping({"/api/elderly/{elderlyId}/contacts", "/elderly/{elderlyId}/contacts"})
+    @RequestMapping(value = {"/api/elderly/{elderlyId}/contacts", "/elderly/{elderlyId}/contacts"}, method = {RequestMethod.POST, RequestMethod.PUT})
     public ResponseEntity<ApiResponse<Object>> updateContacts(
             @PathVariable String elderlyId,
             @RequestBody Map<String, Object> contactData) {
@@ -478,20 +466,8 @@ public class ElderlyManagementController {
             System.out.println("[CONTACTS UPDATE] Payload: " + contactData);
             
             Elderly elderly = elderlyManagementService.getElderly(elderlyId);
-            
-            // EMERGENCY FIX: Auto-create elderly if not found
             if (elderly == null) {
-                System.out.println("[CONTACTS UPDATE] Elderly not found, auto-creating: " + elderlyId);
-                elderly = Elderly.builder()
-                        .elderlyId(elderlyId)
-                        .name(elderlyId.replace("_", " ").substring(0, 1).toUpperCase() + elderlyId.replace("_", " ").substring(1))
-                        .age(65)
-                        .phone("")
-                        .location("Home")
-                        .primaryDeviceId("default_device") // Set default device ID
-                        .build();
-                elderly = elderlyManagementService.updateElderlyEntity(elderly);
-                System.out.println("[CONTACTS UPDATE] Auto-created elderly: " + elderly.getName());
+                elderly = elderlyManagementService.createElderlyForId(elderlyId);
             }
 
             System.out.println("[CONTACTS UPDATE] Found elderly: " + elderly.getName() + " (ID: " + elderly.getElderlyId() + ")");
