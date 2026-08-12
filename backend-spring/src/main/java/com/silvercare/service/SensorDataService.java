@@ -150,6 +150,9 @@ public class SensorDataService {
     public Map<String, Object> receiveSensorData(SensorDataRequest request) {
         String deviceId = request.getDeviceId() != null ? request.getDeviceId() : "vois_belt";
         String macAddress = request.getMacAddress();
+        if (macAddress == null || macAddress.trim().isEmpty()) {
+            macAddress = deviceId;
+        }
         // Use MAC address as the single key for the entire system
         String storageKey = (macAddress != null && !macAddress.trim().isEmpty()) ? macAddress : deviceId;
         System.out.println("[SENSOR DATA] Received data from deviceId: " + deviceId + " (mac: " + macAddress + ") using storageKey: " + storageKey + " at " + LocalDateTime.now());
