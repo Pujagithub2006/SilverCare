@@ -83,13 +83,13 @@ public class Elderly {
     private String neighbourPhone;
 
     @Column(name = "primary_belt_type")
-    private String primaryBeltType; // Waist Belt / Wrist Belt
+    private String primaryBeltType = "Waist Belt"; // Waist Belt / Wrist Belt
 
     @Column(name = "primary_device_id")
-    private String primaryDeviceId; // e.g. vois_belt / esp32c3_wrist
+    private String primaryDeviceId = "device_0000b05a0d40"; // e.g. vois_belt / device_0000b05a0d40
 
     @Column(name = "primary_device_mac")
-    private String primaryDeviceMac; // MAC address of assigned device for direct connection
+    private String primaryDeviceMac = "00:00:B0:5A:0D:40"; // MAC address of assigned device for direct connection
 
     @Column(name = "preferred_language")
     private String preferredLanguage = "en";
@@ -129,6 +129,12 @@ public class Elderly {
         }
         if (primaryBeltType == null) {
             primaryBeltType = "Waist Belt";
+        }
+        if (primaryDeviceMac == null || primaryDeviceMac.trim().isEmpty()) {
+            primaryDeviceMac = "00:00:B0:5A:0D:40";
+        }
+        if (primaryDeviceId == null || primaryDeviceId.trim().isEmpty()) {
+            primaryDeviceId = "device_0000b05a0d40";
         }
         if (preferredLanguage == null || preferredLanguage.trim().isEmpty()) {
             preferredLanguage = "en";
@@ -266,6 +272,7 @@ public class Elderly {
         private String neighbourPhone;
         private String primaryBeltType;
         private String primaryDeviceId;
+        private String primaryDeviceMac = "00:00:B0:5A:0D:40";
         private String preferredLanguage = "en";
         private Double latitude;
         private Double longitude;
@@ -284,6 +291,7 @@ public class Elderly {
         public ElderlyBuilder neighbourPhone(String neighbourPhone) { this.neighbourPhone = neighbourPhone; return this; }
         public ElderlyBuilder primaryBeltType(String primaryBeltType) { this.primaryBeltType = primaryBeltType; return this; }
         public ElderlyBuilder primaryDeviceId(String primaryDeviceId) { this.primaryDeviceId = primaryDeviceId; return this; }
+        public ElderlyBuilder primaryDeviceMac(String primaryDeviceMac) { this.primaryDeviceMac = primaryDeviceMac; return this; }
         public ElderlyBuilder preferredLanguage(String preferredLanguage) { this.preferredLanguage = preferredLanguage; return this; }
         public ElderlyBuilder latitude(Double latitude) { this.latitude = latitude; return this; }
         public ElderlyBuilder longitude(Double longitude) { this.longitude = longitude; return this; }
@@ -297,6 +305,7 @@ public class Elderly {
             e.setNeighbourPhone(neighbourPhone);
             e.setPrimaryBeltType(primaryBeltType);
             e.setPrimaryDeviceId(primaryDeviceId);
+            e.setPrimaryDeviceMac(primaryDeviceMac);
             e.setPreferredLanguage(preferredLanguage != null ? preferredLanguage : "en");
             e.setLatitude(latitude);
             e.setLongitude(longitude);

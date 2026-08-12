@@ -1811,7 +1811,9 @@ void sendDataToBackend() {
 
         String payload = "{";
         payload += "\"deviceId\":\"" + String(DEVICE_ID) + "\",";
+        payload += "\"macAddress\":\"" + WiFi.macAddress() + "\",";
         payload += "\"beltType\":\"Waist Belt\",";
+        payload += "\"stateName\":\"" + mlStateName + "\",";
         payload += "\"mlState\":\"" + mlStateName + "\",";
         payload += "\"mlConfidence\":" + String(mlConfidence) + ",";
         payload += "\"heartRate\":" + String(currentHr) + ",";

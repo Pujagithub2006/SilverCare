@@ -276,6 +276,14 @@ export default function GuardianDashboardPage() {
       const res = await pairDeviceToElderly(macAddressInput, deviceTypeInput, elderlyId, guardianUsername);
       if (res.status === 'success') {
         showSnackbarMessage('Device paired successfully! 🎉', 'success');
+        const newDevId = res.data?.deviceId || res.deviceId || `device_${macAddressInput.replace(/:/g, '').toLowerCase()}`;
+        const newMac = res.data?.macAddress || res.macAddress || macAddressInput;
+        setSelectedElderly(prev => prev ? ({
+          ...prev,
+          primaryDeviceId: newDevId,
+          primaryDeviceMac: newMac,
+          deviceId: newDevId
+        }) : prev);
         setMacAddressInput('');
         loadElderlyDevicesData(elderlyId);
         loadDeviceData();
@@ -540,8 +548,8 @@ export default function GuardianDashboardPage() {
     const pollInterval = setInterval(() => {
       if (selectedElderly) {
         const elderlyId = selectedElderly.elderlyId || selectedElderly.id || selectedElderly.elderly_id;
-        // Use primaryDeviceId if set, otherwise default to 'vois_belt' which hardware uses
-        const deviceId = selectedElderly.primaryDeviceId || selectedElderly.deviceId || 'vois_belt';
+        // Use primaryDeviceId / primaryDeviceMac / deviceId if set, otherwise default to 'vois_belt'
+        const deviceId = selectedElderly.primaryDeviceId || selectedElderly.primaryDeviceMac || selectedElderly.deviceId || selectedElderly.elderlyId || 'vois_belt';
         pollLiveTelemetry(deviceId);
         pollAlertsForElderly(elderlyId);
         loadElderlyData(elderlyId);

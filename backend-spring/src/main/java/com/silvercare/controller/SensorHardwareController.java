@@ -79,8 +79,10 @@ public class SensorHardwareController {
                 elderly = elderlyManagementService.createElderlyForId(elderlyId);
             }
             
-            String deviceId = (elderly.getPrimaryDeviceId() != null && !elderly.getPrimaryDeviceId().trim().isEmpty())
-                    ? elderly.getPrimaryDeviceId() : "vois_belt";
+            String deviceId = (elderly.getPrimaryDeviceMac() != null && !elderly.getPrimaryDeviceMac().trim().isEmpty())
+                    ? elderly.getPrimaryDeviceMac()
+                    : ((elderly.getPrimaryDeviceId() != null && !elderly.getPrimaryDeviceId().trim().isEmpty())
+                            ? elderly.getPrimaryDeviceId() : (elderly.getElderlyId() != null ? elderly.getElderlyId() : "00:00:B0:5A:0D:40"));
             System.out.println("[HARDWARE DATA] Found elderly: " + elderly.getName() + ", deviceId: " + deviceId);
 
             Map<String, Object> sensorData = sensorDataService.getLatestSensorData(deviceId);

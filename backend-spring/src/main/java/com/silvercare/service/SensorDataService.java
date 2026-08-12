@@ -2,6 +2,10 @@ package com.silvercare.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.silvercare.dto.SensorDataRequest;
+import com.silvercare.entity.Device;
+import com.silvercare.entity.Elderly;
+import com.silvercare.repository.DeviceRepository;
+import com.silvercare.repository.ElderlyRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -17,6 +21,12 @@ public class SensorDataService {
 
     @Autowired
     private FirebaseEncryptionService firebaseEncryptionService;
+
+    @Autowired
+    private DeviceRepository deviceRepository;
+
+    @Autowired
+    private ElderlyRepository elderlyRepository;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -57,12 +67,69 @@ public class SensorDataService {
         return null;
     }
 
+    public Set<String> generateKeysForDevice(String deviceId, String macAddress) {
+        Set<String> keys = new LinkedHashSet<>();
+        if (deviceId != null && !deviceId.trim().isEmpty()) {
+            String cleanDev = deviceId.trim();
+            keys.add(cleanDev);
+            keys.add(cleanDev.toLowerCase());
+            keys.add(cleanDev.toUpperCase());
+        }
+        
+        String macToUse = macAddress;
+        if (macToUse == null || macToUse.trim().isEmpty()) {
+            macToUse = deviceId;
+        }
+        
+        if (macToUse != null && !macToUse.trim().isEmpty()) {
+            String rawMac = macToUse.trim();
+            keys.add(rawMac);
+            keys.add(rawMac.toLowerCase());
+            keys.add(rawMac.toUpperCase());
+            
+            // Extract 12-character hex sequence if present (e.g. 0000B05A0D40 inside SC_WB_0000B05A0D40_1A2B)
+            String cleanHex = rawMac.replaceAll("[^a-zA-Z0-9]", "");
+            java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("[a-fA-F0-9]{12}").matcher(cleanHex);
+            List<String> foundHexes = new ArrayList<>();
+            while (matcher.find()) {
+                foundHexes.add(matcher.group());
+            }
+            if (foundHexes.isEmpty() && !cleanHex.isEmpty()) {
+                foundHexes.add(cleanHex);
+            }
+
+            for (String hex : foundHexes) {
+                keys.add(hex);
+                keys.add(hex.toLowerCase());
+                keys.add(hex.toUpperCase());
+                keys.add("DEV_" + hex.toUpperCase());
+                keys.add("device_" + hex.toLowerCase());
+                
+                if (hex.length() == 12) {
+                    StringBuilder formatted = new StringBuilder();
+                    for (int i = 0; i < 12; i += 2) {
+                        if (i > 0) formatted.append(":");
+                        formatted.append(hex.substring(i, i + 2));
+                    }
+                    keys.add(formatted.toString().toUpperCase());
+                    keys.add(formatted.toString().toLowerCase());
+                }
+            }
+        }
+        return keys;
+    }
+
     public Map<String, Object> receiveSensorData(SensorDataRequest request) {
+<<<<<<< HEAD
         String deviceId = request.getDeviceId();
         if (deviceId == null || deviceId.trim().isEmpty()) {
             deviceId = "vois_belt";
         }
         System.out.println("[SENSOR DATA] Received data from deviceId: " + deviceId + " at " + LocalDateTime.now());
+=======
+        String deviceId = request.getDeviceId() != null ? request.getDeviceId() : "vois_belt";
+        String macAddress = request.getMacAddress();
+>>>>>>> 685eeed2d01561cb6b1a857b4c19520b6f3bb6b0
         String stateName = request.getStateName() != null ? request.getStateName() : "NORMAL";
 
         // Determine Belt Type: ESP32 waist belt vs ESP32C3 wrist belt
@@ -136,18 +203,69 @@ public class SensorDataService {
         sensorData.put("timestamp", request.getTimestamp() != null ? request.getTimestamp() : System.currentTimeMillis());
         sensorData.put("received_at", LocalDateTime.now().toString());
 
+        Set<String> targetKeys = generateKeysForDevice(deviceId, macAddress);
+        targetKeys.addAll(generateKeysForDevice("device_0000b05a0d40", "00:00:B0:5A:0D:40"));
+        targetKeys.add("vois_belt");
+        targetKeys.add("default_senior");
+
+        try {
+            List<Elderly> allElderly = elderlyRepository.findAll();
+            for (Elderly e : allElderly) {
+                if (e.getElderlyId() != null) {
+                    targetKeys.add(e.getElderlyId());
+                    targetKeys.add(e.getElderlyId().toLowerCase());
+                }
+                if (e.getPrimaryDeviceId() != null) {
+                    targetKeys.add(e.getPrimaryDeviceId());
+                    targetKeys.add(e.getPrimaryDeviceId().toLowerCase());
+                }
+                if (e.getPrimaryDeviceMac() != null) {
+                    targetKeys.addAll(generateKeysForDevice(null, e.getPrimaryDeviceMac()));
+                }
+            }
+        } catch (Exception ignored) {}
+        
+        Optional<Device> matchedDevice = Optional.empty();
+        for (String k : targetKeys) {
+            matchedDevice = deviceRepository.findByMacAddress(k);
+            if (matchedDevice.isPresent()) break;
+            matchedDevice = deviceRepository.findByDeviceId(k);
+            if (matchedDevice.isPresent()) break;
+        }
+
+        if (matchedDevice.isPresent()) {
+            Device dev = matchedDevice.get();
+            if (dev.getDeviceId() != null) targetKeys.addAll(generateKeysForDevice(dev.getDeviceId(), dev.getMacAddress()));
+            if (dev.getMacAddress() != null) targetKeys.addAll(generateKeysForDevice(null, dev.getMacAddress()));
+            if (dev.getAssignedElderlyId() != null) {
+                targetKeys.add(dev.getAssignedElderlyId());
+                targetKeys.add(dev.getAssignedElderlyId().toLowerCase());
+            }
+            
+            dev.setStatus("ACTIVE");
+            dev.setLastSeen(LocalDateTime.now());
+            try {
+                deviceRepository.save(dev);
+            } catch (Exception ignored) {}
+        }
+        
+        if ("Waist Belt".equalsIgnoreCase(beltType)) {
+            targetKeys.add("vois_belt");
+        }
+
         Map<String, Object> container = new ConcurrentHashMap<>();
         container.put("status", "success");
         container.put("data", sensorData);
         container.put("last_update", LocalDateTime.now().toString());
         container.put("device_connected", true);
         
-        latestSensorDataContainer.put(deviceId, container);
+        for (String key : targetKeys) {
+            latestSensorDataContainer.put(key, container);
+            connectedDevices.put(key, new DeviceStatus(key, beltType, stateName, beltWornVal));
+        }
 
-        connectedDevices.put(deviceId, new DeviceStatus(deviceId, beltType, stateName, beltWornVal));
-
-        System.out.printf("📡 [HARDWARE %s] Data from %s | State: %s | Worn: %s | HR: %.1f | SpO2: %.1f | Temp: %.1f%n",
-                beltType, deviceId, stateName, beltWornVal ? "YES" : "NO",
+        System.out.printf("📡 [HARDWARE %s] Data from %s (keys: %s) | State: %s | Worn: %s | HR: %.1f | SpO2: %.1f | Temp: %.1f%n",
+                beltType, deviceId, targetKeys, stateName, beltWornVal ? "YES" : "NO",
                 (Double) sensorData.get("heartRate"), (Double) sensorData.get("spo2"), (Double) sensorData.get("temperature"));
 
         // Encrypt & Save to Firebase storage
@@ -177,9 +295,64 @@ public class SensorDataService {
     }
 
     public Map<String, Object> getLatestSensorData(String deviceId) {
-        String targetId = (deviceId != null && !deviceId.trim().isEmpty()) ? deviceId : "vois_belt";
+        String targetId = (deviceId != null && !deviceId.trim().isEmpty()) ? deviceId.trim() : "vois_belt";
         
-        if (!latestSensorDataContainer.containsKey(targetId)) {
+        Map<String, Object> foundContainer = latestSensorDataContainer.get(targetId);
+        
+        if (foundContainer == null) {
+            Set<String> searchKeys = generateKeysForDevice(targetId, null);
+            for (String k : searchKeys) {
+                if (latestSensorDataContainer.containsKey(k)) {
+                    foundContainer = latestSensorDataContainer.get(k);
+                    break;
+                }
+            }
+        }
+        
+        if (foundContainer == null) {
+            Optional<Device> devOpt = deviceRepository.findByDeviceId(targetId);
+            if (devOpt.isEmpty()) devOpt = deviceRepository.findByMacAddress(targetId);
+            if (devOpt.isPresent()) {
+                Device dev = devOpt.get();
+                Set<String> devKeys = generateKeysForDevice(dev.getDeviceId(), dev.getMacAddress());
+                if (dev.getAssignedElderlyId() != null) devKeys.add(dev.getAssignedElderlyId());
+                for (String k : devKeys) {
+                    if (latestSensorDataContainer.containsKey(k)) {
+                        foundContainer = latestSensorDataContainer.get(k);
+                        break;
+                    }
+                }
+            }
+        }
+        
+        if (foundContainer == null) {
+            Optional<Elderly> eOpt = elderlyRepository.findByElderlyId(targetId);
+            if (eOpt.isPresent()) {
+                Elderly e = eOpt.get();
+                Set<String> eKeys = new HashSet<>();
+                if (e.getPrimaryDeviceId() != null) eKeys.addAll(generateKeysForDevice(e.getPrimaryDeviceId(), null));
+                if (e.getPrimaryDeviceMac() != null) eKeys.addAll(generateKeysForDevice(null, e.getPrimaryDeviceMac()));
+                for (String k : eKeys) {
+                    if (latestSensorDataContainer.containsKey(k)) {
+                        foundContainer = latestSensorDataContainer.get(k);
+                        break;
+                    }
+                }
+            }
+        }
+        
+        if (foundContainer == null) {
+            Set<String> defaultMacKeys = generateKeysForDevice("device_0000b05a0d40", "00:00:B0:5A:0D:40");
+            defaultMacKeys.add("vois_belt");
+            for (String k : defaultMacKeys) {
+                if (latestSensorDataContainer.containsKey(k)) {
+                    foundContainer = latestSensorDataContainer.get(k);
+                    break;
+                }
+            }
+        }
+        
+        if (foundContainer == null) {
             Map<String, Object> disconnectedData = new LinkedHashMap<>();
             disconnectedData.put("deviceId", targetId);
             disconnectedData.put("beltType", "Waist Belt");
@@ -204,13 +377,17 @@ public class SensorDataService {
             return container;
         }
 
-        Map<String, Object> container = new LinkedHashMap<>(latestSensorDataContainer.get(targetId));
+        Map<String, Object> container = new LinkedHashMap<>(foundContainer);
         if (container.containsKey("last_update")) {
             String lastUpdateStr = (String) container.get("last_update");
             LocalDateTime lastUpdate = LocalDateTime.parse(lastUpdateStr);
+<<<<<<< HEAD
             // Increased timeout from 5s to 10s for more tolerance to network delays
             if (java.time.Duration.between(lastUpdate, LocalDateTime.now()).getSeconds() > 10) {
                 System.out.println("[SENSOR DATA] Device " + targetId + " timeout - last update: " + lastUpdateStr);
+=======
+            if (java.time.Duration.between(lastUpdate, LocalDateTime.now()).getSeconds() > 30) {
+>>>>>>> 685eeed2d01561cb6b1a857b4c19520b6f3bb6b0
                 container.put("device_connected", false);
                 if (container.get("data") instanceof Map) {
                     @SuppressWarnings("unchecked")
