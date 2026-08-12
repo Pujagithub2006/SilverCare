@@ -15,6 +15,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 public class SensorDataService {
+    // SilverCare Telemetry Engine - Auto-deploy Verification Test
 
     @Autowired
     private FallDetectionService fallDetectionService;
