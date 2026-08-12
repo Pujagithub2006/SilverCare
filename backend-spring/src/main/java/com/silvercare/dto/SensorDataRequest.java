@@ -1,17 +1,21 @@
 package com.silvercare.dto;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class SensorDataRequest {
     @JsonProperty("deviceId")
+    @JsonAlias({"device_id", "id"})
     private String deviceId;
 
     @JsonProperty("macAddress")
+    @JsonAlias({"mac_address", "mac", "macAddress"})
     private String macAddress;
 
     private Integer state;
 
     @JsonProperty("stateName")
+    @JsonAlias({"mlState", "state_name", "stateName"})
     private String stateName;
 
     @JsonProperty("heartRate")

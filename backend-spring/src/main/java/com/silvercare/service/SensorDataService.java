@@ -78,9 +78,7 @@ public class SensorDataService {
         
         String macToUse = macAddress;
         if (macToUse == null || macToUse.trim().isEmpty()) {
-            if (deviceId != null && (deviceId.contains(":") || deviceId.toLowerCase().startsWith("dev_") || deviceId.toLowerCase().startsWith("device_"))) {
-                macToUse = deviceId;
-            }
+            macToUse = deviceId;
         }
         
         if (macToUse != null && !macToUse.trim().isEmpty()) {
@@ -89,19 +87,29 @@ public class SensorDataService {
             keys.add(rawMac.toLowerCase());
             keys.add(rawMac.toUpperCase());
             
+            // Extract 12-character hex sequence if present (e.g. 0000B05A0D40 inside SC_WB_0000B05A0D40_1A2B)
             String cleanHex = rawMac.replaceAll("[^a-zA-Z0-9]", "");
-            if (!cleanHex.isEmpty()) {
-                keys.add(cleanHex);
-                keys.add(cleanHex.toLowerCase());
-                keys.add(cleanHex.toUpperCase());
-                keys.add("DEV_" + cleanHex.toUpperCase());
-                keys.add("device_" + cleanHex.toLowerCase());
+            java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("[a-fA-F0-9]{12}").matcher(cleanHex);
+            List<String> foundHexes = new ArrayList<>();
+            while (matcher.find()) {
+                foundHexes.add(matcher.group());
+            }
+            if (foundHexes.isEmpty() && !cleanHex.isEmpty()) {
+                foundHexes.add(cleanHex);
+            }
+
+            for (String hex : foundHexes) {
+                keys.add(hex);
+                keys.add(hex.toLowerCase());
+                keys.add(hex.toUpperCase());
+                keys.add("DEV_" + hex.toUpperCase());
+                keys.add("device_" + hex.toLowerCase());
                 
-                if (cleanHex.length() == 12) {
+                if (hex.length() == 12) {
                     StringBuilder formatted = new StringBuilder();
                     for (int i = 0; i < 12; i += 2) {
                         if (i > 0) formatted.append(":");
-                        formatted.append(cleanHex.substring(i, i + 2));
+                        formatted.append(hex.substring(i, i + 2));
                     }
                     keys.add(formatted.toString().toUpperCase());
                     keys.add(formatted.toString().toLowerCase());
