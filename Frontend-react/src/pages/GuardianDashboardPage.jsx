@@ -1243,7 +1243,9 @@ export default function GuardianDashboardPage() {
                   }}>
                     <div style={{ fontSize: '10px', opacity: 0.9, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Temperature</div>
                     <div style={{ fontSize: '24px', fontWeight: '800', marginTop: '4px' }}>
-                      {sensorData.beltWorn && Number(sensorData.temperature) > 0 ? `${sensorData.temperature}°C` : 'Offline'}
+                      {sensorData.beltWorn && Number(sensorData.temperature) > 0 
+                        ? `${(Number(sensorData.temperature) > 60 ? Number(sensorData.temperature) : ((Number(sensorData.temperature) * 9 / 5) + 32)).toFixed(1)}°F` 
+                        : 'Offline'}
                     </div>
                     <div style={{ fontSize: '10px', opacity: 0.8, marginTop: '4px' }}>{sensorData.beltWorn ? 'Normal' : 'Hardware Disconnected'}</div>
                   </div>
