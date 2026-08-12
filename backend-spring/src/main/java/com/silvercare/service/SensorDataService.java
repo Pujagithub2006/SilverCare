@@ -45,15 +45,41 @@ public class SensorDataService {
             this.lastSeen = LocalDateTime.now();
         }
 
-        public String getDeviceId() { return deviceId; }
-        public String getBeltType() { return beltType; }
-        public LocalDateTime getLastSeen() { return lastSeen; }
-        public String getState() { return state; }
-        public Boolean getBeltWorn() { return beltWorn; }
-        public void setLastSeen(LocalDateTime lastSeen) { this.lastSeen = lastSeen; }
-        public void setBeltType(String beltType) { this.beltType = beltType; }
-        public void setState(String state) { this.state = state; }
-        public void setBeltWorn(Boolean beltWorn) { this.beltWorn = beltWorn; }
+        public String getDeviceId() {
+            return deviceId;
+        }
+
+        public String getBeltType() {
+            return beltType;
+        }
+
+        public LocalDateTime getLastSeen() {
+            return lastSeen;
+        }
+
+        public String getState() {
+            return state;
+        }
+
+        public Boolean getBeltWorn() {
+            return beltWorn;
+        }
+
+        public void setLastSeen(LocalDateTime lastSeen) {
+            this.lastSeen = lastSeen;
+        }
+
+        public void setBeltType(String beltType) {
+            this.beltType = beltType;
+        }
+
+        public void setState(String state) {
+            this.state = state;
+        }
+
+        public void setBeltWorn(Boolean beltWorn) {
+            this.beltWorn = beltWorn;
+        }
     }
 
     private final Map<String, Map<String, Object>> latestSensorDataContainer = new ConcurrentHashMap<>();
@@ -75,19 +101,20 @@ public class SensorDataService {
             keys.add(cleanDev.toLowerCase());
             keys.add(cleanDev.toUpperCase());
         }
-        
+
         String macToUse = macAddress;
         if (macToUse == null || macToUse.trim().isEmpty()) {
             macToUse = deviceId;
         }
-        
+
         if (macToUse != null && !macToUse.trim().isEmpty()) {
             String rawMac = macToUse.trim();
             keys.add(rawMac);
             keys.add(rawMac.toLowerCase());
             keys.add(rawMac.toUpperCase());
-            
-            // Extract 12-character hex sequence if present (e.g. 0000B05A0D40 inside SC_WB_0000B05A0D40_1A2B)
+
+            // Extract 12-character hex sequence if present (e.g. 0000B05A0D40 inside
+            // SC_WB_0000B05A0D40_1A2B)
             String cleanHex = rawMac.replaceAll("[^a-zA-Z0-9]", "");
             java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("[a-fA-F0-9]{12}").matcher(cleanHex);
             List<String> foundHexes = new ArrayList<>();
@@ -104,11 +131,12 @@ public class SensorDataService {
                 keys.add(hex.toUpperCase());
                 keys.add("DEV_" + hex.toUpperCase());
                 keys.add("device_" + hex.toLowerCase());
-                
+
                 if (hex.length() == 12) {
                     StringBuilder formatted = new StringBuilder();
                     for (int i = 0; i < 12; i += 2) {
-                        if (i > 0) formatted.append(":");
+                        if (i > 0)
+                            formatted.append(":");
                         formatted.append(hex.substring(i, i + 2));
                     }
                     keys.add(formatted.toString().toUpperCase());
@@ -148,7 +176,7 @@ public class SensorDataService {
         String locationWarning = null;
 
         if (lat != null && lng != null) {
-            lastKnownCoordinatesMap.put(deviceId, new double[]{lat, lng});
+            lastKnownCoordinatesMap.put(deviceId, new double[] { lat, lng });
         } else if (lastKnownCoordinatesMap.containsKey(deviceId)) {
             double[] lastCoords = lastKnownCoordinatesMap.get(deviceId);
             lat = lastCoords[0];
@@ -165,11 +193,12 @@ public class SensorDataService {
         sensorData.put("beltType", beltType);
         sensorData.put("state", request.getState() != null ? request.getState() : 0);
         sensorData.put("stateName", stateName);
-        
+
         // Heart rate: use from request, or simulate if wrist band not connected
         Double heartRate = request.getHeartRate();
-        boolean bandConnected = request.getBandConnected() != null ? request.getBandConnected() : (request.getWristBandWorn() != null ? request.getWristBandWorn() : true);
-        
+        boolean bandConnected = request.getBandConnected() != null ? request.getBandConnected()
+                : (request.getWristBandWorn() != null ? request.getWristBandWorn() : true);
+
         if (heartRate == null || !bandConnected) {
             // Simulate heart rate if wrist band data is missing
             heartRate = 70.0 + (Math.random() * 20); // Random between 70-90
@@ -178,7 +207,7 @@ public class SensorDataService {
             sensorData.put("heartRateSimulated", false);
         }
         sensorData.put("heartRate", heartRate);
-        
+
         // SpO2: use from request, or simulate if wrist band not connected
         Double spo2 = request.getSpo2();
         if (spo2 == null || !bandConnected) {
@@ -188,7 +217,7 @@ public class SensorDataService {
             sensorData.put("spo2Simulated", false);
         }
         sensorData.put("spo2", spo2);
-        
+
         sensorData.put("temperature", request.getTemperature() != null ? request.getTemperature() : 36.6);
         boolean beltWornVal = request.getBeltWorn() != null ? request.getBeltWorn() : true;
         sensorData.put("beltWorn", beltWornVal);
@@ -200,7 +229,8 @@ public class SensorDataService {
         sensorData.put("isLastLocationFetched", isLastLocationFetched);
         sensorData.put("locationWarning", locationWarning);
         sensorData.put("micMessageAudio", request.getMicMessageAudio());
-        sensorData.put("timestamp", request.getTimestamp() != null ? request.getTimestamp() : System.currentTimeMillis());
+        sensorData.put("timestamp",
+                request.getTimestamp() != null ? request.getTimestamp() : System.currentTimeMillis());
         sensorData.put("received_at", LocalDateTime.now().toString());
 
         Set<String> targetKeys = generateKeysForDevice(deviceId, macAddress);
@@ -223,32 +253,38 @@ public class SensorDataService {
                     targetKeys.addAll(generateKeysForDevice(null, e.getPrimaryDeviceMac()));
                 }
             }
-        } catch (Exception ignored) {}
-        
+        } catch (Exception ignored) {
+        }
+
         Optional<Device> matchedDevice = Optional.empty();
         for (String k : targetKeys) {
             matchedDevice = deviceRepository.findByMacAddress(k);
-            if (matchedDevice.isPresent()) break;
+            if (matchedDevice.isPresent())
+                break;
             matchedDevice = deviceRepository.findByDeviceId(k);
-            if (matchedDevice.isPresent()) break;
+            if (matchedDevice.isPresent())
+                break;
         }
 
         if (matchedDevice.isPresent()) {
             Device dev = matchedDevice.get();
-            if (dev.getDeviceId() != null) targetKeys.addAll(generateKeysForDevice(dev.getDeviceId(), dev.getMacAddress()));
-            if (dev.getMacAddress() != null) targetKeys.addAll(generateKeysForDevice(null, dev.getMacAddress()));
+            if (dev.getDeviceId() != null)
+                targetKeys.addAll(generateKeysForDevice(dev.getDeviceId(), dev.getMacAddress()));
+            if (dev.getMacAddress() != null)
+                targetKeys.addAll(generateKeysForDevice(null, dev.getMacAddress()));
             if (dev.getAssignedElderlyId() != null) {
                 targetKeys.add(dev.getAssignedElderlyId());
                 targetKeys.add(dev.getAssignedElderlyId().toLowerCase());
             }
-            
+
             dev.setStatus("ACTIVE");
             dev.setLastSeen(LocalDateTime.now());
             try {
                 deviceRepository.save(dev);
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) {
+            }
         }
-        
+
         if ("Waist Belt".equalsIgnoreCase(beltType)) {
             targetKeys.add("vois_belt");
         }
@@ -258,15 +294,17 @@ public class SensorDataService {
         container.put("data", sensorData);
         container.put("last_update", LocalDateTime.now().toString());
         container.put("device_connected", true);
-        
+
         for (String key : targetKeys) {
             latestSensorDataContainer.put(key, container);
             connectedDevices.put(key, new DeviceStatus(key, beltType, stateName, beltWornVal));
         }
 
-        System.out.printf("📡 [HARDWARE %s] Data from %s (keys: %s) | State: %s | Worn: %s | HR: %.1f | SpO2: %.1f | Temp: %.1f%n",
+        System.out.printf(
+                "📡 [HARDWARE %s] Data from %s (keys: %s) | State: %s | Worn: %s | HR: %.1f | SpO2: %.1f | Temp: %.1f%n",
                 beltType, deviceId, targetKeys, stateName, beltWornVal ? "YES" : "NO",
-                (Double) sensorData.get("heartRate"), (Double) sensorData.get("spo2"), (Double) sensorData.get("temperature"));
+                (Double) sensorData.get("heartRate"), (Double) sensorData.get("spo2"),
+                (Double) sensorData.get("temperature"));
 
         // Encrypt & Save to Firebase storage
         try {
@@ -278,7 +316,8 @@ public class SensorDataService {
 
         // Process State Transitions
         if ("PREFALL".equalsIgnoreCase(stateName)) {
-            System.out.println("[PREFALL DETECTED] Triggering prefall notification to ALL linked guardians for " + deviceId);
+            System.out.println(
+                    "[PREFALL DETECTED] Triggering prefall notification to ALL linked guardians for " + deviceId);
             fallDetectionService.handlePrefallAlert(deviceId, beltType, lat, lng, request.getMicMessageAudio());
         } else if ("FALL_DETECTED".equalsIgnoreCase(stateName)) {
             System.out.println("[FALL DETECTED] Triggering fall escalation workflow for " + deviceId);
@@ -296,9 +335,9 @@ public class SensorDataService {
 
     public Map<String, Object> getLatestSensorData(String deviceId) {
         String targetId = (deviceId != null && !deviceId.trim().isEmpty()) ? deviceId.trim() : "vois_belt";
-        
+
         Map<String, Object> foundContainer = latestSensorDataContainer.get(targetId);
-        
+
         if (foundContainer == null) {
             Set<String> searchKeys = generateKeysForDevice(targetId, null);
             for (String k : searchKeys) {
@@ -308,14 +347,16 @@ public class SensorDataService {
                 }
             }
         }
-        
+
         if (foundContainer == null) {
             Optional<Device> devOpt = deviceRepository.findByDeviceId(targetId);
-            if (devOpt.isEmpty()) devOpt = deviceRepository.findByMacAddress(targetId);
+            if (devOpt.isEmpty())
+                devOpt = deviceRepository.findByMacAddress(targetId);
             if (devOpt.isPresent()) {
                 Device dev = devOpt.get();
                 Set<String> devKeys = generateKeysForDevice(dev.getDeviceId(), dev.getMacAddress());
-                if (dev.getAssignedElderlyId() != null) devKeys.add(dev.getAssignedElderlyId());
+                if (dev.getAssignedElderlyId() != null)
+                    devKeys.add(dev.getAssignedElderlyId());
                 for (String k : devKeys) {
                     if (latestSensorDataContainer.containsKey(k)) {
                         foundContainer = latestSensorDataContainer.get(k);
@@ -324,14 +365,16 @@ public class SensorDataService {
                 }
             }
         }
-        
+
         if (foundContainer == null) {
             Optional<Elderly> eOpt = elderlyRepository.findByElderlyId(targetId);
             if (eOpt.isPresent()) {
                 Elderly e = eOpt.get();
                 Set<String> eKeys = new HashSet<>();
-                if (e.getPrimaryDeviceId() != null) eKeys.addAll(generateKeysForDevice(e.getPrimaryDeviceId(), null));
-                if (e.getPrimaryDeviceMac() != null) eKeys.addAll(generateKeysForDevice(null, e.getPrimaryDeviceMac()));
+                if (e.getPrimaryDeviceId() != null)
+                    eKeys.addAll(generateKeysForDevice(e.getPrimaryDeviceId(), null));
+                if (e.getPrimaryDeviceMac() != null)
+                    eKeys.addAll(generateKeysForDevice(null, e.getPrimaryDeviceMac()));
                 for (String k : eKeys) {
                     if (latestSensorDataContainer.containsKey(k)) {
                         foundContainer = latestSensorDataContainer.get(k);
@@ -340,7 +383,7 @@ public class SensorDataService {
                 }
             }
         }
-        
+
         if (foundContainer == null) {
             Set<String> defaultMacKeys = generateKeysForDevice("device_0000b05a0d40", "00:00:B0:5A:0D:40");
             defaultMacKeys.add("vois_belt");
@@ -351,7 +394,7 @@ public class SensorDataService {
                 }
             }
         }
-        
+
         if (foundContainer == null) {
             Map<String, Object> disconnectedData = new LinkedHashMap<>();
             disconnectedData.put("deviceId", targetId);
@@ -410,8 +453,8 @@ public class SensorDataService {
         LocalDateTime now = LocalDateTime.now();
         Map<String, Object> activeDevices = new LinkedHashMap<>();
 
-        connectedDevices.entrySet().removeIf(entry ->
-                java.time.Duration.between(entry.getValue().getLastSeen(), now).getSeconds() > 60);
+        connectedDevices.entrySet()
+                .removeIf(entry -> java.time.Duration.between(entry.getValue().getLastSeen(), now).getSeconds() > 60);
 
         for (Map.Entry<String, DeviceStatus> entry : connectedDevices.entrySet()) {
             long diffSec = java.time.Duration.between(entry.getValue().getLastSeen(), now).getSeconds();
