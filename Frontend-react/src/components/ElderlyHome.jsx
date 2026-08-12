@@ -91,10 +91,9 @@ const ElderlyHome = () => {
       if (!id) return;
       console.log('[DEVICE STATUS] Polling for elderlyId:', id);
       
-      // Get elderly info to find deviceId
-      const elderlyInfo = await getElderlyInfo(id);
-      const deviceId = elderlyInfo?.data?.primaryDeviceMac || elderlyInfo?.data?.primaryDeviceId || elderlyInfo?.data?.deviceId || id;
-      console.log('[DEVICE STATUS] Using deviceId:', deviceId);
+      // Use constant MAC address for single device testing
+      const deviceId = '00:00:B0:5A:0D:40';
+      console.log('[DEVICE STATUS] Using constant MAC address:', deviceId);
       
       const response = await fetchHardwareData(deviceId);
       console.log('[DEVICE STATUS] Response:', response);
