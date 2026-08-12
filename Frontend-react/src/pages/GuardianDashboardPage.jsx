@@ -648,12 +648,13 @@ export default function GuardianDashboardPage() {
 
   const pollLiveTelemetry = async (deviceId) => {
     try {
-      const data = await fetchSensorData(deviceId);
+      const macToQuery = deviceId || (selectedElderly && selectedElderly.primaryDeviceMac) || '00:00:B0:5A:0D:40';
+      const data = await fetchSensorData(macToQuery);
       if (data && data.status === 'success' && data.data && data.device_connected !== false) {
         const d = data.data;
         const isWorn = d.beltWorn === true || d.beltWorn === 'true';
         setSensorData(prev => ({
-          deviceId: d.deviceId || deviceId || 'vois_belt',
+          deviceId: macToQuery,
           beltType: d.beltType || 'Waist Belt',
           beltWorn: isWorn,
           heartRate: isWorn ? Math.round(d.heartRate || 0) : 0,
