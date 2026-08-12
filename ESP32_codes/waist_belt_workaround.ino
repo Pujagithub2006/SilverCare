@@ -1810,7 +1810,7 @@ void sendDataToBackend() {
         getGPSHistoryJson(gpsHistoryJson);
 
         String payload = "{";
-        payload += "\"deviceId\":\"" + String(DEVICE_ID) + "\",";
+        payload += "\"deviceId\":\"" + WiFi.macAddress() + "\",";
         payload += "\"macAddress\":\"" + WiFi.macAddress() + "\",";
         payload += "\"beltType\":\"Waist Belt\",";
         payload += "\"stateName\":\"" + mlStateName + "\",";
