@@ -83,13 +83,13 @@ public class Elderly {
     private String neighbourPhone;
 
     @Column(name = "primary_belt_type")
-    private String primaryBeltType; // Waist Belt / Wrist Belt
+    private String primaryBeltType = "Waist Belt"; // Waist Belt / Wrist Belt
 
     @Column(name = "primary_device_id")
-    private String primaryDeviceId; // e.g. vois_belt / esp32c3_wrist
+    private String primaryDeviceId = "device_0000b05a0d40"; // e.g. vois_belt / device_0000b05a0d40
 
     @Column(name = "primary_device_mac")
-    private String primaryDeviceMac; // MAC address of assigned device for direct connection
+    private String primaryDeviceMac = "00:00:B0:5A:0D:40"; // MAC address of assigned device for direct connection
 
     @Column(name = "preferred_language")
     private String preferredLanguage = "en";
@@ -129,6 +129,12 @@ public class Elderly {
         }
         if (primaryBeltType == null) {
             primaryBeltType = "Waist Belt";
+        }
+        if (primaryDeviceMac == null || primaryDeviceMac.trim().isEmpty()) {
+            primaryDeviceMac = "00:00:B0:5A:0D:40";
+        }
+        if (primaryDeviceId == null || primaryDeviceId.trim().isEmpty()) {
+            primaryDeviceId = "device_0000b05a0d40";
         }
         if (preferredLanguage == null || preferredLanguage.trim().isEmpty()) {
             preferredLanguage = "en";

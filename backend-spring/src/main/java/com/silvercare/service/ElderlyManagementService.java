@@ -95,6 +95,9 @@ public class ElderlyManagementService {
                 .phone(request.getPhone() != null ? request.getPhone() : "")
                 .location(request.getLocation() != null ? request.getLocation() : "Home")
                 .guardianUsername(guardianUsername)
+                .primaryDeviceMac("00:00:B0:5A:0D:40")
+                .primaryDeviceId("device_0000b05a0d40")
+                .primaryBeltType("Waist Belt")
                 .preferredLanguage(request.getPreferredLanguage() != null ? request.getPreferredLanguage() : "en")
                 .createdAt(LocalDateTime.now().toString())
                 .build();
@@ -122,26 +125,38 @@ public class ElderlyManagementService {
         return getElderlyByGuardian(guardianUsername);
     }
 
+    private Elderly ensureDefaultMac(Elderly e) {
+        if (e != null) {
+            if (e.getPrimaryDeviceMac() == null || e.getPrimaryDeviceMac().trim().isEmpty()) {
+                e.setPrimaryDeviceMac("00:00:B0:5A:0D:40");
+            }
+            if (e.getPrimaryDeviceId() == null || e.getPrimaryDeviceId().trim().isEmpty()) {
+                e.setPrimaryDeviceId("device_0000b05a0d40");
+            }
+        }
+        return e;
+    }
+
     public Elderly getElderly(String elderlyId) {
         if (elderlyId == null || elderlyId.trim().isEmpty()) {
             List<Elderly> all = elderlyRepository.findAll();
-            if (!all.isEmpty()) return all.get(0);
+            if (!all.isEmpty()) return ensureDefaultMac(all.get(0));
             return createElderlyForId("default_senior");
         }
 
         String cleanedId = elderlyId.trim();
         Optional<Elderly> byId = elderlyRepository.findByElderlyId(cleanedId);
-        if (byId.isPresent()) return byId.get();
+        if (byId.isPresent()) return ensureDefaultMac(byId.get());
 
         List<Elderly> byPhone = elderlyRepository.findByPhone(cleanedId);
-        if (!byPhone.isEmpty()) return byPhone.get(0);
+        if (!byPhone.isEmpty()) return ensureDefaultMac(byPhone.get(0));
 
         List<Elderly> byName = elderlyRepository.findByNameIgnoreCase(cleanedId);
-        if (!byName.isEmpty()) return byName.get(0);
+        if (!byName.isEmpty()) return ensureDefaultMac(byName.get(0));
 
         String derivedId = cleanedId.toLowerCase().replaceAll("\\s+", "_");
         Optional<Elderly> byDerived = elderlyRepository.findByElderlyId(derivedId);
-        if (byDerived.isPresent()) return byDerived.get();
+        if (byDerived.isPresent()) return ensureDefaultMac(byDerived.get());
 
         return createElderlyForId(derivedId);
     }
@@ -161,7 +176,9 @@ public class ElderlyManagementService {
                 .age(65)
                 .phone("")
                 .location("Home")
-                .primaryDeviceId(cleanId.equals("default_senior") ? "vois_belt" : cleanId)
+                .primaryDeviceId("device_0000b05a0d40")
+                .primaryDeviceMac("00:00:B0:5A:0D:40")
+                .primaryBeltType("Waist Belt")
                 .createdAt(LocalDateTime.now().toString())
                 .build();
         try {

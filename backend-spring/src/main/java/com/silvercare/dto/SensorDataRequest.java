@@ -6,6 +6,9 @@ public class SensorDataRequest {
     @JsonProperty("deviceId")
     private String deviceId;
 
+    @JsonProperty("macAddress")
+    private String macAddress;
+
     private Integer state;
 
     @JsonProperty("stateName")
@@ -54,6 +57,9 @@ public class SensorDataRequest {
 
     public String getDeviceId() { return deviceId; }
     public void setDeviceId(String deviceId) { this.deviceId = deviceId; }
+
+    public String getMacAddress() { return macAddress; }
+    public void setMacAddress(String macAddress) { this.macAddress = macAddress; }
 
     public Integer getState() { return state; }
     public void setState(Integer state) { this.state = state; }
