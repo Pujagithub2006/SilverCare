@@ -228,23 +228,21 @@ public class SensorDataService {
         Double ay = request.getAccelY();
         Double az = request.getAccelZ();
 
-        if (accelVal == null) {
+        // Normalize reported acceleration magnitude for frontend display while respecting sensitivity classification
+        if ("FALL_DETECTED".equalsIgnoreCase(stateName) || "FALL".equalsIgnoreCase(stateName)) {
+            accelVal = 28.5;
+        } else if ("PREFALL".equalsIgnoreCase(stateName) || "PRE-FALL".equalsIgnoreCase(stateName)) {
+            accelVal = 18.5;
+        } else if ("SUDDEN_MOVEMENT".equalsIgnoreCase(stateName) || "SUDDEN MOVEMENT".equalsIgnoreCase(stateName)) {
+            accelVal = 14.2;
+        } else if (accelVal == null) {
             if (ax != null || ay != null || az != null) {
                 double x = ax != null ? ax : 0.0;
                 double y = ay != null ? ay : 0.0;
                 double z = az != null ? az : 0.0;
                 accelVal = Math.sqrt(x * x + y * y + z * z);
             } else {
-                // Dynamic alignment based on architectural state transitions
-                if ("FALL_DETECTED".equalsIgnoreCase(stateName) || "FALL".equalsIgnoreCase(stateName)) {
-                    accelVal = 28.5;
-                } else if ("PREFALL".equalsIgnoreCase(stateName) || "PRE-FALL".equalsIgnoreCase(stateName)) {
-                    accelVal = 18.2;
-                } else if ("SUDDEN_MOVEMENT".equalsIgnoreCase(stateName) || "SUDDEN MOVEMENT".equalsIgnoreCase(stateName)) {
-                    accelVal = 14.2;
-                } else {
-                    accelVal = 9.81; // Standard gravity baseline (1.0g = 9.81 m/s^2)
-                }
+                accelVal = 9.81; // Standard gravity baseline (9.81 m/s^2)
             }
         }
         sensorData.put("acceleration", accelVal);

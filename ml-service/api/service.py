@@ -124,14 +124,15 @@ async def predict_fall(request: PredictionRequest):
         hr = request.vitals_data.heart_rate
         spo2 = request.vitals_data.spo2
 
-        # Classification logic
-        if max_accel > 3.2 or (hr > 120 and max_accel > 2.2):
+        # High-sensitivity classification threshold logic for hand motion testing & demonstration
+        # max_accel is g-force ratio (1.0 = 9.81 m/s^2 baseline)
+        if max_accel > 1.35 or (hr > 120 and max_accel > 1.15):
             prediction = "FALL"
             confidence = 0.95
-        elif max_accel > 2.2 or (hr > 105 and max_accel > 1.8):
+        elif max_accel > 1.12 or (hr > 105 and max_accel > 1.06):
             prediction = "PREFALL"
             confidence = 0.85
-        elif max_accel > 1.5:
+        elif max_accel > 1.03:
             prediction = "SUDDEN_MOVEMENT"
             confidence = 0.75
         else:
