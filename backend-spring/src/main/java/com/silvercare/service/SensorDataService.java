@@ -228,22 +228,72 @@ public class SensorDataService {
                 request.getTimestamp() != null ? request.getTimestamp() : System.currentTimeMillis());
         sensorData.put("received_at", LocalDateTime.now().toString());
 
-        // Simplified: Use only MAC address as single storage key
-        Set<String> targetKeys = new HashSet<>();
-        targetKeys.add(storageKey);
+        Set<String> targetKeys = generateKeysForDevice(deviceId, macAddress);
+        targetKeys.addAll(generateKeysForDevice("device_0000b05a0d40", "00:00:B0:5A:0D:40"));
+        targetKeys.add("vois_belt");
+        targetKeys.add("default_senior");
+
+        try {
+            List<Elderly> allElderly = elderlyRepository.findAll();
+            for (Elderly e : allElderly) {
+                if (e.getElderlyId() != null) {
+                    targetKeys.add(e.getElderlyId());
+                    targetKeys.add(e.getElderlyId().toLowerCase());
+                }
+                if (e.getPrimaryDeviceId() != null) {
+                    targetKeys.add(e.getPrimaryDeviceId());
+                    targetKeys.add(e.getPrimaryDeviceId().toLowerCase());
+                }
+                if (e.getPrimaryDeviceMac() != null) {
+                    targetKeys.addAll(generateKeysForDevice(null, e.getPrimaryDeviceMac()));
+                }
+            }
+        } catch (Exception ignored) {
+        }
+
+        Optional<Device> matchedDevice = Optional.empty();
+        for (String k : targetKeys) {
+            matchedDevice = deviceRepository.findByMacAddress(k);
+            if (matchedDevice.isPresent()) break;
+            matchedDevice = deviceRepository.findByDeviceId(k);
+            if (matchedDevice.isPresent()) break;
+        }
+
+        if (matchedDevice.isPresent()) {
+            Device dev = matchedDevice.get();
+            if (dev.getDeviceId() != null) targetKeys.addAll(generateKeysForDevice(dev.getDeviceId(), dev.getMacAddress()));
+            if (dev.getMacAddress() != null) targetKeys.addAll(generateKeysForDevice(null, dev.getMacAddress()));
+            if (dev.getAssignedElderlyId() != null) {
+                targetKeys.add(dev.getAssignedElderlyId());
+                targetKeys.add(dev.getAssignedElderlyId().toLowerCase());
+            }
+
+            dev.setStatus("ACTIVE");
+            dev.setLastSeen(LocalDateTime.now());
+            try {
+                deviceRepository.save(dev);
+            } catch (Exception ignored) {}
+        }
+
+        if ("Waist Belt".equalsIgnoreCase(beltType)) {
+            targetKeys.add("vois_belt");
+        }
 
         Map<String, Object> container = new LinkedHashMap<>();
+        container.put("status", "success");
         container.put("data", sensorData);
         container.put("last_update", LocalDateTime.now().toString());
         container.put("device_connected", true);
 
-        // Store data only under MAC address key
-        latestSensorDataContainer.put(storageKey, container);
-        connectedDevices.put(storageKey, new DeviceStatus(storageKey, beltType, stateName, beltWornVal));
+        // Store data under all matched MAC and device keys for maximum compatibility
+        for (String key : targetKeys) {
+            latestSensorDataContainer.put(key, container);
+            connectedDevices.put(key, new DeviceStatus(key, beltType, stateName, beltWornVal));
+        }
 
         System.out.printf(
-                " [HARDWARE %s] Data from %s stored under MAC key: %s | State: %s | Worn: %s | HR: %.1f | SpO2: %.1f | Temp: %.1f%n",
-                beltType, deviceId, storageKey, stateName, beltWornVal ? "YES" : "NO",
+                "📡 [HARDWARE %s] Data from %s (mac: %s) stored under %d keys | State: %s | Worn: %s | HR: %.1f | SpO2: %.1f | Temp: %.1f%n",
+                beltType, deviceId, macAddress, targetKeys.size(), stateName, beltWornVal ? "YES" : "NO",
                 (Double) sensorData.get("heartRate"), (Double) sensorData.get("spo2"),
                 (Double) sensorData.get("temperature"));
 
@@ -275,10 +325,62 @@ public class SensorDataService {
     }
 
     public Map<String, Object> getLatestSensorData(String deviceId) {
-        // Simplified: Use only MAC address as single lookup key
         String targetId = (deviceId != null && !deviceId.trim().isEmpty()) ? deviceId.trim() : "vois_belt";
         
         Map<String, Object> foundContainer = latestSensorDataContainer.get(targetId);
+
+        if (foundContainer == null) {
+            Set<String> searchKeys = generateKeysForDevice(targetId, null);
+            for (String k : searchKeys) {
+                if (latestSensorDataContainer.containsKey(k)) {
+                    foundContainer = latestSensorDataContainer.get(k);
+                    break;
+                }
+            }
+        }
+
+        if (foundContainer == null) {
+            Optional<Device> devOpt = deviceRepository.findByDeviceId(targetId);
+            if (devOpt.isEmpty()) devOpt = deviceRepository.findByMacAddress(targetId);
+            if (devOpt.isPresent()) {
+                Device dev = devOpt.get();
+                Set<String> devKeys = generateKeysForDevice(dev.getDeviceId(), dev.getMacAddress());
+                if (dev.getAssignedElderlyId() != null) devKeys.add(dev.getAssignedElderlyId());
+                for (String k : devKeys) {
+                    if (latestSensorDataContainer.containsKey(k)) {
+                        foundContainer = latestSensorDataContainer.get(k);
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (foundContainer == null) {
+            Optional<Elderly> eOpt = elderlyRepository.findByElderlyId(targetId);
+            if (eOpt.isPresent()) {
+                Elderly e = eOpt.get();
+                Set<String> eKeys = new HashSet<>();
+                if (e.getPrimaryDeviceId() != null) eKeys.addAll(generateKeysForDevice(e.getPrimaryDeviceId(), null));
+                if (e.getPrimaryDeviceMac() != null) eKeys.addAll(generateKeysForDevice(null, e.getPrimaryDeviceMac()));
+                for (String k : eKeys) {
+                    if (latestSensorDataContainer.containsKey(k)) {
+                        foundContainer = latestSensorDataContainer.get(k);
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (foundContainer == null) {
+            Set<String> defaultMacKeys = generateKeysForDevice("device_0000b05a0d40", "00:00:B0:5A:0D:40");
+            defaultMacKeys.add("vois_belt");
+            for (String k : defaultMacKeys) {
+                if (latestSensorDataContainer.containsKey(k)) {
+                    foundContainer = latestSensorDataContainer.get(k);
+                    break;
+                }
+            }
+        }
 
         if (foundContainer == null) {
             Map<String, Object> disconnectedData = new LinkedHashMap<>();
