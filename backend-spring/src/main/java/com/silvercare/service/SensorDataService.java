@@ -94,14 +94,35 @@ public class SensorDataService {
         sensorData.put("beltType", beltType);
         sensorData.put("state", request.getState() != null ? request.getState() : 0);
         sensorData.put("stateName", stateName);
-        sensorData.put("heartRate", request.getHeartRate() != null ? request.getHeartRate() : 72.0);
-        sensorData.put("spo2", request.getSpo2() != null ? request.getSpo2() : 98.0);
+        
+        // Heart rate: use from request, or simulate if wrist band not connected
+        Double heartRate = request.getHeartRate();
+        boolean bandConnected = request.getBandConnected() != null ? request.getBandConnected() : (request.getWristBandWorn() != null ? request.getWristBandWorn() : true);
+        
+        if (heartRate == null || !bandConnected) {
+            // Simulate heart rate if wrist band data is missing
+            heartRate = 70.0 + (Math.random() * 20); // Random between 70-90
+            sensorData.put("heartRateSimulated", true);
+        } else {
+            sensorData.put("heartRateSimulated", false);
+        }
+        sensorData.put("heartRate", heartRate);
+        
+        // SpO2: use from request, or simulate if wrist band not connected
+        Double spo2 = request.getSpo2();
+        if (spo2 == null || !bandConnected) {
+            spo2 = 97.0 + (Math.random() * 3); // Random between 97-100
+            sensorData.put("spo2Simulated", true);
+        } else {
+            sensorData.put("spo2Simulated", false);
+        }
+        sensorData.put("spo2", spo2);
+        
         sensorData.put("temperature", request.getTemperature() != null ? request.getTemperature() : 36.6);
         boolean beltWornVal = request.getBeltWorn() != null ? request.getBeltWorn() : true;
-        boolean bandConnectedVal = request.getBandConnected() != null ? request.getBandConnected() : (request.getWristBandWorn() != null ? request.getWristBandWorn() : true);
         sensorData.put("beltWorn", beltWornVal);
-        sensorData.put("bandConnected", bandConnectedVal);
-        sensorData.put("wristBandWorn", bandConnectedVal);
+        sensorData.put("bandConnected", bandConnected);
+        sensorData.put("wristBandWorn", bandConnected);
         sensorData.put("acceleration", request.getAcceleration() != null ? request.getAcceleration() : 1.0);
         sensorData.put("latitude", lat);
         sensorData.put("longitude", lng);

@@ -103,12 +103,15 @@ public class SensorHardwareController {
                 beltConnected = isDeviceConnected && Boolean.TRUE.equals(innerData.get("beltWorn"));
             }
 
-            boolean bandConnected = isDeviceConnected;
+            boolean bandConnected = false;
             if (innerData != null && innerData.containsKey("bandConnected")) {
-                bandConnected = isDeviceConnected && Boolean.TRUE.equals(innerData.get("bandConnected"));
+                bandConnected = Boolean.TRUE.equals(innerData.get("bandConnected"));
             } else if (innerData != null && innerData.containsKey("wristBandWorn")) {
-                bandConnected = isDeviceConnected && Boolean.TRUE.equals(innerData.get("wristBandWorn"));
+                bandConnected = Boolean.TRUE.equals(innerData.get("wristBandWorn"));
             }
+
+            // Device is considered connected if waist belt is connected (wrist band is optional)
+            boolean deviceOverallConnected = beltConnected;
 
             Map<String, Object> data = new LinkedHashMap<>();
             data.put("heartRate", hr != null ? hr : 0);
@@ -120,7 +123,9 @@ public class SensorHardwareController {
             data.put("bandWorn", bandConnected);
             data.put("beltLastSeen", lastSeen != null ? lastSeen.toString() : "");
             data.put("lastUpdate", lastSeen != null ? lastSeen.toString() : LocalDateTime.now().toString());
-            data.put("message", msg != null ? msg.toString() : (isDeviceConnected ? "Hardware connected" : "Hardware disconnected"));
+            data.put("message", msg != null ? msg.toString() : (deviceOverallConnected ? "Hardware connected" : "Hardware disconnected"));
+            data.put("device_connected", deviceOverallConnected);
+            data.put("deviceConnected", deviceOverallConnected);
 
             return ResponseEntity.ok(ApiResponse.builder()
                     .status("success")
