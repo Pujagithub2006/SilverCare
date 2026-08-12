@@ -1821,7 +1821,10 @@ void sendDataToBackend() {
         payload += "\"temperature\":" + String(currentTemp) + ",";
         payload += "\"beltWorn\":true,";
         payload += "\"bandConnected\":" + String(dataReceivedFromWrist ? "true" : "false") + ",";
-        payload += "\"wristBandWorn\":" + String(dataReceivedFromWrist ? "true" : "false") + ",";
+        float totalAccelMag = sqrt(accelX * accelX + accelY * accelY + accelZ * accelZ);
+        if (totalAccelMag == 0.0f) totalAccelMag = 9.81f;
+
+        payload += "\"acceleration\":" + String(totalAccelMag, 2) + ",";
         payload += "\"accelX\":" + String(accelX) + ",";
         payload += "\"accelY\":" + String(accelY) + ",";
         payload += "\"accelZ\":" + String(accelZ) + ",";

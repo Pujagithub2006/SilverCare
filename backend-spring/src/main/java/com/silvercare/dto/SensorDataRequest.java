@@ -37,6 +37,31 @@ public class SensorDataRequest {
     private String beltType; // Waist Belt vs Wrist Belt
 
     private Double acceleration;
+
+    @JsonProperty("accelX")
+    @JsonAlias({"accel_x", "accelerationX", "ax"})
+    private Double accelX;
+
+    @JsonProperty("accelY")
+    @JsonAlias({"accel_y", "accelerationY", "ay"})
+    private Double accelY;
+
+    @JsonProperty("accelZ")
+    @JsonAlias({"accel_z", "accelerationZ", "az"})
+    private Double accelZ;
+
+    @JsonProperty("gyroX")
+    @JsonAlias({"gyro_x", "gyroscopeX", "gx"})
+    private Double gyroX;
+
+    @JsonProperty("gyroY")
+    @JsonAlias({"gyro_y", "gyroscopeY", "gy"})
+    private Double gyroY;
+
+    @JsonProperty("gyroZ")
+    @JsonAlias({"gyro_z", "gyroscopeZ", "gz"})
+    private Double gyroZ;
+
     private Long timestamp;
 
     private Double latitude;
@@ -94,6 +119,24 @@ public class SensorDataRequest {
 
     public Double getAcceleration() { return acceleration; }
     public void setAcceleration(Double acceleration) { this.acceleration = acceleration; }
+
+    public Double getAccelX() { return accelX; }
+    public void setAccelX(Double accelX) { this.accelX = accelX; }
+
+    public Double getAccelY() { return accelY; }
+    public void setAccelY(Double accelY) { this.accelY = accelY; }
+
+    public Double getAccelZ() { return accelZ; }
+    public void setAccelZ(Double accelZ) { this.accelZ = accelZ; }
+
+    public Double getGyroX() { return gyroX; }
+    public void setGyroX(Double gyroX) { this.gyroX = gyroX; }
+
+    public Double getGyroY() { return gyroY; }
+    public void setGyroY(Double gyroY) { this.gyroY = gyroY; }
+
+    public Double getGyroZ() { return gyroZ; }
+    public void setGyroZ(Double gyroZ) { this.gyroZ = gyroZ; }
 
     public Long getTimestamp() { return timestamp; }
     public void setTimestamp(Long timestamp) { this.timestamp = timestamp; }
