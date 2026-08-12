@@ -120,16 +120,8 @@ public class SensorDataService {
     }
 
     public Map<String, Object> receiveSensorData(SensorDataRequest request) {
-<<<<<<< HEAD
-        String deviceId = request.getDeviceId();
-        if (deviceId == null || deviceId.trim().isEmpty()) {
-            deviceId = "vois_belt";
-        }
-        System.out.println("[SENSOR DATA] Received data from deviceId: " + deviceId + " at " + LocalDateTime.now());
-=======
         String deviceId = request.getDeviceId() != null ? request.getDeviceId() : "vois_belt";
         String macAddress = request.getMacAddress();
->>>>>>> 685eeed2d01561cb6b1a857b4c19520b6f3bb6b0
         String stateName = request.getStateName() != null ? request.getStateName() : "NORMAL";
 
         // Determine Belt Type: ESP32 waist belt vs ESP32C3 wrist belt
@@ -381,13 +373,7 @@ public class SensorDataService {
         if (container.containsKey("last_update")) {
             String lastUpdateStr = (String) container.get("last_update");
             LocalDateTime lastUpdate = LocalDateTime.parse(lastUpdateStr);
-<<<<<<< HEAD
-            // Increased timeout from 5s to 10s for more tolerance to network delays
-            if (java.time.Duration.between(lastUpdate, LocalDateTime.now()).getSeconds() > 10) {
-                System.out.println("[SENSOR DATA] Device " + targetId + " timeout - last update: " + lastUpdateStr);
-=======
             if (java.time.Duration.between(lastUpdate, LocalDateTime.now()).getSeconds() > 30) {
->>>>>>> 685eeed2d01561cb6b1a857b4c19520b6f3bb6b0
                 container.put("device_connected", false);
                 if (container.get("data") instanceof Map) {
                     @SuppressWarnings("unchecked")

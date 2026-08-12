@@ -241,6 +241,12 @@ public class ElderlyManagementService {
         if (request.getAge() != null) {
             elderly.setAge(request.getAge());
         }
+        if (request.getPrimaryDeviceId() != null) {
+            elderly.setPrimaryDeviceId(request.getPrimaryDeviceId());
+        }
+        if (request.getPrimaryDeviceMac() != null) {
+            elderly.setPrimaryDeviceMac(request.getPrimaryDeviceMac());
+        }
 
         Elderly updated = elderlyRepository.saveAndFlush(elderly);
 

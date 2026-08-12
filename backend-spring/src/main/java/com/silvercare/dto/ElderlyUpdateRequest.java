@@ -12,6 +12,8 @@ public class ElderlyUpdateRequest {
     private String phone;
     private String location;
     private Integer age;
+    private String primaryDeviceId;
+    private String primaryDeviceMac;
 
     public ElderlyUpdateRequest() {}
 
@@ -37,4 +39,10 @@ public class ElderlyUpdateRequest {
 
     public Integer getAge() { return age; }
     public void setAge(Integer age) { this.age = age; }
+
+    public String getPrimaryDeviceId() { return primaryDeviceId; }
+    public void setPrimaryDeviceId(String primaryDeviceId) { this.primaryDeviceId = primaryDeviceId; }
+
+    public String getPrimaryDeviceMac() { return primaryDeviceMac; }
+    public void setPrimaryDeviceMac(String primaryDeviceMac) { this.primaryDeviceMac = primaryDeviceMac; }
 }

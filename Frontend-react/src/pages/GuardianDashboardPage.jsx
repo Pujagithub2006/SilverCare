@@ -548,8 +548,8 @@ export default function GuardianDashboardPage() {
     const pollInterval = setInterval(() => {
       if (selectedElderly) {
         const elderlyId = selectedElderly.elderlyId || selectedElderly.id || selectedElderly.elderly_id;
-        // Use primaryDeviceId / primaryDeviceMac / deviceId if set, otherwise default to 'vois_belt'
-        const deviceId = selectedElderly.primaryDeviceId || selectedElderly.primaryDeviceMac || selectedElderly.deviceId || selectedElderly.elderlyId || 'vois_belt';
+        // Use constant MAC address for single device testing
+        const deviceId = '00:00:B0:5A:0D:40';
         pollLiveTelemetry(deviceId);
         pollAlertsForElderly(elderlyId);
         loadElderlyData(elderlyId);
