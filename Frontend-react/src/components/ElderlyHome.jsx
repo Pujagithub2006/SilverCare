@@ -90,7 +90,13 @@ const ElderlyHome = () => {
       const id = elderlyId || localStorage.getItem('elderly_id');
       if (!id) return;
       console.log('[DEVICE STATUS] Polling for elderlyId:', id);
-      const response = await fetchHardwareData(id);
+      
+      // Get elderly info to find deviceId
+      const elderlyInfo = await getElderlyInfo(id);
+      const deviceId = elderlyInfo?.data?.primaryDeviceMac || elderlyInfo?.data?.primaryDeviceId || elderlyInfo?.data?.deviceId || id;
+      console.log('[DEVICE STATUS] Using deviceId:', deviceId);
+      
+      const response = await fetchHardwareData(deviceId);
       console.log('[DEVICE STATUS] Response:', response);
       
       // Handle different response structures
