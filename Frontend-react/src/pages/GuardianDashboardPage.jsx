@@ -1200,36 +1200,55 @@ export default function GuardianDashboardPage() {
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
 
-                  {/* Heart Rate Card */}
+                  {/* Combined Heart Rate + Oxygen (SpO2) Vitals Card */}
                   <div className="hardware-card" style={{
                     background: sensorData.beltWorn ? 'linear-gradient(135deg, #007AFF, #0056b3)' : 'linear-gradient(135deg, #64748b, #475569)',
                     color: 'white',
                     borderRadius: '14px',
                     padding: '16px',
                     textAlign: 'center',
-                    boxShadow: sensorData.beltWorn ? '0 4px 12px rgba(0, 122, 255, 0.25)' : '0 4px 12px rgba(100, 116, 139, 0.25)'
+                    boxShadow: sensorData.beltWorn ? '0 4px 12px rgba(0, 122, 255, 0.25)' : '0 4px 12px rgba(100, 116, 139, 0.25)',
+                    gridColumn: '1 / -1'
                   }}>
-                    <div style={{ fontSize: '10px', opacity: 0.9, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Heart Rate</div>
-                    <div style={{ fontSize: '24px', fontWeight: '800', marginTop: '4px' }}>
-                      {sensorData.beltWorn && sensorData.heartRate > 0 ? sensorData.heartRate : '--'} <span style={{ fontSize: '13px', fontWeight: '600' }}>{sensorData.beltWorn && sensorData.heartRate > 0 ? 'BPM' : 'Offline'}</span>
+                    <div style={{ fontSize: '10px', opacity: 0.9, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>❤️ Cardiovascular & Oxygen Vitals (HR + SpO2)</div>
+                    <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'center', marginTop: '6px' }}>
+                      <div>
+                        <div style={{ fontSize: '22px', fontWeight: '800' }}>
+                          {sensorData.beltWorn && sensorData.heartRate > 0 ? sensorData.heartRate : '--'} <span style={{ fontSize: '12px', fontWeight: '600' }}>{sensorData.beltWorn && sensorData.heartRate > 0 ? 'BPM' : 'Offline'}</span>
+                        </div>
+                        <div style={{ fontSize: '10px', opacity: 0.8, marginTop: '2px' }}>Heart Rate</div>
+                      </div>
+                      <div style={{ width: '1px', height: '30px', backgroundColor: 'rgba(255,255,255,0.3)' }} />
+                      <div>
+                        <div style={{ fontSize: '22px', fontWeight: '800' }}>
+                          {sensorData.beltWorn && sensorData.spo2 > 0 ? `${sensorData.spo2}%` : '--'}
+                        </div>
+                        <div style={{ fontSize: '10px', opacity: 0.8, marginTop: '2px' }}>Blood Oxygen</div>
+                      </div>
                     </div>
-                    <div style={{ fontSize: '10px', opacity: 0.8, marginTop: '4px' }}>{sensorData.beltWorn ? 'Normal: 60-100' : 'Hardware Disconnected'}</div>
                   </div>
 
-                  {/* Oxygen Card */}
+                  {/* MPU6050 Motion Card */}
                   <div className="hardware-card" style={{
-                    background: sensorData.beltWorn ? 'linear-gradient(135deg, #34c759, #28a745)' : 'linear-gradient(135deg, #64748b, #475569)',
+                    background: sensorData.beltWorn 
+                      ? (sensorData.stateName === 'FALL_DETECTED' ? 'linear-gradient(135deg, #ff3b30, #c0392b)'
+                        : sensorData.stateName === 'PREFALL' ? 'linear-gradient(135deg, #ff9500, #d35400)'
+                        : sensorData.stateName === 'SUDDEN_MOVEMENT' ? 'linear-gradient(135deg, #ffcc00, #f39c12)'
+                        : 'linear-gradient(135deg, #34c759, #27ae60)')
+                      : 'linear-gradient(135deg, #64748b, #475569)',
                     color: 'white',
                     borderRadius: '14px',
                     padding: '16px',
                     textAlign: 'center',
-                    boxShadow: sensorData.beltWorn ? '0 4px 12px rgba(52, 199, 89, 0.25)' : '0 4px 12px rgba(100, 116, 139, 0.25)'
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
                   }}>
-                    <div style={{ fontSize: '10px', opacity: 0.9, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Oxygen (SpO2)</div>
-                    <div style={{ fontSize: '24px', fontWeight: '800', marginTop: '4px' }}>
-                      {sensorData.beltWorn && sensorData.spo2 > 0 ? `${sensorData.spo2}%` : 'Offline'}
+                    <div style={{ fontSize: '10px', opacity: 0.9, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>📈 MPU6050 Motion</div>
+                    <div style={{ fontSize: '20px', fontWeight: '800', marginTop: '4px' }}>
+                      {sensorData.beltWorn ? `${sensorData.acceleration || '1.00'} m/s²` : 'Offline'}
                     </div>
-                    <div style={{ fontSize: '10px', opacity: 0.8, marginTop: '4px' }}>{sensorData.beltWorn ? 'Optimal: >95%' : 'Hardware Disconnected'}</div>
+                    <div style={{ fontSize: '10px', opacity: 0.9, marginTop: '4px', fontWeight: '700' }}>
+                      State: {sensorData.beltWorn ? sensorData.stateName : 'DISCONNECTED'}
+                    </div>
                   </div>
 
                   {/* Temperature Card */}
@@ -1241,8 +1260,8 @@ export default function GuardianDashboardPage() {
                     textAlign: 'center',
                     boxShadow: sensorData.beltWorn ? '0 4px 12px rgba(255, 149, 0, 0.25)' : '0 4px 12px rgba(100, 116, 139, 0.25)'
                   }}>
-                    <div style={{ fontSize: '10px', opacity: 0.9, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Temperature</div>
-                    <div style={{ fontSize: '24px', fontWeight: '800', marginTop: '4px' }}>
+                    <div style={{ fontSize: '10px', opacity: 0.9, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>🌡️ Temperature</div>
+                    <div style={{ fontSize: '20px', fontWeight: '800', marginTop: '4px' }}>
                       {sensorData.beltWorn && Number(sensorData.temperature) > 0 
                         ? `${(Number(sensorData.temperature) > 60 ? Number(sensorData.temperature) : ((Number(sensorData.temperature) * 9 / 5) + 32)).toFixed(1)}°F` 
                         : 'Offline'}
@@ -1259,8 +1278,8 @@ export default function GuardianDashboardPage() {
                     textAlign: 'center',
                     boxShadow: sensorData.beltWorn ? '0 4px 12px rgba(52, 199, 89, 0.25)' : '0 4px 12px rgba(142, 142, 147, 0.25)'
                   }}>
-                    <div style={{ fontSize: '10px', opacity: 0.9, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Belt Status</div>
-                    <div style={{ fontSize: '18px', fontWeight: '800', marginTop: '8px' }}>
+                    <div style={{ fontSize: '10px', opacity: 0.9, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>📡 Belt Status</div>
+                    <div style={{ fontSize: '18px', fontWeight: '800', marginTop: '4px' }}>
                       {sensorData.beltWorn ? 'Connected' : 'Disconnected'}
                     </div>
                     <div style={{ fontSize: '10px', opacity: 0.8, marginTop: '4px' }}>
@@ -1275,10 +1294,9 @@ export default function GuardianDashboardPage() {
                     borderRadius: '14px',
                     padding: '16px',
                     textAlign: 'center',
-                    boxShadow: '0 4px 12px rgba(88, 86, 214, 0.25)',
-                    gridColumn: '1 / -1'
+                    boxShadow: '0 4px 12px rgba(88, 86, 214, 0.25)'
                   }}>
-                    <div style={{ fontSize: '10px', opacity: 0.9, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>GPS Location</div>
+                    <div style={{ fontSize: '10px', opacity: 0.9, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>📍 GPS Location</div>
                     <div style={{ fontSize: '15px', fontWeight: '700', marginTop: '4px' }}>
                       {sensorData.latitude ? `${sensorData.latitude.toFixed(4)}, ${sensorData.longitude.toFixed(4)}` : 'No GPS Signal'}
                     </div>
