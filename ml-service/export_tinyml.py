@@ -30,7 +30,7 @@ def generate_tinyml_header(output_path="../ESP32_codes/tinyml_model.h"):
 const unsigned int g_tinyml_model_len = 18432;
 
 // Quantized 8-Bit Model Weights stored in ESP32 Flash PROGMEM memory
-alignas(8) const unsigned char g_tinyml_model[] PROGMEM = {
+const unsigned char g_tinyml_model[] PROGMEM = {
 """
     
     formatted_lines = []
