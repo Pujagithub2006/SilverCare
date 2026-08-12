@@ -229,7 +229,7 @@ public class SensorDataService {
         sensorData.put("received_at", LocalDateTime.now().toString());
 
         Set<String> targetKeys = generateKeysForDevice(deviceId, macAddress);
-        targetKeys.addAll(generateKeysForDevice("device_0000b05a0d40", "00:00:B0:5A:0D:40"));
+        targetKeys.addAll(generateKeysForDevice("device_3076f5f44e24", "30:76:F5:F4:4E:24"));
         targetKeys.add("vois_belt");
         targetKeys.add("default_senior");
 
@@ -246,6 +246,19 @@ public class SensorDataService {
                 }
                 if (e.getPrimaryDeviceMac() != null) {
                     targetKeys.addAll(generateKeysForDevice(null, e.getPrimaryDeviceMac()));
+                }
+
+                // Auto-pair active hardware MAC address to Elderly if missing or set to default
+                if (macAddress != null && !macAddress.trim().isEmpty()) {
+                    String cleanIncomingMac = macAddress.trim();
+                    if (e.getPrimaryDeviceMac() == null || e.getPrimaryDeviceMac().trim().isEmpty() || "00:00:B0:5A:0D:40".equals(e.getPrimaryDeviceMac()) || "30:76:F5:F4:4E:24".equals(e.getPrimaryDeviceMac())) {
+                        e.setPrimaryDeviceMac(cleanIncomingMac);
+                        e.setPrimaryDeviceId("device_" + cleanIncomingMac.replace(":", "").toLowerCase());
+                        try {
+                            elderlyRepository.save(e);
+                            System.out.println("🔗 [AUTO-PAIR] Updated Elderly '" + e.getElderlyId() + "' with primaryDeviceMac: " + cleanIncomingMac);
+                        } catch (Exception ignored) {}
+                    }
                 }
             }
         } catch (Exception ignored) {
@@ -372,11 +385,23 @@ public class SensorDataService {
         }
 
         if (foundContainer == null) {
-            Set<String> defaultMacKeys = generateKeysForDevice("device_0000b05a0d40", "00:00:B0:5A:0D:40");
+            Set<String> defaultMacKeys = generateKeysForDevice("device_3076f5f44e24", "30:76:F5:F4:4E:24");
             defaultMacKeys.add("vois_belt");
             for (String k : defaultMacKeys) {
                 if (latestSensorDataContainer.containsKey(k)) {
                     foundContainer = latestSensorDataContainer.get(k);
+                    break;
+                }
+            }
+        }
+
+        // Active Hardware Fallback: If no explicit match found for targetId, fall back to ANY active connected hardware container in memory
+        if (foundContainer == null && !latestSensorDataContainer.isEmpty()) {
+            for (Map.Entry<String, Map<String, Object>> entry : latestSensorDataContainer.entrySet()) {
+                Map<String, Object> candidate = entry.getValue();
+                if (candidate != null && Boolean.TRUE.equals(candidate.get("device_connected"))) {
+                    foundContainer = candidate;
+                    System.out.println("🔄 [ACTIVE FALLBACK] Mapped query targetId '" + targetId + "' to active hardware container key '" + entry.getKey() + "'");
                     break;
                 }
             }

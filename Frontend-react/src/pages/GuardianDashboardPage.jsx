@@ -548,7 +548,7 @@ export default function GuardianDashboardPage() {
     const pollInterval = setInterval(() => {
       if (selectedElderly) {
         const elderlyId = selectedElderly.elderlyId || selectedElderly.id || selectedElderly.elderly_id;
-        const deviceId = selectedElderly.primaryDeviceMac || selectedElderly.primaryDeviceId || selectedElderly.elderlyId || '00:00:B0:5A:0D:40';
+        const deviceId = selectedElderly.primaryDeviceMac || selectedElderly.primaryDeviceId || selectedElderly.elderlyId || '30:76:F5:F4:4E:24';
         pollLiveTelemetry(deviceId);
         pollAlertsForElderly(elderlyId);
         loadElderlyData(elderlyId);
@@ -647,7 +647,7 @@ export default function GuardianDashboardPage() {
 
   const pollLiveTelemetry = async (deviceId) => {
     try {
-      const macToQuery = deviceId || (selectedElderly && selectedElderly.primaryDeviceMac) || '00:00:B0:5A:0D:40';
+      const macToQuery = deviceId || (selectedElderly && selectedElderly.primaryDeviceMac) || '30:76:F5:F4:4E:24';
       const data = await fetchSensorData(macToQuery);
       if (data && (data.status === 'success' || data.device_connected === true) && data.data && data.device_connected !== false) {
         const d = data.data;

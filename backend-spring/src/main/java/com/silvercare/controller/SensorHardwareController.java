@@ -82,7 +82,7 @@ public class SensorHardwareController {
             String deviceId = (elderly.getPrimaryDeviceMac() != null && !elderly.getPrimaryDeviceMac().trim().isEmpty())
                     ? elderly.getPrimaryDeviceMac()
                     : ((elderly.getPrimaryDeviceId() != null && !elderly.getPrimaryDeviceId().trim().isEmpty())
-                            ? elderly.getPrimaryDeviceId() : (elderly.getElderlyId() != null ? elderly.getElderlyId() : "00:00:B0:5A:0D:40"));
+                            ? elderly.getPrimaryDeviceId() : (elderly.getElderlyId() != null ? elderly.getElderlyId() : "30:76:F5:F4:4E:24"));
             System.out.println("[HARDWARE DATA] Found elderly: " + elderly.getName() + ", deviceId: " + deviceId);
 
             Map<String, Object> sensorData = sensorDataService.getLatestSensorData(deviceId);

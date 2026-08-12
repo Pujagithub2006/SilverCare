@@ -4,7 +4,7 @@ const http = require('http');
 // Configuration
 const VERCEL_FRONTEND_URL = process.env.VERCEL_URL || 'https://silver-care-eta.vercel.app';
 const BACKEND_URL = process.env.BACKEND_URL || 'https://silvercare-production-3455.up.railway.app';
-const MAC_ADDRESS = '00:00:B0:5A:0D:40';
+const MAC_ADDRESS = '30:76:F5:F4:4E:24';
 const ELDERLY_ID = 'om';
 
 /**

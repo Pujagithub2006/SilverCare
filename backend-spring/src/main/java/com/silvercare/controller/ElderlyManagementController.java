@@ -712,8 +712,8 @@ public class ElderlyManagementController {
                         .phone("")
                         .location("Home")
                         .guardianUsername(request.getGuardianUsername())
-                        .primaryDeviceMac("00:00:B0:5A:0D:40")
-                        .primaryDeviceId("device_0000b05a0d40")
+                        .primaryDeviceMac("30:76:F5:F4:4E:24")
+                        .primaryDeviceId("device_3076f5f44e24")
                         .primaryBeltType("Waist Belt")
                         .build();
                 elderly = elderlyManagementService.updateElderlyEntity(elderly);

@@ -86,10 +86,10 @@ public class Elderly {
     private String primaryBeltType = "Waist Belt"; // Waist Belt / Wrist Belt
 
     @Column(name = "primary_device_id")
-    private String primaryDeviceId = "device_0000b05a0d40"; // e.g. vois_belt / device_0000b05a0d40
+    private String primaryDeviceId = "device_3076f5f44e24"; // e.g. vois_belt / device_3076f5f44e24
 
     @Column(name = "primary_device_mac")
-    private String primaryDeviceMac = "00:00:B0:5A:0D:40"; // MAC address of assigned device for direct connection
+    private String primaryDeviceMac = "30:76:F5:F4:4E:24"; // MAC address of assigned device for direct connection
 
     @Column(name = "preferred_language")
     private String preferredLanguage = "en";
@@ -131,10 +131,10 @@ public class Elderly {
             primaryBeltType = "Waist Belt";
         }
         if (primaryDeviceMac == null || primaryDeviceMac.trim().isEmpty()) {
-            primaryDeviceMac = "00:00:B0:5A:0D:40";
+            primaryDeviceMac = "30:76:F5:F4:4E:24";
         }
         if (primaryDeviceId == null || primaryDeviceId.trim().isEmpty()) {
-            primaryDeviceId = "device_0000b05a0d40";
+            primaryDeviceId = "device_3076f5f44e24";
         }
         if (preferredLanguage == null || preferredLanguage.trim().isEmpty()) {
             preferredLanguage = "en";
@@ -272,7 +272,7 @@ public class Elderly {
         private String neighbourPhone;
         private String primaryBeltType;
         private String primaryDeviceId;
-        private String primaryDeviceMac = "00:00:B0:5A:0D:40";
+        private String primaryDeviceMac = "30:76:F5:F4:4E:24";
         private String preferredLanguage = "en";
         private Double latitude;
         private Double longitude;

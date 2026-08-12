@@ -95,8 +95,8 @@ public class ElderlyManagementService {
                 .phone(request.getPhone() != null ? request.getPhone() : "")
                 .location(request.getLocation() != null ? request.getLocation() : "Home")
                 .guardianUsername(guardianUsername)
-                .primaryDeviceMac("00:00:B0:5A:0D:40")
-                .primaryDeviceId("device_0000b05a0d40")
+                .primaryDeviceMac("30:76:F5:F4:4E:24")
+                .primaryDeviceId("device_3076f5f44e24")
                 .primaryBeltType("Waist Belt")
                 .preferredLanguage(request.getPreferredLanguage() != null ? request.getPreferredLanguage() : "en")
                 .createdAt(LocalDateTime.now().toString())
@@ -128,10 +128,10 @@ public class ElderlyManagementService {
     private Elderly ensureDefaultMac(Elderly e) {
         if (e != null) {
             if (e.getPrimaryDeviceMac() == null || e.getPrimaryDeviceMac().trim().isEmpty()) {
-                e.setPrimaryDeviceMac("00:00:B0:5A:0D:40");
+                e.setPrimaryDeviceMac("30:76:F5:F4:4E:24");
             }
             if (e.getPrimaryDeviceId() == null || e.getPrimaryDeviceId().trim().isEmpty()) {
-                e.setPrimaryDeviceId("device_0000b05a0d40");
+                e.setPrimaryDeviceId("device_3076f5f44e24");
             }
         }
         return e;
@@ -176,8 +176,8 @@ public class ElderlyManagementService {
                 .age(65)
                 .phone("")
                 .location("Home")
-                .primaryDeviceId("device_0000b05a0d40")
-                .primaryDeviceMac("00:00:B0:5A:0D:40")
+                .primaryDeviceId("device_3076f5f44e24")
+                .primaryDeviceMac("30:76:F5:F4:4E:24")
                 .primaryBeltType("Waist Belt")
                 .createdAt(LocalDateTime.now().toString())
                 .build();

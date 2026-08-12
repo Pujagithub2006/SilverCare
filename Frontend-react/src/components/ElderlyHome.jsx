@@ -92,7 +92,7 @@ const ElderlyHome = () => {
       console.log('[DEVICE STATUS] Polling for elderlyId:', id);
       
       // Use constant MAC address for single device testing
-      const deviceId = '00:00:B0:5A:0D:40';
+      const deviceId = '30:76:F5:F4:4E:24';
       console.log('[DEVICE STATUS] Using constant MAC address:', deviceId);
       
       const response = await fetchHardwareData(deviceId);
