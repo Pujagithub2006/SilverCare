@@ -30,16 +30,16 @@ def generate_tinyml_header(output_path="../ESP32_codes/tinyml_model.h"):
 const unsigned int g_tinyml_model_len = 18432;
 
 // Quantized 8-Bit Model Weights stored in ESP32 Flash PROGMEM memory
-const alignas(8) unsigned char g_tinyml_model[] PROGMEM = {
+alignas(8) const unsigned char g_tinyml_model[] PROGMEM = {
 """
     
-    hex_bytes = []
-    for i, b in enumerate(dummy_weights):
-        hex_bytes.append(f"0x{b:02x}")
-        if (i + 1) % 12 == 0:
-            hex_bytes.append("\n  ")
+    formatted_lines = []
+    chunk_size = 12
+    for i in range(0, len(dummy_weights), chunk_size):
+        chunk = dummy_weights[i:i + chunk_size]
+        formatted_lines.append("  " + ", ".join(f"0x{b:02x}" for b in chunk))
     
-    header_content += "  " + ", ".join(hex_bytes).rstrip(", \n") + "\n};\n\n"
+    header_content += ",\n".join(formatted_lines) + "\n};\n\n"
     
     header_content += """// TinyML Input / Output Configuration
 #define TINYML_NUM_INPUTS 303 // (50 samples x 6 sensor channels) + HR + SpO2 + Temp

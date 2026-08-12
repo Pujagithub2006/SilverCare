@@ -236,7 +236,8 @@ public class SensorDataService {
                 double z = az != null ? az : 0.0;
                 double raw = Math.sqrt(x * x + y * y + z * z);
                 double delta = Math.abs(raw - 9.81);
-                accelVal = 9.81 + (delta * 22.0);
+                double filteredDelta = delta > 0.25 ? (delta - 0.25) : 0.0;
+                accelVal = 9.81 + (filteredDelta * 6.0);
             } else {
                 accelVal = 9.81;
             }

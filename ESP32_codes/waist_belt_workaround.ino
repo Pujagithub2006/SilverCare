@@ -402,17 +402,21 @@ void notifyCallback(NimBLERemoteCharacteristic* pChar, uint8_t* data, size_t len
     processReceivedData(encryptedData);
 }
 
-// ===== ULTRA SENSITIVISED ACCELERATION MAGNITUDE (BOUNDED 9.0 - 25.0 M/S^2) =====
+// ===== BALANCED SENSITIVISED ACCELERATION MAGNITUDE (BOUNDED 9.0 - 25.0 M/S^2) =====
 float getSensitivisedAccel() {
     float rawAccel = sqrt(accelX * accelX + accelY * accelY + accelZ * accelZ);
     if (rawAccel == 0.0f) rawAccel = 9.81f;
     float rawGyro = sqrt(gyroX * gyroX + gyroY * gyroY + gyroZ * gyroZ);
 
     float accelDelta = fabs(rawAccel - 9.81f);
-    // Ultra-sensitive 22.0x amplification for hand motion testing + gyro boost
-    float sensAccel = 9.81f + (accelDelta * 22.0f) + (rawGyro * 0.08f);
+    // Noise deadband: ignore baseline sensor noise <= 0.25 m/s^2 when stationary
+    float filteredDelta = (accelDelta > 0.25f) ? (accelDelta - 0.25f) : 0.0f;
+    float gyroContrib = (rawGyro > 40.0f) ? ((rawGyro - 40.0f) * 0.03f) : 0.0f;
 
-    // Strictly clamp between 9.0 m/s^2 and 25.0 m/s^2 as requested
+    // Calibrated 6.0x sensitivity scaling (stable when static, responsive when jerked)
+    float sensAccel = 9.81f + (filteredDelta * 6.0f) + gyroContrib;
+
+    // Strictly clamp between 9.0 m/s^2 and 25.0 m/s^2
     if (sensAccel < 9.0f) sensAccel = 9.0f;
     if (sensAccel > 25.0f) sensAccel = 25.0f;
 
@@ -431,7 +435,7 @@ void runTinyMLInferenceOnDevice() {
         scores[3] += 0.85f; // FALL
     } else if (sensitivisedAccel >= 15.5f) {
         scores[2] += 0.75f; // PREFALL
-    } else if (sensitivisedAccel >= 11.5f) {
+    } else if (sensitivisedAccel >= 11.8f) {
         scores[1] += 0.65f; // SUDDEN_MOVEMENT
     } else {
         scores[0] += 0.80f; // NORMAL
@@ -1062,7 +1066,7 @@ void runEdgeFallDetection() {
         currentMLState = ML_PREFALL;
         mlConfidence = 0.88;
         Serial.println("[EDGE PREFALL DETECTED]: Onboard ESP32 instability classification triggered!");
-    } else if (sensitivisedAccel >= 11.5f && currentMLState == ML_NORMAL) {
+    } else if (sensitivisedAccel >= 11.8f && currentMLState == ML_NORMAL) {
         currentMLState = ML_SUDDEN_MOVEMENT;
         mlConfidence = 0.82;
         Serial.println("[EDGE SUDDEN MOVEMENT DETECTED]: Onboard ESP32 rapid motion triggered!");
