@@ -52,7 +52,7 @@ export default function GuardianDashboardPage() {
       navigate('/guardian-auth');
       return;
     }
-    
+
     loadLinkedElderly();
     loadEncryptedFirebaseStats();
     loadDeviceData();
@@ -268,10 +268,10 @@ export default function GuardianDashboardPage() {
       showSnackbarMessage('Please select a senior and enter MAC address', 'error');
       return;
     }
-    
+
     setPairingLoading(true);
     const elderlyId = selectedElderly.elderlyId || selectedElderly.id;
-    
+
     try {
       const res = await pairDeviceToElderly(macAddressInput, deviceTypeInput, elderlyId, guardianUsername);
       if (res.status === 'success') {
@@ -301,11 +301,11 @@ export default function GuardianDashboardPage() {
 
   const handleUnpairDevice = async (deviceId) => {
     if (!selectedElderly) return;
-    
+
     if (!window.confirm('Are you sure you want to unpair this device?')) return;
-    
+
     const elderlyId = selectedElderly.elderlyId || selectedElderly.id;
-    
+
     try {
       const res = await unpairDevice(deviceId, elderlyId, 'UNPAIRED_BY_GUARDIAN');
       if (res.ok) {
@@ -325,7 +325,7 @@ export default function GuardianDashboardPage() {
   const handleRequestLocation = async () => {
     if (!selectedElderly) return;
     const elderlyId = selectedElderly.elderlyId || selectedElderly.id || selectedElderly.elderly_id;
-    
+
     setLocationRequestLoading(true);
     try {
       const response = await requestLocation(elderlyId);
@@ -346,7 +346,7 @@ export default function GuardianDashboardPage() {
   const handleLoadLocationHistory = async () => {
     if (!selectedElderly) return;
     const elderlyId = selectedElderly.elderlyId || selectedElderly.id || selectedElderly.elderly_id;
-    
+
     try {
       const response = await getLocationHistory(elderlyId, 7);
       if (response.status === 'success' && response.data) {
@@ -361,7 +361,7 @@ export default function GuardianDashboardPage() {
   const handleLoadHealthReports = async () => {
     if (!selectedElderly) return;
     const elderlyId = selectedElderly.elderlyId || selectedElderly.id || selectedElderly.elderly_id;
-    
+
     setReportLoading(true);
     try {
       const response = await getReportList(elderlyId);
@@ -381,7 +381,7 @@ export default function GuardianDashboardPage() {
       return;
     }
     const elderlyId = selectedElderly.elderlyId || selectedElderly.id || selectedElderly.elderly_id;
-    
+
     setReportLoading(true);
     try {
       const response = await getDailyReport(elderlyId);
@@ -406,7 +406,7 @@ export default function GuardianDashboardPage() {
       return;
     }
     const elderlyId = selectedElderly.elderlyId || selectedElderly.id || selectedElderly.elderly_id;
-    
+
     setReportLoading(true);
     try {
       const response = await getWeeklyReport(elderlyId);
@@ -530,7 +530,7 @@ export default function GuardianDashboardPage() {
     return {
       dateStr,
       dayNum,
-      monthStr: ["January","February","March","April","May","June","July","August","September","October","November","December"][month],
+      monthStr: ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"][month],
       year,
       isToday,
       isPast,
@@ -570,16 +570,16 @@ export default function GuardianDashboardPage() {
     try {
       const { ok, data } = await fetchLinkedElderly(guardianUsername);
       console.log('[GuardianDashboard] Fetch response:', { ok, data });
-      
+
       let list = [];
       if (ok && data) {
         if (Array.isArray(data)) list = data;
         else if (data.data && Array.isArray(data.data)) list = data.data;
         else if (data.elderly && Array.isArray(data.elderly)) list = data.elderly;
       }
-      
+
       console.log('[GuardianDashboard] Elderly list before dedup:', list);
-      
+
       // Deduplicate elderly list by person's Name + Phone
       const uniqueMap = new Map();
       list.forEach(item => {
@@ -594,7 +594,7 @@ export default function GuardianDashboardPage() {
 
       console.log('[GuardianDashboard] Setting elderly list:', uniqueList);
       setElderlyList(uniqueList);
-      
+
       if (uniqueList.length > 0) {
         console.log('[GuardianDashboard] Selecting first elderly:', uniqueList[0]);
         setSelectedElderly(uniqueList[0]);
@@ -631,12 +631,12 @@ export default function GuardianDashboardPage() {
       if (allData.status === 'success') {
         setAllDevices(allData.data || []);
       }
-      
+
       const unassignedData = await fetchUnassignedDevices();
       if (unassignedData.status === 'success') {
         setUnassignedDevices(unassignedData.data || []);
       }
-      
+
       const brokenData = await fetchPotentiallyBrokenDevices();
       if (brokenData.status === 'success') {
         setPotentiallyBrokenDevices(brokenData.data || []);
@@ -701,7 +701,7 @@ export default function GuardianDashboardPage() {
       if (ok && data && Array.isArray(data.alerts)) {
         setActiveAlerts(data.alerts);
       }
-    } catch (err) {}
+    } catch (err) { }
   };
 
   const loadElderlyData = async (elderlyId) => {
@@ -869,9 +869,9 @@ export default function GuardianDashboardPage() {
           alignItems: 'center',
           borderBottom: '1px solid #e5e5e7'
         }}>
-          <button 
-            className="back-btn" 
-            onClick={() => navigate('/')} 
+          <button
+            className="back-btn"
+            onClick={() => navigate('/')}
             title="Go Back"
             style={{
               background: 'rgba(0, 122, 255, 0.1)',
@@ -887,10 +887,10 @@ export default function GuardianDashboardPage() {
             }}
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-              <path d="M19 12H5M12 19l-7-7 7-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M19 12H5M12 19l-7-7 7-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </button>
-          
+
           <div className="guardian-info" style={{ flex: 1, margin: 0 }}>
             <h1 style={{ color: '#000000', margin: 0, fontSize: '20px', fontWeight: 700, lineHeight: 1.2 }}>
               {guardianName}
@@ -900,8 +900,8 @@ export default function GuardianDashboardPage() {
             </p>
           </div>
 
-          <button 
-            className="logout-btn" 
+          <button
+            className="logout-btn"
             onClick={handleLogout}
             style={{
               background: '#ff3b30',
@@ -1197,9 +1197,9 @@ export default function GuardianDashboardPage() {
                 <div className="info-label" style={{ fontWeight: '700', color: '#1e293b', fontSize: '14px', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                   Hardware Status ({sensorData.beltType})
                 </div>
-                
+
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
-                  
+
                   {/* Heart Rate Card */}
                   <div className="hardware-card" style={{
                     background: sensorData.beltWorn ? 'linear-gradient(135deg, #007AFF, #0056b3)' : 'linear-gradient(135deg, #64748b, #475569)',
@@ -1373,7 +1373,7 @@ export default function GuardianDashboardPage() {
               {/* Advanced Features Section */}
               {showAdvancedFeatures && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '20px' }}>
-                  
+
                   {/* Device Management */}
                   <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', padding: '16px', border: '1px solid #e2e8f0' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
@@ -1655,18 +1655,18 @@ export default function GuardianDashboardPage() {
       {/* Add Medicine Modal Overlay */}
       {showAddModal && (
         <div style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000,
-            padding: '20px'
-          }}>
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '20px'
+        }}>
           <div style={{
             backgroundColor: '#ffffff',
             borderRadius: '20px',
@@ -1863,7 +1863,7 @@ export default function GuardianDashboardPage() {
             {/* Calendar Controls */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', background: '#f8fafc', padding: '10px 14px', borderRadius: '14px', border: '1px solid #e2e8f0' }}>
               <div style={{ fontSize: '16px', fontWeight: '800', color: '#1e293b' }}>
-                {["January","February","March","April","May","June","July","August","September","October","November","December"][calendarMonth]} {calendarYear}
+                {["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"][calendarMonth]} {calendarYear}
               </div>
               <div style={{ display: 'flex', gap: '6px' }}>
                 <button
