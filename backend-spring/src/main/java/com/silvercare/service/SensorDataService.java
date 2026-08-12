@@ -150,10 +150,7 @@ public class SensorDataService {
     public Map<String, Object> receiveSensorData(SensorDataRequest request) {
         String deviceId = request.getDeviceId() != null ? request.getDeviceId() : "vois_belt";
         String macAddress = request.getMacAddress();
-<<<<<<< HEAD
-=======
         System.out.println("[SENSOR DATA] Received data from deviceId: " + deviceId + " (mac: " + macAddress + ") at " + LocalDateTime.now());
->>>>>>> f1b3dc373178bf3a4200af837a15f10b0e733b96
         String stateName = request.getStateName() != null ? request.getStateName() : "NORMAL";
 
         // Determine Belt Type: ESP32 waist belt vs ESP32C3 wrist belt
