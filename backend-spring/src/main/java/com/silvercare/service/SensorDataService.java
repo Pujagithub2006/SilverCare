@@ -440,7 +440,7 @@ public class SensorDataService {
         if (container.containsKey("last_update")) {
             String lastUpdateStr = (String) container.get("last_update");
             LocalDateTime lastUpdate = LocalDateTime.parse(lastUpdateStr);
-            if (java.time.Duration.between(lastUpdate, LocalDateTime.now()).getSeconds() > 30) {
+            if (java.time.Duration.between(lastUpdate, LocalDateTime.now()).getSeconds() > 10) {
                 container.put("device_connected", false);
                 if (container.get("data") instanceof Map) {
                     @SuppressWarnings("unchecked")
