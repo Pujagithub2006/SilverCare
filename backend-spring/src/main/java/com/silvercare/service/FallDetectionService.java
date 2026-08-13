@@ -220,7 +220,7 @@ public class FallDetectionService {
         }
 
         String alertId = "SOS_" + UUID.randomUUID().toString().substring(0, 8);
-        AlertRecord alert = new AlertRecord(alertId, targetElderlyId, deviceId, "SOS Button", "SOS", "PENDING_ACK", "SOS Button Pressed", lat, lng);
+        AlertRecord alert = new AlertRecord(alertId, targetElderlyId, deviceId, "SOS Button", "SOS", "PENDING_ACK", "elderly pressed SOS.. go quickly", lat, lng);
         alertRecordRepository.save(alert);
 
         if (mainPhone != null && !mainPhone.isEmpty()) {
@@ -346,15 +346,30 @@ public class FallDetectionService {
                 }
             }
 
-            // 3. Fall Escalation Tier 2 (4 Minutes = 240 Seconds) -> Call Secondary Guardian
-            if ("FALL_DETECTED".equalsIgnoreCase(alert.getAlertType()) && elapsedSeconds >= 240) {
-                System.out.printf("[FALL TIER 2 ESCALATION] Fall alert %s unacknowledged after 4 mins! Calling secondary guardian.%n", alert.getAlertId());
-                alert.setStatus("ESCALATED_FALL_SECONDARY_GUARDIAN");
-                alertRecordRepository.save(alert);
+            // 3. Fall Escalation Tier 2 (4 Minutes = 240 Seconds) -> Notify Guardian about neighbor
+            if ("FALL_DETECTED".equalsIgnoreCase(alert.getAlertType()) && elapsedSeconds >= 240 && elapsedSeconds < 360) {
+                if (!"ESCALATED_FALL_NEIGHBOR_CHECK".equals(alert.getStatus())) {
+                    System.out.printf("[FALL TIER 2 ESCALATION] Fall alert %s unacknowledged after 4 mins! Notifying guardian.%n", alert.getAlertId());
+                    alert.setStatus("ESCALATED_FALL_NEIGHBOR_CHECK");
+                    alertRecordRepository.save(alert);
 
-                if (secondaryPhone != null && !secondaryPhone.isEmpty()) {
-                    twilioService.sendUrgentAlertSms(secondaryPhone, elderlyName, location + " (No response from main guardian/neighbor in 4 mins)", alert.getDeviceId());
-                    twilioService.makeSecondaryGuardianCall(secondaryPhone, elderlyName, location);
+                    try {
+                        firebaseEncryptionService.saveToFirebaseEncrypted("alerts", alert.getAlertId(), objectMapper.writeValueAsString(alert));
+                    } catch (Exception ignored) {}
+                }
+            }
+
+            // 4. Fall Escalation Tier 3 (6 Minutes = 360 Seconds) -> Call Secondary Guardian
+            if ("FALL_DETECTED".equalsIgnoreCase(alert.getAlertType()) && elapsedSeconds >= 360) {
+                if (!"ESCALATED_FALL_SECONDARY_GUARDIAN".equals(alert.getStatus())) {
+                    System.out.printf("[FALL TIER 3 ESCALATION] Fall alert %s unacknowledged after 6 mins! Calling secondary guardian.%n", alert.getAlertId());
+                    alert.setStatus("ESCALATED_FALL_SECONDARY_GUARDIAN");
+                    alertRecordRepository.save(alert);
+
+                    if (secondaryPhone != null && !secondaryPhone.isEmpty()) {
+                        twilioService.sendUrgentAlertSms(secondaryPhone, elderlyName, location + " (No response from main guardian/neighbor in 6 mins)", alert.getDeviceId());
+                        twilioService.makeSecondaryGuardianCall(secondaryPhone, elderlyName, location);
+                    }
                 }
             }
         }

@@ -17,7 +17,9 @@ const ElderlyProfilePage = () => {
   const [emergencyContacts, setEmergencyContacts] = useState({
     hospitalPhone: '',
     ambulancePhone: '',
-    hospitalName: ''
+    hospitalName: '',
+    secondaryGuardianName: '',
+    secondaryGuardianPhone: ''
   });
   const [showEmergencyForm, setShowEmergencyForm] = useState(false);
   
@@ -86,7 +88,9 @@ const ElderlyProfilePage = () => {
             setEmergencyContacts({
               hospitalPhone: profile.hospitalPhone || profile.hospital_phone || '',
               ambulancePhone: profile.ambulancePhone || profile.ambulance_phone || '',
-              hospitalName: profile.hospitalName || profile.hospital_name || ''
+              hospitalName: profile.hospitalName || profile.hospital_name || '',
+              secondaryGuardianName: profile.secondaryGuardianName || profile.secondary_guardian_name || '',
+              secondaryGuardianPhone: profile.secondaryGuardianPhone || profile.secondary_guardian_phone || ''
             });
 
             const prefLang = profile.preferred_language || res.data.preferred_language;
@@ -105,7 +109,9 @@ const ElderlyProfilePage = () => {
         setEmergencyContacts({
           hospitalPhone: cData.hospitalPhone || cData.hospital_phone || '',
           ambulancePhone: cData.ambulancePhone || cData.ambulance_phone || '',
-          hospitalName: cData.hospitalName || cData.hospital_name || ''
+          hospitalName: cData.hospitalName || cData.hospital_name || '',
+          secondaryGuardianName: cData.secondaryGuardianName || cData.secondary_guardian_name || '',
+          secondaryGuardianPhone: cData.secondaryGuardianPhone || cData.secondary_guardian_phone || ''
         });
       }
     }).catch(err => console.error('Failed to load emergency contacts:', err));
@@ -160,7 +166,9 @@ const ElderlyProfilePage = () => {
       const responseData = await updateElderlyContacts(elderlyId, {
         hospitalPhone: emergencyContacts.hospitalPhone,
         ambulancePhone: emergencyContacts.ambulancePhone,
-        hospitalName: emergencyContacts.hospitalName
+        hospitalName: emergencyContacts.hospitalName,
+        secondaryGuardianName: emergencyContacts.secondaryGuardianName,
+        secondaryGuardianPhone: emergencyContacts.secondaryGuardianPhone
       });
       console.log('[ElderlyProfile] Save response:', responseData);
       
@@ -407,6 +415,36 @@ const ElderlyProfilePage = () => {
                 )}
               </div>
             </div>
+            
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', backgroundColor: '#fef2f2', borderRadius: '12px', border: '1px solid #fecaca' }}>
+              <span style={{ fontSize: '13px', color: '#991b1b', fontWeight: '600' }}>Secondary Guardian</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '14px', color: '#7f1d1d', fontWeight: '700' }}>
+                  {emergencyContacts.secondaryGuardianName ? `${emergencyContacts.secondaryGuardianName} (${emergencyContacts.secondaryGuardianPhone})` : 'Not set'}
+                </span>
+                {emergencyContacts.secondaryGuardianPhone && (
+                  <a
+                    href={`tel:${emergencyContacts.secondaryGuardianPhone}`}
+                    style={{
+                      backgroundColor: '#dc2626',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '8px',
+                      padding: '6px 12px',
+                      fontSize: '12px',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      textDecoration: 'none',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                  >
+                    Call
+                  </a>
+                )}
+              </div>
+            </div>
           </div>
           <button
             onClick={() => setShowEmergencyForm(true)}
@@ -580,6 +618,32 @@ const ElderlyProfilePage = () => {
                   onChange={(e) => setEmergencyContacts({...emergencyContacts, ambulancePhone: e.target.value})}
                   placeholder="Ambulance phone number"
                   required
+                  style={{ width: '100%', padding: '10px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px' }}
+                />
+              </div>
+
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+                  Secondary Guardian Name
+                </label>
+                <input
+                  type="text"
+                  value={emergencyContacts.secondaryGuardianName}
+                  onChange={(e) => setEmergencyContacts({...emergencyContacts, secondaryGuardianName: e.target.value})}
+                  placeholder="Secondary guardian name"
+                  style={{ width: '100%', padding: '10px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px' }}
+                />
+              </div>
+
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>
+                  Secondary Guardian Phone
+                </label>
+                <input
+                  type="tel"
+                  value={emergencyContacts.secondaryGuardianPhone}
+                  onChange={(e) => setEmergencyContacts({...emergencyContacts, secondaryGuardianPhone: e.target.value})}
+                  placeholder="Secondary guardian phone number"
                   style={{ width: '100%', padding: '10px 12px', border: '1px solid #d1d5db', borderRadius: '8px', fontSize: '14px' }}
                 />
               </div>
