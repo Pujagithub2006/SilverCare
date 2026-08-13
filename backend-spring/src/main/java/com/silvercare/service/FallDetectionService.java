@@ -64,17 +64,38 @@ public class FallDetectionService {
      * Resolves elderly ID for a device
      */
     public String resolveElderlyIdForDevice(String deviceId) {
-        if (deviceId == null) return "senior_user";
-        String mappedUser = deviceCurrentUserMap.get(deviceId);
+        if (deviceId == null || deviceId.trim().isEmpty()) {
+            return getCurrentUser();
+        }
+        String cleanId = deviceId.trim();
+
+        String mappedUser = deviceCurrentUserMap.get(cleanId);
         if (mappedUser != null) return mappedUser;
 
-        Optional<Elderly> elderlyOpt = elderlyRepository.findByElderlyId(deviceId);
+        String activeUser = deviceCurrentUserMap.get("vois_belt");
+        if (activeUser != null && ("vois_belt".equalsIgnoreCase(cleanId) || "unknown".equalsIgnoreCase(cleanId))) {
+            return activeUser;
+        }
+
+        Optional<Elderly> elderlyOpt = elderlyRepository.findByElderlyId(cleanId);
         if (elderlyOpt.isPresent()) return elderlyOpt.get().getElderlyId();
 
-        List<Elderly> all = elderlyRepository.findAll();
-        if (!all.isEmpty()) return all.get(0).getElderlyId();
+        Optional<Elderly> byDevId = elderlyRepository.findByPrimaryDeviceId(cleanId);
+        if (byDevId.isPresent()) return byDevId.get().getElderlyId();
 
-        return deviceId;
+        Optional<Elderly> byMac = elderlyRepository.findByPrimaryDeviceMac(cleanId);
+        if (byMac.isPresent()) return byMac.get().getElderlyId();
+
+        List<Elderly> byName = elderlyRepository.findByNameIgnoreCase(cleanId);
+        if (!byName.isEmpty()) return byName.get(0).getElderlyId();
+
+        List<Elderly> all = elderlyRepository.findAll();
+        if (!all.isEmpty()) {
+            // Pick most recently created elderly profile instead of legacy first entry
+            return all.get(all.size() - 1).getElderlyId();
+        }
+
+        return cleanId;
     }
 
     /**
@@ -84,10 +105,16 @@ public class FallDetectionService {
         List<Guardian> guardians = new ArrayList<>();
         Set<String> guardianUsernames = new HashSet<>();
 
+        if (elderlyId == null || elderlyId.trim().isEmpty()) {
+            return guardians;
+        }
+
         // 1. Check explicit links table
         List<GuardianElderlyLink> links = guardianElderlyLinkRepository.findByElderlyId(elderlyId);
         for (GuardianElderlyLink link : links) {
-            guardianUsernames.add(link.getGuardianUsername());
+            if (link.getGuardianUsername() != null && !link.getGuardianUsername().trim().isEmpty()) {
+                guardianUsernames.add(link.getGuardianUsername());
+            }
         }
 
         // 2. Check legacy guardianUsername column on Elderly entity
@@ -99,11 +126,6 @@ public class FallDetectionService {
         // 3. Retrieve Guardian entities
         for (String gUser : guardianUsernames) {
             guardianRepository.findByUsername(gUser).ifPresent(guardians::add);
-        }
-
-        // 4. Fallback if no specific guardian linked: return all registered guardians
-        if (guardians.isEmpty()) {
-            guardians = guardianRepository.findAll();
         }
 
         return guardians;
@@ -341,8 +363,29 @@ public class FallDetectionService {
     public String getGuardianPhoneForElderly(String deviceId) {
         String elderlyId = resolveElderlyIdForDevice(deviceId);
         List<Guardian> guardians = getAllGuardiansForElderly(elderlyId);
-        if (!guardians.isEmpty() && guardians.get(0).getPhone() != null && !guardians.get(0).getPhone().isEmpty()) {
-            return guardians.get(0).getPhone();
+        if (!guardians.isEmpty()) {
+            for (Guardian g : guardians) {
+                if (g.getPhone() != null && !g.getPhone().trim().isEmpty()) {
+                    return g.getPhone().trim();
+                }
+            }
+        }
+
+        Optional<Elderly> elderlyOpt = elderlyRepository.findByElderlyId(elderlyId);
+        if (elderlyOpt.isPresent()) {
+            Elderly e = elderlyOpt.get();
+            if (e.getGuardianUsername() != null && !e.getGuardianUsername().trim().isEmpty()) {
+                Optional<Guardian> gOpt = guardianRepository.findByUsername(e.getGuardianUsername().trim());
+                if (gOpt.isPresent() && gOpt.get().getPhone() != null && !gOpt.get().getPhone().trim().isEmpty()) {
+                    return gOpt.get().getPhone().trim();
+                }
+            }
+            if (e.getSecondaryGuardianPhone() != null && !e.getSecondaryGuardianPhone().trim().isEmpty()) {
+                return e.getSecondaryGuardianPhone().trim();
+            }
+            if (e.getPhone() != null && !e.getPhone().trim().isEmpty()) {
+                return e.getPhone().trim();
+            }
         }
         return "";
     }
@@ -379,8 +422,18 @@ public class FallDetectionService {
     }
 
     public void switchUser(String elderlyId) {
-        deviceCurrentUserMap.put("vois_belt", elderlyId);
-        System.out.println("Device 'vois_belt' switched to user: " + elderlyId);
+        if (elderlyId != null && !elderlyId.trim().isEmpty()) {
+            String clean = elderlyId.trim();
+            deviceCurrentUserMap.put("vois_belt", clean);
+            deviceCurrentUserMap.put("device_3076f5f44e24", clean);
+            deviceCurrentUserMap.put(clean, clean);
+
+            elderlyRepository.findByElderlyId(clean).ifPresent(e -> {
+                if (e.getPrimaryDeviceId() != null) deviceCurrentUserMap.put(e.getPrimaryDeviceId(), clean);
+                if (e.getPrimaryDeviceMac() != null) deviceCurrentUserMap.put(e.getPrimaryDeviceMac(), clean);
+            });
+            System.out.println("[FALL DETECTION SERVICE] Device active user switched to: " + clean);
+        }
     }
 
     public String getCurrentUser() {

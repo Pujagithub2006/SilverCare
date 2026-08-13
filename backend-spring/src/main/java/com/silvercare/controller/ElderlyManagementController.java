@@ -133,11 +133,6 @@ public class ElderlyManagementController {
             }
         }
 
-        // Step 5: Fallback to first registered guardian in database if guardians exist
-        if (guardian == null && !allGuardians.isEmpty()) {
-            guardian = allGuardians.get(0);
-        }
-
         if (guardian != null) {
             String name = (guardian.getName() != null && !guardian.getName().trim().isEmpty()) ? guardian.getName() : guardian.getUsername();
             String phone = guardian.getPhone() != null ? guardian.getPhone() : "";

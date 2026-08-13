@@ -15,7 +15,10 @@ public interface ElderlyRepository extends JpaRepository<Elderly, String> {
     List<Elderly> findByPhoneAndNameIgnoreCase(String phone, String name);
     List<Elderly> findByNameIgnoreCase(String name);
     List<Elderly> findByPhone(String phone);
+    Optional<Elderly> findByPrimaryDeviceId(String primaryDeviceId);
+    Optional<Elderly> findByPrimaryDeviceMac(String primaryDeviceMac);
     
     @Query("SELECT e.elderlyId FROM Elderly e")
     List<String> findAllElderlyIds();
 }
+

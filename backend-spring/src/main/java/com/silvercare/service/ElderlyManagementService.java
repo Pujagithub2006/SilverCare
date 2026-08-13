@@ -48,6 +48,9 @@ public class ElderlyManagementService {
     @Autowired
     private FirebaseEncryptionService firebaseEncryptionService;
 
+    @Autowired
+    private FallDetectionService fallDetectionService;
+
     @Transactional
     public void clearAllData() {
         try {
@@ -108,6 +111,10 @@ public class ElderlyManagementService {
         if (!linkExists) {
             GuardianElderlyLink link = new GuardianElderlyLink(guardian, elderlyId, "Primary");
             guardianElderlyLinkRepository.save(link);
+        }
+
+        if (fallDetectionService != null) {
+            fallDetectionService.switchUser(savedElderly.getElderlyId());
         }
 
         try {

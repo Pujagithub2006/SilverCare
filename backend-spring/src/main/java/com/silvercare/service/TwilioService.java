@@ -36,46 +36,79 @@ public class TwilioService {
         }
     }
 
+    public static String formatPhoneNumber(String phone) {
+        if (phone == null) return null;
+        String trimmed = phone.trim();
+        if (trimmed.isEmpty()) return "";
+
+        String cleaned = trimmed.replaceAll("[^0-9+]", "");
+        if (cleaned.isEmpty()) return "";
+
+        if (cleaned.startsWith("+")) {
+            return cleaned;
+        }
+
+        if (cleaned.length() == 10) {
+            return "+91" + cleaned;
+        }
+
+        if (cleaned.length() == 11 && cleaned.startsWith("0")) {
+            return "+91" + cleaned.substring(1);
+        }
+
+        return "+" + cleaned;
+    }
+
+    private String getFormattedFromPhone() {
+        return formatPhoneNumber(fromPhone);
+    }
+
     public boolean sendFallAlertSms(String guardianPhone, String elderlyName, String location, String deviceId) {
-        if (guardianPhone == null || guardianPhone.trim().isEmpty()) return false;
+        String targetPhone = formatPhoneNumber(guardianPhone);
+        String senderPhone = getFormattedFromPhone();
+        if (targetPhone == null || targetPhone.isEmpty()) return false;
         try {
             String bodyText = String.format(
                     "SILVERCARE ALERT: Fall detected for %s at %s (Device: %s). Please check on them immediately.",
                     elderlyName != null ? elderlyName : "Senior", location != null ? location : "Home", deviceId != null ? deviceId : "Belt");
             Message message = Message.creator(
-                    new PhoneNumber(guardianPhone),
-                    new PhoneNumber(fromPhone),
+                    new PhoneNumber(targetPhone),
+                    new PhoneNumber(senderPhone),
                     bodyText).create();
 
-            System.out.println("[TWILIO SMS LIVE] Fall alert SMS sent to " + guardianPhone + "! SID: " + message.getSid());
+            System.out.println("[TWILIO SMS LIVE] Fall alert SMS sent to " + targetPhone + "! SID: " + message.getSid());
             return true;
         } catch (Exception e) {
-            System.err.println("[TWILIO SMS ERROR] Error sending live SMS to " + guardianPhone + ": " + e.getMessage());
+            System.err.println("[TWILIO SMS ERROR] Error sending live SMS to " + targetPhone + ": " + e.getMessage());
             return false;
         }
     }
 
     public boolean sendUrgentAlertSms(String guardianPhone, String elderlyName, String location, String deviceId) {
-        if (guardianPhone == null || guardianPhone.trim().isEmpty()) return false;
+        String targetPhone = formatPhoneNumber(guardianPhone);
+        String senderPhone = getFormattedFromPhone();
+        if (targetPhone == null || targetPhone.isEmpty()) return false;
         try {
             String bodyText = String.format(
                     "URGENT SILVERCARE ALERT: %s has NOT RESPONDED to fall alert at %s! Emergency assistance required. Device: %s",
                     elderlyName != null ? elderlyName : "Senior", location != null ? location : "Home", deviceId != null ? deviceId : "Belt");
             Message message = Message.creator(
-                    new PhoneNumber(guardianPhone),
-                    new PhoneNumber(fromPhone),
+                    new PhoneNumber(targetPhone),
+                    new PhoneNumber(senderPhone),
                     bodyText).create();
 
-            System.out.println("[TWILIO SMS LIVE] URGENT alert SMS sent to " + guardianPhone + "! SID: " + message.getSid());
+            System.out.println("[TWILIO SMS LIVE] URGENT alert SMS sent to " + targetPhone + "! SID: " + message.getSid());
             return true;
         } catch (Exception e) {
-            System.err.println("[TWILIO SMS ERROR] Error sending live urgent SMS to " + guardianPhone + ": " + e.getMessage());
+            System.err.println("[TWILIO SMS ERROR] Error sending live urgent SMS to " + targetPhone + ": " + e.getMessage());
             return false;
         }
     }
 
     public boolean makeEmergencyCall(String guardianPhone, String elderlyName, String location) {
-        if (guardianPhone == null || guardianPhone.trim().isEmpty()) return false;
+        String targetPhone = formatPhoneNumber(guardianPhone);
+        String senderPhone = getFormattedFromPhone();
+        if (targetPhone == null || targetPhone.isEmpty()) return false;
         try {
             String twimlXml = String.format("""
                     <Response>
@@ -91,20 +124,22 @@ public class TwilioService {
                     """, elderlyName != null ? elderlyName : "Senior", location != null ? location : "Home");
 
             Call call = Call.creator(
-                    new PhoneNumber(guardianPhone),
-                    new PhoneNumber(fromPhone),
+                    new PhoneNumber(targetPhone),
+                    new PhoneNumber(senderPhone),
                     new Twiml(twimlXml)).create();
 
-            System.out.println("[TWILIO CALL LIVE] Emergency call initiated to " + guardianPhone + "! SID: " + call.getSid());
+            System.out.println("[TWILIO CALL LIVE] Emergency call initiated to " + targetPhone + "! SID: " + call.getSid());
             return true;
         } catch (Exception e) {
-            System.err.println("[TWILIO CALL ERROR] Error making live call to " + guardianPhone + ": " + e.getMessage());
+            System.err.println("[TWILIO CALL ERROR] Error making live call to " + targetPhone + ": " + e.getMessage());
             return false;
         }
     }
 
     public boolean makeNoResponseAlertCall(String guardianPhone, String elderlyName, String location) {
-        if (guardianPhone == null || guardianPhone.trim().isEmpty()) return false;
+        String targetPhone = formatPhoneNumber(guardianPhone);
+        String senderPhone = getFormattedFromPhone();
+        if (targetPhone == null || targetPhone.isEmpty()) return false;
         try {
             String twimlXml = String.format("""
                     <Response>
@@ -118,20 +153,21 @@ public class TwilioService {
                     """, elderlyName != null ? elderlyName : "Senior", location != null ? location : "Home");
 
             Call call = Call.creator(
-                    new PhoneNumber(guardianPhone),
-                    new PhoneNumber(fromPhone),
+                    new PhoneNumber(targetPhone),
+                    new PhoneNumber(senderPhone),
                     new Twiml(twimlXml)).create();
 
-            System.out.println("[TWILIO CALL LIVE] URGENT siren call initiated to " + guardianPhone + "! SID: " + call.getSid());
+            System.out.println("[TWILIO CALL LIVE] URGENT siren call initiated to " + targetPhone + "! SID: " + call.getSid());
             return true;
         } catch (Exception e) {
-            System.err.println("[TWILIO CALL ERROR] Error making urgent call to " + guardianPhone + ": " + e.getMessage());
+            System.err.println("[TWILIO CALL ERROR] Error making urgent call to " + targetPhone + ": " + e.getMessage());
             return false;
         }
     }
 
     public boolean sendPrefallSms(String toPhone, String elderlyName, String location, Number hr, Number spo2, Number temp) {
-        if (toPhone == null || toPhone.trim().isEmpty()) return false;
+        String targetPhone = formatPhoneNumber(toPhone);
+        if (targetPhone == null || targetPhone.isEmpty()) return false;
         String msg = String.format(
                 "⚠️ PRE-FALL ALERT: Instability detected for %s at %s. Vitals: HR: %s BPM, SpO2: %s%%, Temp: %s°C. Please check immediately.",
                 elderlyName != null ? elderlyName : "Senior",
@@ -140,11 +176,13 @@ public class TwilioService {
                 spo2 != null ? spo2 : "--",
                 temp != null ? temp : "--"
         );
-        return sendSms(toPhone, msg);
+        return sendSms(targetPhone, msg);
     }
 
     public boolean makeNeighborCall(String neighborPhone, String elderlyName, String location) {
-        if (neighborPhone == null || neighborPhone.trim().isEmpty()) return false;
+        String targetPhone = formatPhoneNumber(neighborPhone);
+        String senderPhone = getFormattedFromPhone();
+        if (targetPhone == null || targetPhone.isEmpty()) return false;
         try {
             String twimlXml = String.format("""
                     <Response>
@@ -154,17 +192,19 @@ public class TwilioService {
                         </Say>
                     </Response>
                     """, elderlyName != null ? elderlyName : "Senior", location != null ? location : "Home");
-            Call call = Call.creator(new PhoneNumber(neighborPhone), new PhoneNumber(fromPhone), new Twiml(twimlXml)).create();
-            System.out.println("[TWILIO CALL LIVE] Neighbor call initiated to " + neighborPhone + "! SID: " + call.getSid());
+            Call call = Call.creator(new PhoneNumber(targetPhone), new PhoneNumber(senderPhone), new Twiml(twimlXml)).create();
+            System.out.println("[TWILIO CALL LIVE] Neighbor call initiated to " + targetPhone + "! SID: " + call.getSid());
             return true;
         } catch (Exception e) {
-            System.err.println("[TWILIO CALL ERROR] Error calling neighbor " + neighborPhone + ": " + e.getMessage());
+            System.err.println("[TWILIO CALL ERROR] Error calling neighbor " + targetPhone + ": " + e.getMessage());
             return false;
         }
     }
 
     public boolean makeSecondaryGuardianCall(String guardianPhone, String elderlyName, String location) {
-        if (guardianPhone == null || guardianPhone.trim().isEmpty()) return false;
+        String targetPhone = formatPhoneNumber(guardianPhone);
+        String senderPhone = getFormattedFromPhone();
+        if (targetPhone == null || targetPhone.isEmpty()) return false;
         try {
             String twimlXml = String.format("""
                     <Response>
@@ -174,20 +214,22 @@ public class TwilioService {
                         </Say>
                     </Response>
                     """, elderlyName != null ? elderlyName : "Senior", location != null ? location : "Home");
-            Call call = Call.creator(new PhoneNumber(guardianPhone), new PhoneNumber(fromPhone), new Twiml(twimlXml)).create();
-            System.out.println("[TWILIO CALL LIVE] Secondary Guardian call initiated to " + guardianPhone + "! SID: " + call.getSid());
+            Call call = Call.creator(new PhoneNumber(targetPhone), new PhoneNumber(senderPhone), new Twiml(twimlXml)).create();
+            System.out.println("[TWILIO CALL LIVE] Secondary Guardian call initiated to " + targetPhone + "! SID: " + call.getSid());
             return true;
         } catch (Exception e) {
-            System.err.println("[TWILIO CALL ERROR] Error calling secondary guardian " + guardianPhone + ": " + e.getMessage());
+            System.err.println("[TWILIO CALL ERROR] Error calling secondary guardian " + targetPhone + ": " + e.getMessage());
             return false;
         }
     }
 
     public boolean sendSosSmsAndCall(String guardianPhone, String elderlyName, Double lat, Double lng) {
-        if (guardianPhone == null || guardianPhone.trim().isEmpty()) return false;
+        String targetPhone = formatPhoneNumber(guardianPhone);
+        String senderPhone = getFormattedFromPhone();
+        if (targetPhone == null || targetPhone.isEmpty()) return false;
         String locStr = (lat != null && lng != null) ? String.format("(Lat: %.4f, Lng: %.4f)", lat, lng) : "GPS Location";
         String msg = String.format("🆘 EMERGENCY SOS BUTTON PRESSED: %s pressed the SOS Button at %s! Go quickly!", elderlyName != null ? elderlyName : "Senior", locStr);
-        sendSms(guardianPhone, msg);
+        sendSms(targetPhone, msg);
 
         try {
             String twimlXml = String.format("""
@@ -197,27 +239,29 @@ public class TwilioService {
                         </Say>
                     </Response>
                     """, elderlyName != null ? elderlyName : "Senior");
-            Call call = Call.creator(new PhoneNumber(guardianPhone), new PhoneNumber(fromPhone), new Twiml(twimlXml)).create();
-            System.out.println("[TWILIO CALL LIVE] SOS call initiated to " + guardianPhone + "! SID: " + call.getSid());
+            Call call = Call.creator(new PhoneNumber(targetPhone), new PhoneNumber(senderPhone), new Twiml(twimlXml)).create();
+            System.out.println("[TWILIO CALL LIVE] SOS call initiated to " + targetPhone + "! SID: " + call.getSid());
             return true;
         } catch (Exception e) {
-            System.err.println("[TWILIO CALL ERROR] Error calling SOS to " + guardianPhone + ": " + e.getMessage());
+            System.err.println("[TWILIO CALL ERROR] Error calling SOS to " + targetPhone + ": " + e.getMessage());
             return false;
         }
     }
 
     public boolean sendSms(String toPhone, String messageText) {
-        if (toPhone == null || toPhone.trim().isEmpty()) return false;
+        String targetPhone = formatPhoneNumber(toPhone);
+        String senderPhone = getFormattedFromPhone();
+        if (targetPhone == null || targetPhone.isEmpty()) return false;
         try {
             Message message = Message.creator(
-                    new PhoneNumber(toPhone),
-                    new PhoneNumber(fromPhone),
+                    new PhoneNumber(targetPhone),
+                    new PhoneNumber(senderPhone),
                     messageText
             ).create();
-            System.out.println("[TWILIO SMS LIVE] Emergency SMS sent to " + toPhone + "! SID: " + message.getSid());
+            System.out.println("[TWILIO SMS LIVE] Emergency SMS sent to " + targetPhone + "! SID: " + message.getSid());
             return true;
         } catch (Exception e) {
-            System.err.println("[TWILIO SMS ERROR] Error sending live SMS to " + toPhone + ": " + e.getMessage());
+            System.err.println("[TWILIO SMS ERROR] Error sending live SMS to " + targetPhone + ": " + e.getMessage());
             return false;
         }
     }
