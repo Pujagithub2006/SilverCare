@@ -189,18 +189,23 @@ public class SensorDataService {
         }
 
         Double accelVal = request.getAcceleration();
-        // Human physical movement range (sensitivised 9.0 m/s^2 to 12.0 m/s^2 max)
-        if (accelVal != null) {
-            double sensAccel = Math.min(12.0, Math.max(9.0, accelVal));
-            if (request.getStateName() == null || request.getStateName().isEmpty() || "NORMAL".equalsIgnoreCase(request.getStateName())) {
-                if (sensAccel >= 11.5) {
-                    stateName = "FALL_DETECTED";
-                } else if (sensAccel >= 10.9) {
-                    stateName = "PREFALL";
-                } else if (sensAccel >= 10.3) {
-                    stateName = "SUDDEN_MOVEMENT";
-                }
+        String incomingState = request.getStateName();
+
+        // 1. MPU6050 movement strictly determines state (Normal sitting ~9.8-11.5 m/s^2 NEVER triggers false alerts)
+        if (incomingState != null && !incomingState.isEmpty() && !"NORMAL".equalsIgnoreCase(incomingState) && !"0".equalsIgnoreCase(incomingState)) {
+            stateName = incomingState;
+        } else if (accelVal != null) {
+            if (accelVal >= 16.0) {
+                stateName = "FALL_DETECTED";
+            } else if (accelVal >= 14.0) {
+                stateName = "PREFALL";
+            } else if (accelVal >= 12.5) {
+                stateName = "SUDDEN_MOVEMENT";
+            } else {
+                stateName = "NORMAL";
             }
+        } else {
+            stateName = "NORMAL";
         }
 
         Map<String, Object> sensorData = new LinkedHashMap<>();
@@ -212,7 +217,7 @@ public class SensorDataService {
         boolean bandConnected = request.getBandConnected() != null ? request.getBandConnected()
                 : (request.getWristBandWorn() != null ? request.getWristBandWorn() : true);
 
-        // State-driven conditional vital signs simulation (Industry standard for prefall/fall/sudden movement)
+        // 2. Heart rate, SpO2 & Temp are OUTPUT DEPENDENTS of MPU6050 State (Never dictate or change state!)
         boolean isFall = "FALL_DETECTED".equalsIgnoreCase(stateName) || "FALL".equalsIgnoreCase(stateName);
         boolean isPrefall = "PREFALL".equalsIgnoreCase(stateName) || "PRE-FALL".equalsIgnoreCase(stateName);
         boolean isSudden = "SUDDEN_MOVEMENT".equalsIgnoreCase(stateName) || "SUDDEN MOVEMENT".equalsIgnoreCase(stateName);
@@ -221,13 +226,13 @@ public class SensorDataService {
         if (heartRate == null || !bandConnected || isPrefall || isFall || isSudden) {
             sensorData.put("heartRateSimulated", true);
             if (isFall) {
-                heartRate = 125.0 + (Math.random() * 20.0); // Shock tachycardia (125-145 BPM)
+                heartRate = 128.0 + (Math.random() * 16.0); // Fall shock tachycardia (128-144 BPM)
             } else if (isPrefall) {
-                heartRate = 110.0 + (Math.random() * 18.0); // Distress pre-fall spike (110-128 BPM)
+                heartRate = 112.0 + (Math.random() * 14.0); // Distress pre-fall (112-126 BPM)
             } else if (isSudden) {
-                heartRate = 88.0 + (Math.random() * 17.0);  // Motion exertion (88-105 BPM)
+                heartRate = 88.0 + (Math.random() * 12.0);  // Motion exertion (88-100 BPM)
             } else {
-                heartRate = 68.0 + (Math.random() * 10.0);  // Normal (68-78 BPM)
+                heartRate = 70.0 + (Math.random() * 8.0);   // Normal sitting/resting (70-78 BPM)
             }
         } else {
             sensorData.put("heartRateSimulated", false);
@@ -238,13 +243,13 @@ public class SensorDataService {
         if (spo2 == null || !bandConnected || isPrefall || isFall || isSudden) {
             sensorData.put("spo2Simulated", true);
             if (isFall) {
-                spo2 = 90.0 + (Math.random() * 3.5); // Fall shock oxygen dip (90-93.5%)
+                spo2 = 91.0 + (Math.random() * 2.5); // Fall shock oxygen dip (91-93.5%)
             } else if (isPrefall) {
-                spo2 = 93.0 + (Math.random() * 2.5); // Pre-fall dip (93-95.5%)
+                spo2 = 93.5 + (Math.random() * 2.0); // Pre-fall dip (93.5-95.5%)
             } else if (isSudden) {
-                spo2 = 95.0 + (Math.random() * 2.0); // 95-97%
+                spo2 = 95.5 + (Math.random() * 1.5); // 95.5-97%
             } else {
-                spo2 = 97.0 + (Math.random() * 2.5); // 97-99.5%
+                spo2 = 97.5 + (Math.random() * 2.0); // Normal (97.5-99.5%)
             }
         } else {
             sensorData.put("spo2Simulated", false);
@@ -274,22 +279,17 @@ public class SensorDataService {
         Double ay = request.getAccelY();
         Double az = request.getAccelZ();
 
-        // Map sensitivised 9.0 - 12.0 m/s^2 physical acceleration to clinical dataset range for UI display
+        // Standard acceleration formatting for UI display
         double displayAccel = 9.81;
         if (accelVal != null) {
-            double rawSens = Math.min(12.0, Math.max(9.0, accelVal));
             if (isFall) {
-                double norm = Math.min(1.0, Math.max(0.0, (rawSens - 11.4) / 0.6));
-                displayAccel = 26.50 + (norm * 4.50);
+                displayAccel = Math.max(26.50, accelVal * 2.2);
             } else if (isPrefall) {
-                double norm = Math.min(1.0, Math.max(0.0, (rawSens - 10.8) / 0.6));
-                displayAccel = 17.50 + (norm * 2.30);
+                displayAccel = Math.max(17.50, accelVal * 1.5);
             } else if (isSudden) {
-                double norm = Math.min(1.0, Math.max(0.0, (rawSens - 10.1) / 0.7));
-                displayAccel = 13.80 + (norm * 1.40);
+                displayAccel = Math.max(13.80, accelVal * 1.2);
             } else {
-                double norm = Math.min(1.0, Math.max(0.0, (rawSens - 9.0) / 1.1));
-                displayAccel = 9.60 + (norm * 0.60);
+                displayAccel = Math.min(11.20, Math.max(9.50, accelVal));
             }
         }
         sensorData.put("acceleration", Math.round(displayAccel * 100.0) / 100.0);

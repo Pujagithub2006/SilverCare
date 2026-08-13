@@ -1186,12 +1186,12 @@ export default function GuardianDashboardPage() {
                     fontWeight: '800',
                     letterSpacing: '0.2px',
                     background: !sensorData.beltWorn || sensorData.stateName === 'DISCONNECTED' ? '#e2e8f0'
-                      : (sensorData.stateName === 'FALL_DETECTED' || sensorData.stateName === 'FALL' || activeAlerts.length > 0) ? '#fee2e2'
+                      : (sensorData.stateName === 'FALL_DETECTED' || sensorData.stateName === 'FALL' || activeAlerts.length > 0) ? '#dc2626'
                       : (sensorData.stateName === 'PREFALL' || sensorData.stateName === 'PRE-FALL') ? '#ffedd5'
                       : (sensorData.stateName === 'SUDDEN_MOVEMENT' || sensorData.stateName === 'SUDDEN MOVEMENT') ? '#fef9c3'
                       : '#dcfce7',
                     color: !sensorData.beltWorn || sensorData.stateName === 'DISCONNECTED' ? '#64748b'
-                      : (sensorData.stateName === 'FALL_DETECTED' || sensorData.stateName === 'FALL' || activeAlerts.length > 0) ? '#dc2626'
+                      : (sensorData.stateName === 'FALL_DETECTED' || sensorData.stateName === 'FALL' || activeAlerts.length > 0) ? '#ffffff'
                       : (sensorData.stateName === 'PREFALL' || sensorData.stateName === 'PRE-FALL') ? '#c2410c'
                       : (sensorData.stateName === 'SUDDEN_MOVEMENT' || sensorData.stateName === 'SUDDEN MOVEMENT') ? '#854d0e'
                       : '#16a34a'
@@ -1244,9 +1244,9 @@ export default function GuardianDashboardPage() {
                   {/* MPU6050 Motion Card */}
                   <div className="hardware-card" style={{
                     background: sensorData.beltWorn 
-                      ? (sensorData.stateName === 'FALL_DETECTED' ? 'linear-gradient(135deg, #ff3b30, #c0392b)'
-                        : sensorData.stateName === 'PREFALL' ? 'linear-gradient(135deg, #ff9500, #d35400)'
-                        : sensorData.stateName === 'SUDDEN_MOVEMENT' ? 'linear-gradient(135deg, #ffcc00, #f39c12)'
+                      ? ((sensorData.stateName === 'FALL_DETECTED' || sensorData.stateName === 'FALL') ? 'linear-gradient(135deg, #dc2626, #991b1b)'
+                        : (sensorData.stateName === 'PREFALL' || sensorData.stateName === 'PRE-FALL') ? 'linear-gradient(135deg, #ff9500, #d35400)'
+                        : (sensorData.stateName === 'SUDDEN_MOVEMENT' || sensorData.stateName === 'SUDDEN MOVEMENT') ? 'linear-gradient(135deg, #ffcc00, #f39c12)'
                         : 'linear-gradient(135deg, #34c759, #27ae60)')
                       : 'linear-gradient(135deg, #64748b, #475569)',
                     color: 'white',
