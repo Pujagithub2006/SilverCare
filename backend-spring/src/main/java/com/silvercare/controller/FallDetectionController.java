@@ -247,28 +247,4 @@ public class FallDetectionController {
         Map<String, Object> res = fallDetectionService.handleIamFineButton(deviceId, elderlyId);
         return ResponseEntity.ok(res);
     }
-
-    @PostMapping("/api/alerts/acknowledge")
-    public ResponseEntity<ApiResponse<Object>> acknowledgeAlert(@RequestBody Map<String, Object> body) {
-        try {
-            String alertId = body.get("alertId") != null ? body.get("alertId").toString() : null;
-            String guardianUsername = body.get("guardianUsername") != null ? body.get("guardianUsername").toString() : "unknown";
-            String responseType = body.get("responseType") != null ? body.get("responseType").toString() : null;
-            String responseMessage = body.get("responseMessage") != null ? body.get("responseMessage").toString() : "";
-
-            if (alertId == null) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error("alertId required"));
-            }
-
-            var alert = fallDetectionService.acknowledgeAlert(alertId, guardianUsername, responseType, responseMessage);
-            ApiResponse<Object> response = ApiResponse.builder()
-                    .status("success")
-                    .message("Alert acknowledged successfully")
-                    .data(alert)
-                    .build();
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(e.getMessage()));
-        }
-    }
 }
