@@ -11,6 +11,7 @@
 #include <ArduinoJson.h>
 #include <TinyGPS++.h>
 #include <tinyml_model.h>
+#include <driver/i2s.h>
 
 // ===== WIFI CONFIGURATION =====
 // WiFi credentials are now managed automatically
@@ -53,6 +54,17 @@ bool micRecordingActive = false;
 unsigned long micRecordingStartTime = 0;
 unsigned long lastHelpSpeakerTime = 0;
 const unsigned long HELP_SPEAKER_INTERVAL = 2000; // Repeat "Help! Help!" speaker audio every 2 seconds
+
+// I2S Configuration
+#define I2S_SAMPLE_RATE 16000
+#define I2S_BUFFER_SIZE 1024
+#define SPEAKER_I2S_PORT I2S_NUM_0
+#define MIC_I2S_PORT I2S_NUM_1
+
+// Audio buffer for recording
+uint8_t* audioBuffer = nullptr;
+size_t audioBufferSize = 0;
+size_t audioBufferIndex = 0;
 
 // ===== GPS CONFIGURATION =====
 TinyGPSPlus gps;
@@ -205,18 +217,177 @@ bool phoneCallMade = false;
 bool missedCallMade = false;
 const unsigned long SMS_RETRY_INTERVAL = 30000;
 
-void playSpeakerAnnouncement(String alertType) {
-    Serial.println("[SPEAKER AUDIO ANNOUNCEMENT]: Playing stored EEPROM voice prompt: '" + speakerAudioMessage + "' for " + alertType);
-    // DAC / Audio PWM speaker trigger
-    dacWrite(25, 128); // Play audio tone pulse on DAC PIN 25
-    delay(300);
-    dacWrite(25, 0);
+// ===== I2S SPEAKER INITIALIZATION (MAX98357A) =====
+void initSpeakerI2S() {
+    i2s_config_t i2s_config = {
+        .mode = (i2s_mode_t)(I2S_MODE_MASTER | I2S_MODE_TX),
+        .sample_rate = I2S_SAMPLE_RATE,
+        .bits_per_sample = I2S_BITS_PER_SAMPLE_16BIT,
+        .channel_format = I2S_CHANNEL_FMT_ONLY_LEFT,
+        .communication_format = I2S_COMM_FORMAT_STAND_I2S,
+        .intr_alloc_flags = ESP_INTR_FLAG_LEVEL1,
+        .dma_buf_count = 8,
+        .dma_buf_len = 64,
+        .use_apll = false,
+        .tx_desc_auto_clear = true,
+        .fixed_mclk = 0
+    };
+    
+    i2s_pin_config_t pin_config = {
+        .bck_io_num = I2S_BCLK,
+        .ws_io_num = I2S_LRC,
+        .data_out_num = I2S_DOUT,
+        .data_in_num = I2S_PIN_NO_CHANGE
+    };
+    
+    i2s_driver_install(SPEAKER_I2S_PORT, &i2s_config, 0, NULL);
+    i2s_set_pin(SPEAKER_I2S_PORT, &pin_config);
+    i2s_zero_dma_buffer(SPEAKER_I2S_PORT);
+    Serial.println("[I2S SPEAKER] MAX98357A initialized successfully");
 }
 
+// ===== I2S MICROPHONE INITIALIZATION (INMP441) =====
+void initMicrophoneI2S() {
+    i2s_config_t i2s_config = {
+        .mode = (i2s_mode_t)(I2S_MODE_MASTER | I2S_MODE_RX),
+        .sample_rate = I2S_SAMPLE_RATE,
+        .bits_per_sample = I2S_BITS_PER_SAMPLE_32BIT,
+        .channel_format = I2S_CHANNEL_FMT_ONLY_LEFT,
+        .communication_format = I2S_COMM_FORMAT_STAND_I2S,
+        .intr_alloc_flags = ESP_INTR_FLAG_LEVEL1,
+        .dma_buf_count = 8,
+        .dma_buf_len = 64,
+        .use_apll = false,
+        .tx_desc_auto_clear = false,
+        .fixed_mclk = 0
+    };
+    
+    i2s_pin_config_t pin_config = {
+        .bck_io_num = MIC_I2S_SCK,
+        .ws_io_num = MIC_I2S_WS,
+        .data_out_num = I2S_PIN_NO_CHANGE,
+        .data_in_num = MIC_I2S_SD
+    };
+    
+    i2s_driver_install(MIC_I2S_PORT, &i2s_config, 0, NULL);
+    i2s_set_pin(MIC_I2S_PORT, &pin_config);
+    i2s_zero_dma_buffer(MIC_I2S_PORT);
+    Serial.println("[I2S MICROPHONE] INMP441 initialized successfully");
+}
+
+// ===== SPEAKER AUDIO PLAYBACK =====
+void playSpeakerAnnouncement(String alertType) {
+    Serial.println("[SPEAKER AUDIO ANNOUNCEMENT]: Playing announcement for " + alertType);
+    
+    // Generate simple audio tone using I2S
+    int toneDuration = 500; // ms
+    int toneFrequency = 440; // Hz (A4 note)
+    int samples = (I2S_SAMPLE_RATE * toneDuration) / 1000;
+    int16_t* audioSamples = (int16_t*)malloc(samples * sizeof(int16_t));
+    
+    if (audioSamples) {
+        // Generate sine wave tone
+        for (int i = 0; i < samples; i++) {
+            float t = (float)i / I2S_SAMPLE_RATE;
+            audioSamples[i] = (int16_t)(32767 * 0.5 * sin(2 * PI * toneFrequency * t));
+        }
+        
+        // Play audio through I2S
+        size_t bytesWritten;
+        i2s_write(SPEAKER_I2S_PORT, audioSamples, samples * sizeof(int16_t), &bytesWritten, portMAX_DELAY);
+        
+        free(audioSamples);
+        Serial.println("[SPEAKER] Audio playback completed");
+    }
+}
+
+void playSpeakerHelpLoop() {
+    if (currentAlertState == FALL_ALERT && !guardianAcknowledged) {
+        unsigned long now = millis();
+        if (now - lastHelpSpeakerTime > HELP_SPEAKER_INTERVAL) {
+            lastHelpSpeakerTime = now;
+            Serial.println("[SPEAKER HELP LOOP]: Playing Help! Help! announcement");
+            playSpeakerAnnouncement("HELP_LOOP");
+        }
+    }
+}
+
+// ===== MICROPHONE RECORDING =====
 void triggerAutoVoiceRecording(String alertType) {
     micAutoTriggered = true;
-    micMessage = "Emergency Voice Prompt from Senior (" + alertType + "): Please help me! Location: " + String(gpsLat, 6) + "," + String(gpsLng, 6);
-    Serial.println("[AUTO-MIC TRIGGERED]: Automatic voice recording started for " + alertType + ". Message: " + micMessage);
+    micRecordingActive = true;
+    micRecordingStartTime = millis();
+    
+    // Allocate audio buffer for 60 seconds recording
+    audioBufferSize = I2S_SAMPLE_RATE * 2 * PREFALL_MIC_RECORDING_DURATION / 1000; // 16-bit samples
+    audioBuffer = (uint8_t*)malloc(audioBufferSize);
+    audioBufferIndex = 0;
+    
+    if (audioBuffer) {
+        Serial.println("[MIC RECORDING] Started " + String(PREFALL_MIC_RECORDING_DURATION/1000) + "s recording for " + alertType);
+        micMessage = "Emergency Voice Recording (" + alertType + "): Please help me! Location: " + String(gpsLat, 6) + "," + String(gpsLng, 6);
+    } else {
+        Serial.println("[MIC RECORDING ERROR] Failed to allocate audio buffer");
+        micRecordingActive = false;
+    }
+}
+
+void recordAudioSample() {
+    if (!micRecordingActive || audioBuffer == nullptr) return;
+    
+    // Check if recording duration exceeded
+    if (millis() - micRecordingStartTime >= PREFALL_MIC_RECORDING_DURATION) {
+        stopMicrophoneRecording();
+        return;
+    }
+    
+    // Read audio samples from I2S microphone
+    size_t bytesRead;
+    int32_t rawSample;
+    i2s_read(MIC_I2S_PORT, &rawSample, sizeof(int32_t), &bytesRead, portMAX_DELAY);
+    
+    if (bytesRead > 0 && audioBufferIndex < audioBufferSize - 2) {
+        // Convert 32-bit to 16-bit and store
+        int16_t sample = (int16_t)(rawSample >> 16);
+        audioBuffer[audioBufferIndex++] = (sample & 0xFF);
+        audioBuffer[audioBufferIndex++] = ((sample >> 8) & 0xFF);
+    }
+}
+
+void stopMicrophoneRecording() {
+    if (micRecordingActive) {
+        micRecordingActive = false;
+        Serial.println("[MIC RECORDING] Stopped. Total samples: " + String(audioBufferIndex / 2));
+        
+        // Convert audio buffer to base64 for transmission
+        if (audioBuffer && audioBufferIndex > 0) {
+            String audioBase64 = base64Encode(audioBuffer, audioBufferIndex);
+            micMessage = "Audio recording captured (" + String(audioBufferIndex / 2) + " samples): " + audioBase64.substring(0, 100) + "...";
+            Serial.println("[MIC RECORDING] Audio encoded to base64, length: " + String(audioBase64.length()));
+        }
+        
+        if (audioBuffer) {
+            free(audioBuffer);
+            audioBuffer = nullptr;
+        }
+    }
+}
+
+// Simple base64 encoding (for audio transmission)
+String base64Encode(uint8_t* data, size_t len) {
+    const char* base64Chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    String result = "";
+    
+    for (size_t i = 0; i < len; i += 3) {
+        uint32_t triple = (data[i] << 16) | (i + 1 < len ? data[i + 1] << 8 : 0) | (i + 2 < len ? data[i + 2] : 0);
+        
+        result += base64Chars[(triple >> 18) & 0x3F];
+        result += base64Chars[(triple >> 12) & 0x3F];
+        result += (i + 1 < len) ? base64Chars[(triple >> 6) & 0x3F] : '=';
+        result += (i + 2 < len) ? base64Chars[triple & 0x3F] : '=';
+    }
+    
+    return result;
 }
 
 // ===== BLE GLOBALS =====
@@ -1028,33 +1199,41 @@ void playSpeakerHelpLoop() {
     }
 }
 
-// ===== AUTOMATIC 1-MINUTE (60 SECONDS) MICROPHONE RECORDING =====
-void startOneMinuteMicRecording(String alertType) {
-    micRecordingActive = true;
-    micRecordingStartTime = millis();
-    micMessage = "Emergency 1-Minute Mic Recording (" + alertType + "): Started capturing audio for 60 seconds...";
-    Serial.println("[INMP441 MIC RECORDING]: Started 1-minute (60s) audio recording for " + alertType);
-}
-
 void handleMicrophoneRecording() {
     if (!micRecordingActive) return;
 
     unsigned long elapsed = millis() - micRecordingStartTime;
     if (elapsed >= PREFALL_MIC_RECORDING_DURATION) { // 60 seconds complete
-        micRecordingActive = false;
-        micMessage = "Full 60-Second Audio Clip Captured from INMP441 Mic during emergency (" + String(gpsLat, 6) + "," + String(gpsLng, 6) + ")";
+        stopMicrophoneRecording(); // Stop I2S recording and encode to base64
+        
         Serial.println("[INMP441 MIC RECORDING COMPLETE]: 1-minute audio recording finalized and ready for backend transmission.");
         
         // Transmit voice message to backend
-        if (WiFi.status() == WL_CONNECTED) {
+        if (WiFi.status() == WL_CONNECTED && micMessage.length() > 0) {
             String url = String(serverUrl);
             url.replace("/api/sensor-data", "/api/alerts/voice-message");
             
             HTTPClient http;
             http.begin(url);
             http.addHeader("Content-Type", "application/json");
-            String payload = "{\"deviceId\":\"" + DEVICE_ID + "\",\"elderlyId\":\"" + elderlyId + "\",\"audioData\":\"" + micMessage + "\"}";
-            http.POST(payload);
+            
+            // Create JSON payload with audio data
+            DynamicJsonDocument doc(4096);
+            doc["deviceId"] = DEVICE_ID;
+            doc["elderlyId"] = elderlyId;
+            doc["audioData"] = micMessage;
+            doc["latitude"] = gpsLat;
+            doc["longitude"] = gpsLng;
+            
+            String payload;
+            serializeJson(doc, payload);
+            
+            int httpResponseCode = http.POST(payload);
+            if (httpResponseCode > 0) {
+                Serial.println("[VOICE MESSAGE] Audio sent to backend successfully. Response: " + String(httpResponseCode));
+            } else {
+                Serial.println("[VOICE MESSAGE] Failed to send audio to backend. Error: " + String(httpResponseCode));
+            }
             http.end();
         }
     }
@@ -1116,12 +1295,9 @@ void triggerPrefallAlert() {
     
     Serial.println("PREFALL ALERT ACTIVATED");
     
-    // Speaker voice announcement from EEPROM (replacing buzzer)
+    // Speaker voice announcement
     playSpeakerAnnouncement("PREFALL");
     digitalWrite(BUZZER_PIN, HIGH);
-    
-    // Start 1-minute (60 seconds) INMP441 Microphone recording automatically
-    startOneMinuteMicRecording("PREFALL");
     
     // Use current or last known GPS location if lock unavailable
     double activeLat = (gpsLat != 0.0) ? gpsLat : lastKnownLat;
@@ -1162,9 +1338,6 @@ void triggerFallAlert() {
     // Start continuous "Help! Help!" speaker repeat loop
     lastHelpSpeakerTime = 0;
     digitalWrite(BUZZER_PIN, HIGH);
-    
-    // Start 1-minute (60 seconds) INMP441 Microphone recording automatically
-    startOneMinuteMicRecording("FALL");
     
     // Use current or last known GPS location if lock unavailable
     double activeLat = (gpsLat != 0.0) ? gpsLat : lastKnownLat;
@@ -2074,6 +2247,11 @@ void setup() {
   setupBLEClient(); // Initialize BLE client to connect to wrist band
   setupWiFi();
   setupGSM();
+  
+  // Initialize I2S audio
+  initSpeakerI2S();
+  initMicrophoneI2S();
+  
   mlStateChangeTime = millis();
 
   // Get elderly ID from preferences or backend
@@ -2136,22 +2314,29 @@ void loop() {
   // Handle ML & Edge state changes and trigger alerts
   if (currentMLState == ML_PREFALL && currentAlertState != PREFALL_ALERT) {
     triggerPrefallAlert();
+    triggerAutoVoiceRecording("PREFALL"); // Start mic recording on pre-fall
   } else if (currentMLState == ML_FALL && currentAlertState != FALL_ALERT) {
     triggerFallAlert();
+    triggerAutoVoiceRecording("FALL"); // Start mic recording on fall
   } else if (currentMLState == ML_NORMAL && currentAlertState != NO_ALERT && guardianAcknowledged) {
     // Clear alert if back to normal and acknowledged
     currentAlertState = NO_ALERT;
     digitalWrite(BUZZER_PIN, LOW);
   }
 
+  // Record audio samples if microphone is active
+  if (micRecordingActive) {
+    recordAudioSample();
+  }
+
+  // Play speaker help loop during fall alerts
+  playSpeakerHelpLoop();
+
   // Handle Push Button 1 (SOS Button)
   handleSOSButton();
 
   // Handle Push Button 2 (Reset / Acknowledgment Button)
   handleAcknowledgment();
-
-  // Continuous "Help! Help!" speaker repeat loop on Fall
-  playSpeakerHelpLoop();
 
   // Handle 1-minute (60 seconds) INMP441 microphone recording timer on Prefall/Fall
   handleMicrophoneRecording();

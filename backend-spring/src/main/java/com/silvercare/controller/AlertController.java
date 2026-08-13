@@ -84,16 +84,27 @@ public class AlertController {
             String elderlyId = request.getElderlyId() != null ? request.getElderlyId() : "senior_user";
             String audioData = request.getAudioData() != null ? request.getAudioData() : "HELP! I need assistance!";
 
+            // Use provided coordinates or fall back to last known coordinates
+            Double lat = request.getLatitude();
+            Double lng = request.getLongitude();
+            
+            if (lat == null || lng == null) {
+                double[] lastCoords = sensorDataService.getLastKnownCoordinates(request.getDeviceId());
+                lat = lastCoords != null ? lastCoords[0] : null;
+                lng = lastCoords != null ? lastCoords[1] : null;
+            }
+
             // Attach to active alert or create prefall/fall record
             List<AlertRecord> active = alertRecordRepository.findByElderlyIdAndStatus(elderlyId, "PENDING_ACK");
             AlertRecord alert;
             if (!active.isEmpty()) {
                 alert = active.get(0);
                 alert.setAudioMessage(audioData);
+                if (lat != null && lng != null) {
+                    alert.setLatitude(lat);
+                    alert.setLongitude(lng);
+                }
             } else {
-                double[] lastCoords = sensorDataService.getLastKnownCoordinates(request.getDeviceId());
-                Double lat = lastCoords != null ? lastCoords[0] : null;
-                Double lng = lastCoords != null ? lastCoords[1] : null;
                 alert = new AlertRecord("VOICE_" + System.currentTimeMillis(), elderlyId, request.getDeviceId(), "Microphone", "VOICE_TRIGGER", "PENDING_ACK", audioData, lat, lng);
             }
             alertRecordRepository.save(alert);

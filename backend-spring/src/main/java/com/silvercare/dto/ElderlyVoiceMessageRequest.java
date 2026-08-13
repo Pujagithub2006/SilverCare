@@ -5,6 +5,8 @@ public class ElderlyVoiceMessageRequest {
     private String deviceId;
     private String audioData; // Base64 audio string or text transcript
     private String triggerEvent; // "FALL", "PREFALL", "MANUAL"
+    private Double latitude;
+    private Double longitude;
 
     public ElderlyVoiceMessageRequest() {}
 
@@ -26,4 +28,10 @@ public class ElderlyVoiceMessageRequest {
 
     public String getTriggerEvent() { return triggerEvent; }
     public void setTriggerEvent(String triggerEvent) { this.triggerEvent = triggerEvent; }
+
+    public Double getLatitude() { return latitude; }
+    public void setLatitude(Double latitude) { this.latitude = latitude; }
+
+    public Double getLongitude() { return longitude; }
+    public void setLongitude(Double longitude) { this.longitude = longitude; }
 }
