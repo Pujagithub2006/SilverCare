@@ -13,4 +13,5 @@ public interface AlertRecordRepository extends JpaRepository<AlertRecord, Long> 
     List<AlertRecord> findByElderlyIdOrderByCreatedAtDesc(String elderlyId);
     List<AlertRecord> findByStatus(String status);
     List<AlertRecord> findByElderlyIdAndStatus(String elderlyId, String status);
+    List<AlertRecord> findByStatusIn(List<String> statuses);
 }

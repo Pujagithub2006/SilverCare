@@ -38,6 +38,9 @@ public class AlertRecord {
     @Column(name = "acknowledged_at")
     private String acknowledgedAt;
 
+    @Column(name = "response_message", length = 1000)
+    private String responseMessage;
+
     private Double latitude;
     private Double longitude;
 
@@ -98,6 +101,9 @@ public class AlertRecord {
 
     public String getAcknowledgedAt() { return acknowledgedAt; }
     public void setAcknowledgedAt(String acknowledgedAt) { this.acknowledgedAt = acknowledgedAt; }
+
+    public String getResponseMessage() { return responseMessage; }
+    public void setResponseMessage(String responseMessage) { this.responseMessage = responseMessage; }
 
     public Double getLatitude() { return latitude; }
     public void setLatitude(Double latitude) { this.latitude = latitude; }

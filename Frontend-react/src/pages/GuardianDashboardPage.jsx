@@ -1175,50 +1175,95 @@ export default function GuardianDashboardPage() {
                     <div style={{ fontWeight: '800', fontSize: '16px' }}>
                       🚨 ACTIVE EMERGENCY ALERT: {activeAlerts[0].alertType || 'FALL_DETECTED'}
                     </div>
-                    <button
-                      onClick={async () => {
-                        await acknowledgeAlertApi({ alertId: activeAlerts[0].alertId, guardianUsername: 'Guardian' });
-                        fetchActiveAlerts();
-                      }}
-                      style={{
-                        backgroundColor: '#ffffff', color: '#dc2626', border: 'none',
-                        padding: '8px 16px', borderRadius: '10px', fontWeight: '800', cursor: 'pointer'
-                      }}
-                    >
-                      ✓ Acknowledge Alert
-                    </button>
+                    <div style={{ fontSize: '12px', opacity: 0.9, fontWeight: '600' }}>
+                      {activeAlerts[0].status === 'ESCALATED_PREFALL_NEIGHBOR_SMS' && '⚠️ SMS sent to neighbor'}
+                      {activeAlerts[0].status === 'ESCALATED_FALL_NEIGHBOR_CALL' && '📞 Calling neighbor'}
+                      {activeAlerts[0].status === 'ESCALATED_FALL_GUARDIAN2_CALL' && `📞 Calling ${selectedElderly.secondaryGuardianName || 'Guardian 2'}`}
+                    </div>
                   </div>
                   <div style={{ fontSize: '13px', opacity: 0.95 }}>
                     Location: {activeAlerts[0].location || selectedElderly.location || 'Home'} • Device: {activeAlerts[0].deviceId || 'Belt'}
                   </div>
 
-                  {/* 4-Minute Neighbor Verification Prompt */}
-                  {activeAlerts[0].status === 'ESCALATED_FALL_NEIGHBOR_TIER1' && (
+                  {/* Pre-fall Guardian Acknowledgment */}
+                  {activeAlerts[0].alertType === 'PREFALL' && activeAlerts[0].status === 'PENDING_ACK' && (
                     <div style={{
                       backgroundColor: 'rgba(0, 0, 0, 0.25)', padding: '12px 16px', borderRadius: '12px',
                       marginTop: '6px', border: '1px solid rgba(255,255,255,0.3)'
                     }}>
                       <div style={{ fontWeight: '700', fontSize: '13px', marginBottom: '8px' }}>
-                        ❓ Neighbor Check: Did the neighbor reach {selectedElderly.name}'s place?
+                        ❓ Did you contact {selectedElderly.name} or send someone for help?
                       </div>
                       <div style={{ display: 'flex', gap: '10px' }}>
                         <button
                           onClick={async () => {
-                            await acknowledgeAlertApi({ alertId: activeAlerts[0].alertId, message: 'Neighbor Reached Confirmed' });
-                            fetchActiveAlerts();
+                            await acknowledgeAlertApi({ 
+                              alertId: activeAlerts[0].alertId, 
+                              guardianUsername: 'Guardian',
+                              responseType: 'YES',
+                              responseMessage: 'Contacted elderly/sent help'
+                            });
+                            pollAlertsForElderly(selectedElderly.elderlyId);
                           }}
                           style={{ backgroundColor: '#22c55e', color: '#fff', border: 'none', padding: '6px 14px', borderRadius: '8px', fontWeight: '700', cursor: 'pointer' }}
                         >
-                          Yes, Neighbor Reached
+                          Yes, I did
                         </button>
                         <button
                           onClick={async () => {
-                            await acknowledgeAlertApi({ alertId: activeAlerts[0].alertId, message: 'Escalate to Secondary Guardian' });
-                            fetchActiveAlerts();
+                            await acknowledgeAlertApi({ 
+                              alertId: activeAlerts[0].alertId, 
+                              guardianUsername: 'Guardian',
+                              responseType: 'NO',
+                              responseMessage: 'Unable to help - escalate'
+                            });
+                            pollAlertsForElderly(selectedElderly.elderlyId);
                           }}
                           style={{ backgroundColor: '#ef4444', color: '#fff', border: 'none', padding: '6px 14px', borderRadius: '8px', fontWeight: '700', cursor: 'pointer' }}
                         >
-                          No, Call Secondary Guardian
+                          No, please do it
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Fall Guardian Acknowledgment */}
+                  {activeAlerts[0].alertType === 'FALL_DETECTED' && activeAlerts[0].status === 'PENDING_ACK' && (
+                    <div style={{
+                      backgroundColor: 'rgba(0, 0, 0, 0.25)', padding: '12px 16px', borderRadius: '12px',
+                      marginTop: '6px', border: '1px solid rgba(255,255,255,0.3)'
+                    }}>
+                      <div style={{ fontWeight: '700', fontSize: '13px', marginBottom: '8px' }}>
+                        ❓ Did neighbor contact you or did neighbor reach there?
+                      </div>
+                      <div style={{ display: 'flex', gap: '10px' }}>
+                        <button
+                          onClick={async () => {
+                            await acknowledgeAlertApi({ 
+                              alertId: activeAlerts[0].alertId, 
+                              guardianUsername: 'Guardian',
+                              responseType: 'YES',
+                              responseMessage: 'Neighbor contacted/reached'
+                            });
+                            pollAlertsForElderly(selectedElderly.elderlyId);
+                          }}
+                          style={{ backgroundColor: '#22c55e', color: '#fff', border: 'none', padding: '6px 14px', borderRadius: '8px', fontWeight: '700', cursor: 'pointer' }}
+                        >
+                          Yes, neighbor reached
+                        </button>
+                        <button
+                          onClick={async () => {
+                            await acknowledgeAlertApi({ 
+                              alertId: activeAlerts[0].alertId, 
+                              guardianUsername: 'Guardian',
+                              responseType: 'NO',
+                              responseMessage: 'Neighbor unable to help - escalate'
+                            });
+                            pollAlertsForElderly(selectedElderly.elderlyId);
+                          }}
+                          style={{ backgroundColor: '#ef4444', color: '#fff', border: 'none', padding: '6px 14px', borderRadius: '8px', fontWeight: '700', cursor: 'pointer' }}
+                        >
+                          No, call {selectedElderly.secondaryGuardianName || 'Guardian 2'}
                         </button>
                       </div>
                     </div>

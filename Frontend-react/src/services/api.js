@@ -984,7 +984,12 @@ export const pressIamFineButton = async (data) => {
 
 export const acknowledgeAlertApi = async (data) => {
   try {
-    const response = await api.post('/api/alerts/acknowledge', data);
+    const response = await api.post('/api/alerts/acknowledge', {
+      alertId: data.alertId,
+      guardianUsername: data.guardianUsername || 'Guardian',
+      responseType: data.responseType || null,
+      responseMessage: data.responseMessage || ''
+    });
     return response.data;
   } catch (error) {
     if (error.response && error.response.data) return error.response.data;
