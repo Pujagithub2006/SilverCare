@@ -828,16 +828,23 @@ export default function ElderlyMapModal({ isOpen, onClose, elderly, sensorData }
                 🛡️ Safety Status
               </div>
               <div style={{
-                display: 'inline-block',
-                marginTop: '4px',
-                padding: '2px 8px',
-                borderRadius: '8px',
+                padding: '4px 10px',
+                borderRadius: '20px',
                 fontSize: '12px',
                 fontWeight: '800',
-                backgroundColor: isEmergency ? '#ffebee' : '#e8f5e8',
-                color: isEmergency ? '#ff3b30' : '#34c759'
+                backgroundColor: stateName === 'FALL_DETECTED' || stateName === 'FALL' || isEmergency ? '#ffebee'
+                  : stateName === 'PREFALL' ? '#ffedd5'
+                  : stateName === 'SUDDEN_MOVEMENT' ? '#fef9c3'
+                  : '#e8f5e8',
+                color: stateName === 'FALL_DETECTED' || stateName === 'FALL' || isEmergency ? '#ff3b30'
+                  : stateName === 'PREFALL' ? '#c2410c'
+                  : stateName === 'SUDDEN_MOVEMENT' ? '#854d0e'
+                  : '#34c759'
               }}>
-                {isEmergency ? `🚨 ${stateName}` : '✅ Safe & Normal'}
+                {stateName === 'FALL_DETECTED' || stateName === 'FALL' || isEmergency ? `🚨 ${stateName}`
+                  : stateName === 'PREFALL' ? '⚠️ Pre-Fall'
+                  : stateName === 'SUDDEN_MOVEMENT' ? '⚡ Sudden Movement'
+                  : '✅ Safe & Normal'}
               </div>
             </div>
 

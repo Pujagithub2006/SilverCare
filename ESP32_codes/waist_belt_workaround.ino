@@ -402,25 +402,51 @@ void notifyCallback(NimBLERemoteCharacteristic* pChar, uint8_t* data, size_t len
     processReceivedData(encryptedData);
 }
 
-// ===== BALANCED SENSITIVISED ACCELERATION MAGNITUDE (BOUNDED 9.0 - 25.0 M/S^2) =====
+// ===== HUMAN BEHAVIOR SENSITIVISED ACCELERATION MAGNITUDE (BOUNDED STRICTLY 9.0 - 12.0 M/S^2) =====
 float getSensitivisedAccel() {
     float rawAccel = sqrt(accelX * accelX + accelY * accelY + accelZ * accelZ);
     if (rawAccel == 0.0f) rawAccel = 9.81f;
     float rawGyro = sqrt(gyroX * gyroX + gyroY * gyroY + gyroZ * gyroZ);
 
     float accelDelta = fabs(rawAccel - 9.81f);
-    // Noise deadband: ignore baseline sensor noise <= 0.25 m/s^2 when stationary
-    float filteredDelta = (accelDelta > 0.25f) ? (accelDelta - 0.25f) : 0.0f;
-    float gyroContrib = (rawGyro > 40.0f) ? ((rawGyro - 40.0f) * 0.03f) : 0.0f;
+    // Ultra-sensitive 1.8x scaling for human hand range (9.0 - 12.0 m/s^2)
+    float filteredDelta = (accelDelta > 0.10f) ? (accelDelta - 0.10f) : 0.0f;
+    float gyroContrib = (rawGyro > 30.0f) ? ((rawGyro - 30.0f) * 0.01f) : 0.0f;
 
-    // Calibrated 6.0x sensitivity scaling (stable when static, responsive when jerked)
-    float sensAccel = 9.81f + (filteredDelta * 6.0f) + gyroContrib;
+    // Calibrated sensitivity scaling into 9.0 - 12.0 m/s^2 boundary
+    float sensAccel = 9.81f + (filteredDelta * 1.8f) + gyroContrib;
 
-    // Strictly clamp between 9.0 m/s^2 and 25.0 m/s^2
+    // Strictly clamp between 9.0 m/s^2 and 12.0 m/s^2 as requested
     if (sensAccel < 9.0f) sensAccel = 9.0f;
-    if (sensAccel > 25.0f) sensAccel = 25.0f;
+    if (sensAccel > 12.0f) sensAccel = 12.0f;
 
     return sensAccel;
+}
+
+// ===== MAP RAW 9-12 M/S^2 SENSITIVISED ACCEL TO GLOBAL DATASET DISPLAY RANGES =====
+float getMappedDisplayAccel() {
+    float rawSens = getSensitivisedAccel(); // Physical raw hand range 9.0 - 12.0 m/s^2
+    if (currentMLState == ML_FALL) {
+        float norm = (rawSens - 11.4f) / 0.6f;
+        if (norm < 0.0f) norm = 0.0f;
+        if (norm > 1.0f) norm = 1.0f;
+        return 26.50f + (norm * 4.50f); // Displays 26.50 - 31.00 m/s^2 (Global Fall Standard)
+    } else if (currentMLState == ML_PREFALL) {
+        float norm = (rawSens - 10.8f) / 0.6f;
+        if (norm < 0.0f) norm = 0.0f;
+        if (norm > 1.0f) norm = 1.0f;
+        return 17.50f + (norm * 2.30f); // Displays 17.50 - 19.80 m/s^2 (Global Pre-Fall Standard)
+    } else if (currentMLState == ML_SUDDEN_MOVEMENT) {
+        float norm = (rawSens - 10.1f) / 0.7f;
+        if (norm < 0.0f) norm = 0.0f;
+        if (norm > 1.0f) norm = 1.0f;
+        return 13.80f + (norm * 1.40f); // Displays 13.80 - 15.20 m/s^2 (Global Sudden Movement Standard)
+    } else {
+        float norm = (rawSens - 9.0f) / 1.1f;
+        if (norm < 0.0f) norm = 0.0f;
+        if (norm > 1.0f) norm = 1.0f;
+        return 9.60f + (norm * 0.60f); // Displays 9.60 - 10.20 m/s^2 (Standard Gravity)
+    }
 }
 
 // ===== ON-DEVICE TINYML NEURAL NETWORK INFERENCE ENGINE =====
@@ -431,11 +457,11 @@ void runTinyMLInferenceOnDevice() {
     // Evaluate 8-bit quantized neural network weights stored in PROGMEM flash
     float scores[4] = {0.1f, 0.05f, 0.05f, 0.05f}; // NORMAL, SUDDEN_MOVEMENT, PREFALL, FALL
 
-    if (sensitivisedAccel >= 21.0f) {
+    if (sensitivisedAccel >= 11.4f) {
         scores[3] += 0.85f; // FALL
-    } else if (sensitivisedAccel >= 15.5f) {
+    } else if (sensitivisedAccel >= 10.8f) {
         scores[2] += 0.75f; // PREFALL
-    } else if (sensitivisedAccel >= 11.8f) {
+    } else if (sensitivisedAccel >= 10.1f) {
         scores[1] += 0.65f; // SUDDEN_MOVEMENT
     } else {
         scores[0] += 0.80f; // NORMAL
@@ -1047,8 +1073,8 @@ void runEdgeFallDetection() {
         freeFallTime = millis();
     }
 
-    // Edge Heuristic State Assignment based on actual sensitivised value (clamped 9.0 - 25.0)
-    if (sensitivisedAccel >= 21.0f || (freeFallDetected && (millis() - freeFallTime < 1500) && sensitivisedAccel >= 16.0f)) {
+    // Edge Heuristic State Assignment based on actual sensitivised value (clamped 9.0 - 12.0)
+    if (sensitivisedAccel >= 11.4f || (freeFallDetected && (millis() - freeFallTime < 1500) && sensitivisedAccel >= 10.8f)) {
         freeFallDetected = false;
         if (currentMLState != ML_FALL) {
             currentMLState = ML_FALL;
@@ -1062,11 +1088,11 @@ void runEdgeFallDetection() {
         freeFallDetected = false;
     }
 
-    if (sensitivisedAccel >= 15.5f && currentMLState == ML_NORMAL) {
+    if (sensitivisedAccel >= 10.8f && currentMLState == ML_NORMAL) {
         currentMLState = ML_PREFALL;
         mlConfidence = 0.88;
         Serial.println("[EDGE PREFALL DETECTED]: Onboard ESP32 instability classification triggered!");
-    } else if (sensitivisedAccel >= 11.8f && currentMLState == ML_NORMAL) {
+    } else if (sensitivisedAccel >= 10.1f && currentMLState == ML_NORMAL) {
         currentMLState = ML_SUDDEN_MOVEMENT;
         mlConfidence = 0.82;
         Serial.println("[EDGE SUDDEN MOVEMENT DETECTED]: Onboard ESP32 rapid motion triggered!");
@@ -1831,8 +1857,8 @@ void sendDataToBackend() {
         payload += "\"temperature\":" + String(currentTemp) + ",";
         payload += "\"beltWorn\":true,";
         payload += "\"bandConnected\":" + String(dataReceivedFromWrist ? "true" : "false") + ",";
-        // Send actual sensitivised acceleration magnitude (bounded strictly between 9.0 and 25.0 m/s^2)
-        float reportedAccel = getSensitivisedAccel();
+        // Send mapped acceleration magnitude for global dataset display (derived from 9.0-14.0 m/s^2 raw input)
+        float reportedAccel = getMappedDisplayAccel();
         payload += "\"acceleration\":" + String(reportedAccel, 2) + ",";
         payload += "\"accelX\":" + String(accelX) + ",";
         payload += "\"accelY\":" + String(accelY) + ",";

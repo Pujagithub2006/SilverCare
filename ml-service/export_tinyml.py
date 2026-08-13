@@ -25,7 +25,13 @@ def generate_tinyml_header(output_path="../ESP32_codes/tinyml_model.h"):
 #ifndef TINYML_MODEL_H
 #define TINYML_MODEL_H
 
+#if __has_include(<Arduino.h>)
 #include <Arduino.h>
+#endif
+
+#ifndef PROGMEM
+#define PROGMEM
+#endif
 
 const unsigned int g_tinyml_model_len = 18432;
 

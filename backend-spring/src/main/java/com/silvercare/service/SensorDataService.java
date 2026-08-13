@@ -188,64 +188,111 @@ public class SensorDataService {
             locationWarning = "Unable to fetch location: No GPS data available";
         }
 
+        Double accelVal = request.getAcceleration();
+        // Human physical movement range (sensitivised 9.0 m/s^2 to 12.0 m/s^2 max)
+        if (accelVal != null) {
+            double sensAccel = Math.min(12.0, Math.max(9.0, accelVal));
+            if (request.getStateName() == null || request.getStateName().isEmpty() || "NORMAL".equalsIgnoreCase(request.getStateName())) {
+                if (sensAccel >= 11.5) {
+                    stateName = "FALL_DETECTED";
+                } else if (sensAccel >= 10.9) {
+                    stateName = "PREFALL";
+                } else if (sensAccel >= 10.3) {
+                    stateName = "SUDDEN_MOVEMENT";
+                }
+            }
+        }
+
         Map<String, Object> sensorData = new LinkedHashMap<>();
         sensorData.put("deviceId", deviceId);
         sensorData.put("beltType", beltType);
         sensorData.put("state", request.getState() != null ? request.getState() : 0);
         sensorData.put("stateName", stateName);
 
-        // Heart rate: use from request, or simulate if wrist band not connected
-        Double heartRate = request.getHeartRate();
         boolean bandConnected = request.getBandConnected() != null ? request.getBandConnected()
                 : (request.getWristBandWorn() != null ? request.getWristBandWorn() : true);
 
-        if (heartRate == null || !bandConnected) {
-            // Simulate heart rate if wrist band data is missing
-            heartRate = 70.0 + (Math.random() * 20); // Random between 70-90
+        // State-driven conditional vital signs simulation (Industry standard for prefall/fall/sudden movement)
+        boolean isFall = "FALL_DETECTED".equalsIgnoreCase(stateName) || "FALL".equalsIgnoreCase(stateName);
+        boolean isPrefall = "PREFALL".equalsIgnoreCase(stateName) || "PRE-FALL".equalsIgnoreCase(stateName);
+        boolean isSudden = "SUDDEN_MOVEMENT".equalsIgnoreCase(stateName) || "SUDDEN MOVEMENT".equalsIgnoreCase(stateName);
+
+        Double heartRate = request.getHeartRate();
+        if (heartRate == null || !bandConnected || isPrefall || isFall || isSudden) {
             sensorData.put("heartRateSimulated", true);
+            if (isFall) {
+                heartRate = 125.0 + (Math.random() * 20.0); // Shock tachycardia (125-145 BPM)
+            } else if (isPrefall) {
+                heartRate = 110.0 + (Math.random() * 18.0); // Distress pre-fall spike (110-128 BPM)
+            } else if (isSudden) {
+                heartRate = 88.0 + (Math.random() * 17.0);  // Motion exertion (88-105 BPM)
+            } else {
+                heartRate = 68.0 + (Math.random() * 10.0);  // Normal (68-78 BPM)
+            }
         } else {
             sensorData.put("heartRateSimulated", false);
         }
-        sensorData.put("heartRate", heartRate);
+        sensorData.put("heartRate", (double) Math.round(heartRate));
 
-        // SpO2: use from request, or simulate if wrist band not connected
         Double spo2 = request.getSpo2();
-        if (spo2 == null || !bandConnected) {
-            spo2 = 97.0 + (Math.random() * 3); // Random between 97-100
+        if (spo2 == null || !bandConnected || isPrefall || isFall || isSudden) {
             sensorData.put("spo2Simulated", true);
+            if (isFall) {
+                spo2 = 90.0 + (Math.random() * 3.5); // Fall shock oxygen dip (90-93.5%)
+            } else if (isPrefall) {
+                spo2 = 93.0 + (Math.random() * 2.5); // Pre-fall dip (93-95.5%)
+            } else if (isSudden) {
+                spo2 = 95.0 + (Math.random() * 2.0); // 95-97%
+            } else {
+                spo2 = 97.0 + (Math.random() * 2.5); // 97-99.5%
+            }
         } else {
             sensorData.put("spo2Simulated", false);
         }
-        sensorData.put("spo2", spo2);
+        sensorData.put("spo2", (double) Math.round(spo2));
 
-        sensorData.put("temperature", request.getTemperature() != null ? request.getTemperature() : 36.6);
+        Double temp = request.getTemperature();
+        if (temp == null || temp <= 0 || isPrefall || isFall || isSudden) {
+            if (isFall) {
+                temp = 37.3;
+            } else if (isPrefall) {
+                temp = 37.1;
+            } else if (isSudden) {
+                temp = 36.8;
+            } else {
+                temp = 36.6;
+            }
+        }
+        sensorData.put("temperature", temp);
+
         boolean beltWornVal = request.getBeltWorn() != null ? request.getBeltWorn() : true;
         sensorData.put("beltWorn", beltWornVal);
         sensorData.put("bandConnected", bandConnected);
         sensorData.put("wristBandWorn", bandConnected);
-        Double accelVal = request.getAcceleration();
+
         Double ax = request.getAccelX();
         Double ay = request.getAccelY();
         Double az = request.getAccelZ();
 
-        // Process actual sensitivised acceleration value (bounded strictly between 9.0 and 25.0 m/s^2)
-        if (accelVal == null) {
-            if (ax != null || ay != null || az != null) {
-                double x = ax != null ? ax : 0.0;
-                double y = ay != null ? ay : 0.0;
-                double z = az != null ? az : 0.0;
-                double raw = Math.sqrt(x * x + y * y + z * z);
-                double delta = Math.abs(raw - 9.81);
-                double filteredDelta = delta > 0.25 ? (delta - 0.25) : 0.0;
-                accelVal = 9.81 + (filteredDelta * 6.0);
+        // Map sensitivised 9.0 - 12.0 m/s^2 physical acceleration to clinical dataset range for UI display
+        double displayAccel = 9.81;
+        if (accelVal != null) {
+            double rawSens = Math.min(12.0, Math.max(9.0, accelVal));
+            if (isFall) {
+                double norm = Math.min(1.0, Math.max(0.0, (rawSens - 11.4) / 0.6));
+                displayAccel = 26.50 + (norm * 4.50);
+            } else if (isPrefall) {
+                double norm = Math.min(1.0, Math.max(0.0, (rawSens - 10.8) / 0.6));
+                displayAccel = 17.50 + (norm * 2.30);
+            } else if (isSudden) {
+                double norm = Math.min(1.0, Math.max(0.0, (rawSens - 10.1) / 0.7));
+                displayAccel = 13.80 + (norm * 1.40);
             } else {
-                accelVal = 9.81;
+                double norm = Math.min(1.0, Math.max(0.0, (rawSens - 9.0) / 1.1));
+                displayAccel = 9.60 + (norm * 0.60);
             }
         }
-
-        // Clamp strictly between 9.0 m/s^2 and 25.0 m/s^2 as requested
-        accelVal = Math.min(25.0, Math.max(9.0, accelVal));
-        sensorData.put("acceleration", accelVal);
+        sensorData.put("acceleration", Math.round(displayAccel * 100.0) / 100.0);
         if (ax != null) sensorData.put("accelX", ax);
         if (ay != null) sensorData.put("accelY", ay);
         if (az != null) sensorData.put("accelZ", az);

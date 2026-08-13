@@ -1180,14 +1180,27 @@ export default function GuardianDashboardPage() {
                   </div>
                   <span style={{
                     display: 'inline-block',
-                    padding: '4px 10px',
+                    padding: '5px 12px',
                     borderRadius: '8px',
                     fontSize: '12px',
-                    fontWeight: '700',
-                    background: isEmergency ? '#fee2e2' : '#dcfce7',
-                    color: isEmergency ? '#dc2626' : '#16a34a'
+                    fontWeight: '800',
+                    letterSpacing: '0.2px',
+                    background: !sensorData.beltWorn || sensorData.stateName === 'DISCONNECTED' ? '#e2e8f0'
+                      : (sensorData.stateName === 'FALL_DETECTED' || sensorData.stateName === 'FALL' || activeAlerts.length > 0) ? '#fee2e2'
+                      : (sensorData.stateName === 'PREFALL' || sensorData.stateName === 'PRE-FALL') ? '#ffedd5'
+                      : (sensorData.stateName === 'SUDDEN_MOVEMENT' || sensorData.stateName === 'SUDDEN MOVEMENT') ? '#fef9c3'
+                      : '#dcfce7',
+                    color: !sensorData.beltWorn || sensorData.stateName === 'DISCONNECTED' ? '#64748b'
+                      : (sensorData.stateName === 'FALL_DETECTED' || sensorData.stateName === 'FALL' || activeAlerts.length > 0) ? '#dc2626'
+                      : (sensorData.stateName === 'PREFALL' || sensorData.stateName === 'PRE-FALL') ? '#c2410c'
+                      : (sensorData.stateName === 'SUDDEN_MOVEMENT' || sensorData.stateName === 'SUDDEN MOVEMENT') ? '#854d0e'
+                      : '#16a34a'
                   }}>
-                    {isEmergency ? `⚠️ ${sensorData.stateName}` : '✅ Normal'}
+                    {!sensorData.beltWorn || sensorData.stateName === 'DISCONNECTED' ? '🔌 DISCONNECTED'
+                      : (sensorData.stateName === 'FALL_DETECTED' || sensorData.stateName === 'FALL' || activeAlerts.length > 0) ? `🚨 ${sensorData.stateName || 'FALL_DETECTED'}`
+                      : (sensorData.stateName === 'PREFALL' || sensorData.stateName === 'PRE-FALL') ? '⚠️ PREFALL'
+                      : (sensorData.stateName === 'SUDDEN_MOVEMENT' || sensorData.stateName === 'SUDDEN MOVEMENT') ? '⚡ SUDDEN_MOVEMENT'
+                      : '✅ NORMAL'}
                   </span>
                 </div>
               </div>
