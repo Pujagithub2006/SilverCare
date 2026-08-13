@@ -197,4 +197,73 @@ public class FallDetectionController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(e.getMessage()));
         }
     }
+
+    @PostMapping("/api/alerts/prefall")
+    public ResponseEntity<ApiResponse<Object>> triggerPrefall(@RequestBody Map<String, Object> body) {
+        try {
+            String deviceId = body.get("deviceId") != null ? body.get("deviceId").toString() : "vois_belt";
+            String beltType = body.get("beltType") != null ? body.get("beltType").toString() : "Waist Belt";
+            Double lat = body.get("latitude") != null ? Double.parseDouble(body.get("latitude").toString()) : null;
+            Double lng = body.get("longitude") != null ? Double.parseDouble(body.get("longitude").toString()) : null;
+            String audioMsg = body.get("audioMsg") != null ? body.get("audioMsg").toString() : null;
+
+            var alert = fallDetectionService.handlePrefallAlert(deviceId, beltType, lat, lng, audioMsg);
+            ApiResponse<Object> response = ApiResponse.builder()
+                    .status("success")
+                    .message("Prefall alert logged. SMS sent to Guardian and Neighbor.")
+                    .data(alert)
+                    .build();
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
+    @PostMapping("/api/alerts/sos")
+    public ResponseEntity<ApiResponse<Object>> triggerSos(@RequestBody Map<String, Object> body) {
+        try {
+            String deviceId = body.get("deviceId") != null ? body.get("deviceId").toString() : "vois_belt";
+            String elderlyId = body.get("elderlyId") != null ? body.get("elderlyId").toString() : null;
+            Double lat = body.get("latitude") != null ? Double.parseDouble(body.get("latitude").toString()) : null;
+            Double lng = body.get("longitude") != null ? Double.parseDouble(body.get("longitude").toString()) : null;
+
+            var alert = fallDetectionService.handleSosButton(deviceId, elderlyId, lat, lng);
+            ApiResponse<Object> response = ApiResponse.builder()
+                    .status("success")
+                    .message("EMERGENCY SOS button triggered! Calls & SMS with live GPS dispatched.")
+                    .data(alert)
+                    .build();
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
+    @PostMapping("/api/alerts/i-am-fine")
+    public ResponseEntity<Map<String, Object>> pressIamFine(@RequestBody Map<String, Object> body) {
+        String deviceId = body.get("deviceId") != null ? body.get("deviceId").toString() : "vois_belt";
+        String elderlyId = body.get("elderlyId") != null ? body.get("elderlyId").toString() : null;
+
+        Map<String, Object> res = fallDetectionService.handleIamFineButton(deviceId, elderlyId);
+        return ResponseEntity.ok(res);
+    }
+
+    @PostMapping("/api/alerts/acknowledge")
+    public ResponseEntity<ApiResponse<Object>> acknowledgeAlert(@RequestBody Map<String, Object> body) {
+        try {
+            String alertId = body.get("alertId") != null ? body.get("alertId").toString() : "";
+            String username = body.get("guardianUsername") != null ? body.get("guardianUsername").toString() : "Guardian";
+            String msg = body.get("message") != null ? body.get("message").toString() : "Acknowledged by guardian";
+
+            var record = fallDetectionService.acknowledgeAlert(alertId, username, msg);
+            ApiResponse<Object> response = ApiResponse.builder()
+                    .status("success")
+                    .message("Alert acknowledged successfully")
+                    .data(record)
+                    .build();
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(e.getMessage()));
+        }
+    }
 }

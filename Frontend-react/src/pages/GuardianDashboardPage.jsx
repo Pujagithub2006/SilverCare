@@ -1164,6 +1164,68 @@ export default function GuardianDashboardPage() {
                 </div>
               </div>
 
+              {/* Active Emergency / Escalation Banner */}
+              {activeAlerts && activeAlerts.length > 0 && (
+                <div style={{
+                  backgroundColor: activeAlerts[0].alertType === 'PREFALL' ? '#ff9500' : '#dc2626',
+                  color: '#ffffff', padding: '16px 20px', borderRadius: '16px', marginBottom: '20px',
+                  boxShadow: '0 8px 25px rgba(220, 38, 38, 0.3)', display: 'flex', flexDirection: 'column', gap: '10px'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ fontWeight: '800', fontSize: '16px' }}>
+                      🚨 ACTIVE EMERGENCY ALERT: {activeAlerts[0].alertType || 'FALL_DETECTED'}
+                    </div>
+                    <button
+                      onClick={async () => {
+                        await acknowledgeAlertApi({ alertId: activeAlerts[0].alertId, guardianUsername: 'Guardian' });
+                        fetchActiveAlerts();
+                      }}
+                      style={{
+                        backgroundColor: '#ffffff', color: '#dc2626', border: 'none',
+                        padding: '8px 16px', borderRadius: '10px', fontWeight: '800', cursor: 'pointer'
+                      }}
+                    >
+                      ✓ Acknowledge Alert
+                    </button>
+                  </div>
+                  <div style={{ fontSize: '13px', opacity: 0.95 }}>
+                    Location: {activeAlerts[0].location || selectedElderly.location || 'Home'} • Device: {activeAlerts[0].deviceId || 'Belt'}
+                  </div>
+
+                  {/* 4-Minute Neighbor Verification Prompt */}
+                  {activeAlerts[0].status === 'ESCALATED_FALL_NEIGHBOR_TIER1' && (
+                    <div style={{
+                      backgroundColor: 'rgba(0, 0, 0, 0.25)', padding: '12px 16px', borderRadius: '12px',
+                      marginTop: '6px', border: '1px solid rgba(255,255,255,0.3)'
+                    }}>
+                      <div style={{ fontWeight: '700', fontSize: '13px', marginBottom: '8px' }}>
+                        ❓ Neighbor Check: Did the neighbor reach {selectedElderly.name}'s place?
+                      </div>
+                      <div style={{ display: 'flex', gap: '10px' }}>
+                        <button
+                          onClick={async () => {
+                            await acknowledgeAlertApi({ alertId: activeAlerts[0].alertId, message: 'Neighbor Reached Confirmed' });
+                            fetchActiveAlerts();
+                          }}
+                          style={{ backgroundColor: '#22c55e', color: '#fff', border: 'none', padding: '6px 14px', borderRadius: '8px', fontWeight: '700', cursor: 'pointer' }}
+                        >
+                          Yes, Neighbor Reached
+                        </button>
+                        <button
+                          onClick={async () => {
+                            await acknowledgeAlertApi({ alertId: activeAlerts[0].alertId, message: 'Escalate to Secondary Guardian' });
+                            fetchActiveAlerts();
+                          }}
+                          style={{ backgroundColor: '#ef4444', color: '#fff', border: 'none', padding: '6px 14px', borderRadius: '8px', fontWeight: '700', cursor: 'pointer' }}
+                        >
+                          No, Call Secondary Guardian
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Quick Info Grid */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px', marginBottom: '20px' }}>
                 <div style={{ backgroundColor: '#f8fafc', padding: '14px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
@@ -1189,17 +1251,20 @@ export default function GuardianDashboardPage() {
                       : (sensorData.stateName === 'FALL_DETECTED' || sensorData.stateName === 'FALL' || activeAlerts.length > 0) ? '#dc2626'
                       : (sensorData.stateName === 'PREFALL' || sensorData.stateName === 'PRE-FALL') ? '#ffedd5'
                       : (sensorData.stateName === 'SUDDEN_MOVEMENT' || sensorData.stateName === 'SUDDEN MOVEMENT') ? '#fef9c3'
+                      : sensorData.stateName === 'NORMAL (IMPACTED)' ? '#d1fae5'
                       : '#dcfce7',
                     color: !sensorData.beltWorn || sensorData.stateName === 'DISCONNECTED' ? '#64748b'
                       : (sensorData.stateName === 'FALL_DETECTED' || sensorData.stateName === 'FALL' || activeAlerts.length > 0) ? '#ffffff'
                       : (sensorData.stateName === 'PREFALL' || sensorData.stateName === 'PRE-FALL') ? '#c2410c'
                       : (sensorData.stateName === 'SUDDEN_MOVEMENT' || sensorData.stateName === 'SUDDEN MOVEMENT') ? '#854d0e'
+                      : sensorData.stateName === 'NORMAL (IMPACTED)' ? '#047857'
                       : '#16a34a'
                   }}>
                     {!sensorData.beltWorn || sensorData.stateName === 'DISCONNECTED' ? '🔌 DISCONNECTED'
                       : (sensorData.stateName === 'FALL_DETECTED' || sensorData.stateName === 'FALL' || activeAlerts.length > 0) ? `🚨 ${sensorData.stateName || 'FALL_DETECTED'}`
                       : (sensorData.stateName === 'PREFALL' || sensorData.stateName === 'PRE-FALL') ? '⚠️ PREFALL'
                       : (sensorData.stateName === 'SUDDEN_MOVEMENT' || sensorData.stateName === 'SUDDEN MOVEMENT') ? '⚡ SUDDEN_MOVEMENT'
+                      : sensorData.stateName === 'NORMAL (IMPACTED)' ? '💚 NORMAL (IMPACTED)'
                       : '✅ NORMAL'}
                   </span>
                 </div>
@@ -1785,7 +1850,50 @@ export default function GuardianDashboardPage() {
                 </div>
               ))}
 
-              {/* Calendar Date Pickers */}
+              {/* Senior Voice Messages & Mitra AI Training Logs */}
+              <div style={{
+                backgroundColor: '#ffffff', borderRadius: '16px', padding: '16px',
+                border: '1px solid #e2e8f0', marginBottom: '20px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                  <div style={{ fontWeight: '800', color: '#0f172a', fontSize: '14px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    🎙️ Senior Voice Messages & Mitra AI Audio Logs
+                  </div>
+                  <span style={{ fontSize: '11px', fontWeight: '700', backgroundColor: '#e0e7ff', color: '#3730a3', padding: '3px 8px', borderRadius: '6px' }}>
+                    1-Min Auto Record
+                  </span>
+                </div>
+                <p style={{ fontSize: '12px', color: '#64748b', margin: '0 0 12px 0' }}>
+                  Captured automatically during Prefall/Fall events. Preserved locally for training Mitra AI.
+                </p>
+                {(() => {
+                  const logs = JSON.parse(localStorage.getItem('mitra_ai_voice_training') || '[]');
+                  if (logs.length === 0) {
+                    return (
+                      <div style={{ fontSize: '12px', color: '#94a3b8', fontStyle: 'italic', padding: '10px', backgroundColor: '#f8fafc', borderRadius: '8px', textAlign: 'center' }}>
+                        No voice messages recorded yet. Mic automatically records 1-minute audio during Prefall or Fall.
+                      </div>
+                    );
+                  }
+                  return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '180px', overflowY: 'auto' }}>
+                      {logs.slice(-3).reverse().map((log, idx) => (
+                        <div key={idx} style={{ backgroundColor: '#f1f5f9', padding: '10px 12px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <div>
+                            <div style={{ fontSize: '12px', fontWeight: '700', color: '#1e293b' }}>
+                              Voice Log #{logs.length - idx} • {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </div>
+                            <div style={{ fontSize: '10px', color: '#64748b' }}>{log.purpose}</div>
+                          </div>
+                          <audio controls src={log.audioData} style={{ height: '32px', maxWidth: '180px' }} />
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* Toggle Button for More Features */}
               <div style={{ display: 'flex', gap: '10px', marginBottom: '14px' }}>
                 <div style={{ flex: 1, textAlign: 'left' }}>
                   <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', marginBottom: '4px', color: '#333' }}>

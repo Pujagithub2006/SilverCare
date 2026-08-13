@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
-import { getMedicines, confirmMedicine, fetchHardwareData, triggerEmergency, confirmSafe, notifyGuardianFall } from '../services/api';
+import { getMedicines, confirmMedicine, fetchHardwareData, triggerEmergency, confirmSafe, notifyGuardianFall, triggerPrefallAlert, triggerSosButton, pressIamFineButton } from '../services/api';
 
 const ElderlyAlertSystem = ({ children }) => {
   const location = useLocation();
@@ -22,6 +22,91 @@ const ElderlyAlertSystem = ({ children }) => {
   const [countdown, setCountdown] = useState(10);
   const [alertStatusText, setAlertStatusText] = useState('');
   const alertDismissedRef = useRef(false);
+
+  // Speaker Alarm State ("Help Help!")
+  const [speakerAlarmActive, setSpeakerAlarmActive] = useState(false);
+
+  // Mic Recording State (1 Minute Auto Recording for Mitra AI Training)
+  const [isMicRecording, setIsMicRecording] = useState(false);
+  const [micSecondsLeft, setMicSecondsLeft] = useState(60);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
+
+  // Loop speaker alarm when fall occurs
+  useEffect(() => {
+    if (!speakerAlarmActive) return;
+    const speakHelp = () => {
+      if ('speechSynthesis' in window) {
+        const utterance = new SpeechSynthesisUtterance("Help Help! Emergency fall detected!");
+        utterance.rate = 1.0;
+        utterance.pitch = 1.2;
+        window.speechSynthesis.speak(utterance);
+      }
+    };
+    speakHelp();
+    const interval = setInterval(speakHelp, 3500);
+    return () => clearInterval(interval);
+  }, [speakerAlarmActive]);
+
+  // Start 1-Minute Mic Recording for Mitra AI Training & Guardian Section
+  const startOneMinuteMicRecording = useCallback(() => {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      console.warn("Media devices API unavailable for mic recording.");
+      return;
+    }
+    navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
+      audioChunksRef.current = [];
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        const reader = new FileReader();
+        reader.readAsDataURL(audioBlob);
+        reader.onloadend = () => {
+          const base64Audio = reader.result;
+          console.log("🎙️ [MITRA AI TRAINING] 1-Minute Mic recording complete! Storing for Mitra AI training & Guardian section.");
+          
+          // Save to Elderly local Mitra AI training database
+          const existingVoiceLogs = JSON.parse(localStorage.getItem('mitra_ai_voice_training') || '[]');
+          existingVoiceLogs.push({
+            timestamp: new Date().toISOString(),
+            audioData: base64Audio,
+            elderlyId: elderlyId || 'senior',
+            purpose: 'Mitra AI Model Fine-Tuning & Guardian Audio Log'
+          });
+          localStorage.setItem('mitra_ai_voice_training', JSON.stringify(existingVoiceLogs));
+        };
+        stream.getTracks().forEach((track) => track.stop());
+        setIsMicRecording(false);
+      };
+
+      mediaRecorder.start();
+      setIsMicRecording(true);
+      setMicSecondsLeft(60);
+
+      const countdownTimer = setInterval(() => {
+        setMicSecondsLeft((prev) => {
+          if (prev <= 1) {
+            clearInterval(countdownTimer);
+            if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+              mediaRecorderRef.current.stop();
+            }
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }).catch((err) => {
+      console.error("Mic recording permission error:", err);
+    });
+  }, [elderlyId]);
 
   // Sync elderly user info
   useEffect(() => {
@@ -244,10 +329,14 @@ const ElderlyAlertSystem = ({ children }) => {
             alertType = 'FALL';
             title = '🚨 FALL DETECTED!';
             subtitle = 'Emergency fall recorded from wearable sensor belt.';
+            setSpeakerAlarmActive(true);
+            startOneMinuteMicRecording();
           } else if (stateName.includes('PREFALL') || stateName.includes('PRE-FALL')) {
             alertType = 'PREFALL';
             title = '⚠️ PRE-FALL DETECTED!';
             subtitle = 'Unusual loss of balance detected. Please stay still.';
+            startOneMinuteMicRecording();
+            triggerPrefallAlert({ deviceId: hw.deviceId || 'vois_belt', beltType: hw.beltType });
           } else if (stateName.includes('SUDDEN MOVEMENT') || stateName.includes('SUDDEN_MOVEMENT')) {
             alertType = 'SUDDEN';
             title = '⚠️ SUDDEN MOVEMENT DETECTED!';
@@ -279,7 +368,45 @@ const ElderlyAlertSystem = ({ children }) => {
     checkHardwareAlerts();
     const interval = setInterval(checkHardwareAlerts, 3000);
     return () => clearInterval(interval);
-  }, [elderlyId, elderlyName, activeSensorAlert, speakVoiceAlert]);
+  }, [elderlyId, elderlyName, activeSensorAlert, speakVoiceAlert, startOneMinuteMicRecording]);
+
+  // Hardware Push Button 1 Handler: "I am Fine"
+  const handlePushIamFine = async () => {
+    setSpeakerAlarmActive(false);
+    alertDismissedRef.current = true;
+    setActiveSensorAlert(null);
+    setAlertStatusText('');
+    speakVoiceAlert('Alarm shut down. Status reset to Normal.');
+
+    try {
+      await pressIamFineButton({ elderlyId, deviceId: 'vois_belt' });
+    } catch (e) {
+      console.error('Error pressing I am fine button:', e);
+    }
+  };
+
+  // Hardware Push Button 2 Handler: "SOS Emergency"
+  const handlePushSos = async () => {
+    speakVoiceAlert('SOS button pressed! Emergency call and live location sent to Guardian.');
+    if ('geolocation' in navigator) {
+      navigator.geolocation.getCurrentPosition(async (pos) => {
+        try {
+          await triggerSosButton({
+            elderlyId,
+            deviceId: 'vois_belt',
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude
+          });
+        } catch (e) {
+          console.error('Error sending SOS with location:', e);
+        }
+      }, async () => {
+        await triggerSosButton({ elderlyId, deviceId: 'vois_belt' });
+      });
+    } else {
+      await triggerSosButton({ elderlyId, deviceId: 'vois_belt' });
+    }
+  };
 
   // Countdown timer effect for sensor alerts
   useEffect(() => {
@@ -523,6 +650,74 @@ const ElderlyAlertSystem = ({ children }) => {
               ✅ I AM SAFE
             </button>
           </div>
+        </div>
+      )}
+
+      {/* ---------------------------------------------------- */}
+      {/* LIVE 1-MINUTE SENIOR-SIDE MIC RECORDING BANNER        */}
+      {/* ---------------------------------------------------- */}
+      {isElderlyPage && isMicRecording && (
+        <div style={{
+          position: 'fixed',
+          bottom: '85px', right: '20px',
+          backgroundColor: '#0f172a', color: '#ffffff',
+          padding: '12px 18px', borderRadius: '30px',
+          boxShadow: '0 10px 25px rgba(0,0,0,0.3)',
+          display: 'flex', alignItems: 'center', gap: '12px',
+          zIndex: 99999, border: '2px solid #ef4444',
+          animation: 'pulse 1.5s infinite'
+        }}>
+          <span style={{ fontSize: '20px' }}>🎙️</span>
+          <div>
+            <div style={{ fontSize: '12px', fontWeight: '800', color: '#f87171' }}>
+              Recording Voice Message (1 Min)
+            </div>
+            <div style={{ fontSize: '11px', color: '#94a3b8' }}>
+              Saving for Guardian & Mitra AI Training ({micSecondsLeft}s left)
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ---------------------------------------------------- */}
+      {/* HARDWARE PUSH BUTTON SIMULATOR FOR ELDERLY SIDE      */}
+      {/* ---------------------------------------------------- */}
+      {isElderlyPage && (
+        <div style={{
+          position: 'fixed',
+          bottom: '20px', left: '50%', transform: 'translateX(-50%)',
+          backgroundColor: 'rgba(15, 23, 42, 0.95)',
+          backdropFilter: 'blur(10px)',
+          padding: '8px 16px', borderRadius: '30px',
+          display: 'flex', alignItems: 'center', gap: '12px',
+          zIndex: 9999, boxShadow: '0 8px 30px rgba(0,0,0,0.3)',
+          border: '1px solid rgba(255,255,255,0.1)'
+        }}>
+          <span style={{ fontSize: '11px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            Hardware Buttons:
+          </span>
+          <button
+            onClick={handlePushIamFine}
+            style={{
+              backgroundColor: '#16a34a', color: '#ffffff', border: 'none',
+              padding: '8px 14px', borderRadius: '20px', fontSize: '12px',
+              fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px',
+              boxShadow: '0 4px 12px rgba(22, 163, 74, 0.3)'
+            }}
+          >
+            💚 Push Button 1: "I am Fine"
+          </button>
+          <button
+            onClick={handlePushSos}
+            style={{
+              backgroundColor: '#dc2626', color: '#ffffff', border: 'none',
+              padding: '8px 14px', borderRadius: '20px', fontSize: '12px',
+              fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px',
+              boxShadow: '0 4px 12px rgba(220, 38, 38, 0.3)'
+            }}
+          >
+            🆘 Push Button 2: "SOS Call"
+          </button>
         </div>
       )}
     </>

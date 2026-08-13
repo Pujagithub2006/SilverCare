@@ -952,5 +952,45 @@ export const markDeviceBroken = async (deviceId, notes) => {
   }
 };
 
+export const triggerPrefallAlert = async (data) => {
+  try {
+    const response = await api.post('/api/alerts/prefall', data);
+    return response.data;
+  } catch (error) {
+    if (error.response && error.response.data) return error.response.data;
+    return { status: 'error', message: 'Prefall alert trigger failed' };
+  }
+};
+
+export const triggerSosButton = async (data) => {
+  try {
+    const response = await api.post('/api/alerts/sos', data);
+    return response.data;
+  } catch (error) {
+    if (error.response && error.response.data) return error.response.data;
+    return { status: 'error', message: 'SOS button trigger failed' };
+  }
+};
+
+export const pressIamFineButton = async (data) => {
+  try {
+    const response = await api.post('/api/alerts/i-am-fine', data);
+    return response.data;
+  } catch (error) {
+    if (error.response && error.response.data) return error.response.data;
+    return { status: 'error', message: 'I am fine button failed' };
+  }
+};
+
+export const acknowledgeAlertApi = async (data) => {
+  try {
+    const response = await api.post('/api/alerts/acknowledge', data);
+    return response.data;
+  } catch (error) {
+    if (error.response && error.response.data) return error.response.data;
+    return { status: 'error', message: 'Alert acknowledgment failed' };
+  }
+};
+
 export { API_BASE, LEGACY_API_BASE };
 export default api;
