@@ -78,6 +78,9 @@ public class ElderlyManagementController {
     @Autowired
     private ElderlyRepository elderlyRepository;
 
+    @Autowired
+    private com.silvercare.service.TwilioService twilioService;
+
     private GuardianDetails resolveGuardianDetails(Elderly elderly) {
         if (elderly == null) return new GuardianDetails("", "", "");
 

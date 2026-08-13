@@ -161,7 +161,7 @@ public class SensorHardwareController {
             String guardianPhone = fallDetectionService.getGuardianPhoneForElderly(deviceId);
 
             if (guardianPhone != null && !guardianPhone.isEmpty()) {
-                boolean success = twilioService.sendFallAlertSms(guardianPhone, deviceId, "Home", request.getMessage());
+                boolean success = twilioService.sendFallAlertSms(guardianPhone, deviceId, "Home", request.getMessage(), null, null);
                 if (success) {
                     ApiResponse<Object> response = ApiResponse.builder()
                             .status("success")

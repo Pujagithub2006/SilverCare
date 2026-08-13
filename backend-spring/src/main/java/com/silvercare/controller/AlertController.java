@@ -40,8 +40,9 @@ public class AlertController {
             String alertId = request.getAlertId();
             String guardianUser = request.getGuardianUsername() != null ? request.getGuardianUsername() : "guardian";
             String msg = request.getResponseMessage() != null ? request.getResponseMessage() : "I am Fine";
+            String responseType = request.getResponseType() != null ? request.getResponseType() : null;
 
-            AlertRecord alert = fallDetectionService.acknowledgeAlert(alertId, guardianUser, msg);
+            AlertRecord alert = fallDetectionService.acknowledgeAlert(alertId, guardianUser, responseType, msg);
             ApiResponse<Object> response = ApiResponse.builder()
                     .status("success")
                     .message("Alert acknowledged by guardian. 'I am fine' recorded successfully!")

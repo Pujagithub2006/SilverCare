@@ -4,6 +4,7 @@ public class AlertAcknowledgeRequest {
     private String alertId;
     private String guardianUsername;
     private String responseMessage; // e.g. "I am Fine" / "Acknowledged"
+    private String responseType; // "YES" or "NO" for guardian acknowledgment
 
     public AlertAcknowledgeRequest() {}
 
@@ -21,4 +22,7 @@ public class AlertAcknowledgeRequest {
 
     public String getResponseMessage() { return responseMessage; }
     public void setResponseMessage(String responseMessage) { this.responseMessage = responseMessage; }
+
+    public String getResponseType() { return responseType; }
+    public void setResponseType(String responseType) { this.responseType = responseType; }
 }
