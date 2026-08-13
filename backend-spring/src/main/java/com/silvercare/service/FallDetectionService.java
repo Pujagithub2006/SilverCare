@@ -150,12 +150,12 @@ public class FallDetectionService {
         AlertRecord alert = new AlertRecord(alertId, elderlyId, deviceId, beltType != null ? beltType : "Waist Belt", "PREFALL", "PENDING_ACK", audioMsg, lat, lng);
         alertRecordRepository.save(alert);
 
-        // Send Prefall SMS with vitals (HR ~118, SpO2 ~94, Temp ~37.1) to Main Guardian & Neighbor
+        // Send Prefall SMS with vitals (HR ~118, SpO2 ~94, Temp ~37.1) and GPS to Main Guardian & Neighbor
         if (mainPhone != null && !mainPhone.isEmpty()) {
-            twilioService.sendPrefallSms(mainPhone, elderlyName, location, 118, 94, 37.1);
+            twilioService.sendPrefallSms(mainPhone, elderlyName, location, 118, 94, 37.1, lat, lng);
         }
         if (neighborPhone != null && !neighborPhone.isEmpty()) {
-            twilioService.sendPrefallSms(neighborPhone, elderlyName, location, 118, 94, 37.1);
+            twilioService.sendPrefallSms(neighborPhone, elderlyName, location, 118, 94, 37.1, lat, lng);
         }
 
         // Encrypt & Save to Firebase
@@ -189,13 +189,13 @@ public class FallDetectionService {
 
         // 1. Send SMS & Call Main Guardian
         if (mainPhone != null && !mainPhone.isEmpty()) {
-            twilioService.sendFallAlertSms(mainPhone, elderlyName, location, deviceId);
+            twilioService.sendFallAlertSms(mainPhone, elderlyName, location, deviceId, lat, lng);
             twilioService.makeEmergencyCall(mainPhone, elderlyName, location);
         }
 
         // 2. Send SMS & Call Neighbor immediately
         if (neighborPhone != null && !neighborPhone.isEmpty()) {
-            twilioService.sendFallAlertSms(neighborPhone, elderlyName, location + " (Neighbor Emergency Alert)", deviceId);
+            twilioService.sendFallAlertSms(neighborPhone, elderlyName, location + " (Neighbor Emergency Alert)", deviceId, lat, lng);
             twilioService.makeNeighborCall(neighborPhone, elderlyName, location);
         }
 

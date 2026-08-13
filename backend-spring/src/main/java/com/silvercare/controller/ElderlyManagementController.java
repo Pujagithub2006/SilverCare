@@ -913,17 +913,34 @@ public class ElderlyManagementController {
     @PostMapping("/api/location/request/{elderlyId}")
     public ResponseEntity<ApiResponse<Object>> requestLocation(@PathVariable String elderlyId) {
         try {
-            // This will trigger the ESP32 to send GPS location via SMS
-            // The ESP32 polls this endpoint or receives a signal to send location
+            // Get elderly information
+            Elderly elderly = elderlyRepository.findByElderlyId(elderlyId).orElse(null);
+            if (elderly == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                    ApiResponse.error("Elderly not found"));
+            }
+
+            // Get elderly phone number
+            String elderlyPhone = elderly.getPhone();
+            if (elderlyPhone == null || elderlyPhone.trim().isEmpty()) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                    ApiResponse.error("Elderly phone number not configured"));
+            }
+
+            // Send SMS to elderly requesting GPS location
+            boolean smsSent = twilioService.sendLocationRequestSms(elderlyPhone, elderly.getName());
+            
             Map<String, Object> data = new LinkedHashMap<>();
             data.put("elderlyId", elderlyId);
             data.put("requestTime", LocalDateTime.now());
-            data.put("status", "LOCATION_REQUESTED");
-            data.put("message", "Location request sent to device. GPS coordinates will be sent via SMS.");
+            data.put("status", smsSent ? "LOCATION_REQUESTED" : "SMS_FAILED");
+            data.put("message", smsSent 
+                ? "Location request sent via SMS. GPS coordinates will be sent when available."
+                : "Failed to send location request SMS");
 
             return ResponseEntity.ok(ApiResponse.builder()
-                .status("success")
-                .message("Location request sent successfully")
+                .status(smsSent ? "success" : "error")
+                .message(smsSent ? "Location request sent successfully" : "Failed to send SMS")
                 .data(data)
                 .build());
         } catch (Exception e) {
