@@ -63,14 +63,18 @@ public class TwilioService {
         return formatPhoneNumber(fromPhone);
     }
 
-    public boolean sendFallAlertSms(String guardianPhone, String elderlyName, String location, String deviceId) {
+    public boolean sendFallAlertSms(String guardianPhone, String elderlyName, String location, String deviceId, Double lat, Double lng) {
         String targetPhone = formatPhoneNumber(guardianPhone);
         String senderPhone = getFormattedFromPhone();
         if (targetPhone == null || targetPhone.isEmpty()) return false;
         try {
+            String locationText = location;
+            if (lat != null && lng != null) {
+                locationText = String.format("GPS: %.6f, %.6f (%s)", lat, lng, location != null ? location : "Home");
+            }
             String bodyText = String.format(
                     "SILVERCARE ALERT: Fall detected for %s at %s (Device: %s). Please check on them immediately.",
-                    elderlyName != null ? elderlyName : "Senior", location != null ? location : "Home", deviceId != null ? deviceId : "Belt");
+                    elderlyName != null ? elderlyName : "Senior", locationText, deviceId != null ? deviceId : "Belt");
             Message message = Message.creator(
                     new PhoneNumber(targetPhone),
                     new PhoneNumber(senderPhone),
@@ -165,16 +169,33 @@ public class TwilioService {
         }
     }
 
-    public boolean sendPrefallSms(String toPhone, String elderlyName, String location, Number hr, Number spo2, Number temp) {
+    public boolean sendPrefallSms(String toPhone, String elderlyName, String location, Number hr, Number spo2, Number temp, Double lat, Double lng) {
         String targetPhone = formatPhoneNumber(toPhone);
         if (targetPhone == null || targetPhone.isEmpty()) return false;
+        
+        String locationText = location;
+        if (lat != null && lng != null) {
+            locationText = String.format("GPS: %.6f, %.6f (%s)", lat, lng, location != null ? location : "Home");
+        }
+        
         String msg = String.format(
                 "⚠️ PRE-FALL ALERT: Instability detected for %s at %s. Vitals: HR: %s BPM, SpO2: %s%%, Temp: %s°C. Please check immediately.",
                 elderlyName != null ? elderlyName : "Senior",
-                location != null ? location : "Home",
+                locationText,
                 hr != null ? hr : "--",
                 spo2 != null ? spo2 : "--",
                 temp != null ? temp : "--"
+        );
+        return sendSms(targetPhone, msg);
+    }
+
+    public boolean sendLocationRequestSms(String elderlyPhone, String elderlyName) {
+        String targetPhone = formatPhoneNumber(elderlyPhone);
+        if (targetPhone == null || targetPhone.isEmpty()) return false;
+        
+        String msg = String.format(
+                "SilverCare: Your guardian has requested your current location. Please share your GPS coordinates if possible.",
+                elderlyName != null ? elderlyName : "Senior"
         );
         return sendSms(targetPhone, msg);
     }
