@@ -11,12 +11,12 @@
 To fast test, you can use the following sample login credentials:
 
 **Guardian**
-- Username: `sourabh`
-- Password: `123456`
+- Username: `Ruhi`
+- Password: `Ruhi@2006`
 
 **Elderly**
-- Full name: `Anil Shinde`
-- Phone no.: `7776956902`
+- Full name: `Jitendra`
+- Phone no.: `9011443024`
 
 ---
 
