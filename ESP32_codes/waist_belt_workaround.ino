@@ -8,20 +8,18 @@
 #include <WiFiClientSecure.h>
 #include <HTTPClient.h>
 #include <WebServer.h>
+#include <DNSServer.h>
 #include <SoftwareSerial.h>
 #include <ArduinoJson.h>
 #include <TinyGPS++.h>
 #include <tinyml_model.h>
 #include <driver/i2s.h>
 
-// ===== WIFI CONFIGURATION =====
-// Set your Wi-Fi or Phone Mobile Hotspot credentials here if not using Captive Portal
-#define DEFAULT_WIFI_SSID "YOUR WIFI"
-#define DEFAULT_WIFI_PASS "YOUR PASSWORD"
-
+// ===== WIFI CAPTIVE PORTAL CONFIGURATION =====
+// Pure auto-scan + web configuration portal (no hardcoded credentials)
 #define MAX_KNOWN_NETWORKS 10
 #define WIFI_SCAN_TIMEOUT 5000
-#define WIFI_CONNECT_TIMEOUT 10000
+#define WIFI_CONNECT_TIMEOUT 20000
 #define AP_SSID "SilverCare_Setup"
 #define AP_PASSWORD "silvercare123"
 
@@ -125,6 +123,8 @@ int knownNetworkCount = 0;
 Preferences wifiPrefs;
 Preferences devicePrefs;
 WebServer webServer(80);
+DNSServer dnsServer;
+const byte DNS_PORT = 53;
 bool apModeActive = false;
 unsigned long apModeStartTime = 0;
 const unsigned long AP_MODE_TIMEOUT = 300000; // 5 minutes
@@ -1460,9 +1460,11 @@ void sendAcknowledgmentToBackend() {
 // ===== WIFI MANAGER FUNCTIONS =====
 void loadKnownNetworks() {
   wifiPrefs.begin("wifi_networks", false);
-  knownNetworkCount = wifiPrefs.getInt("network_count", 0);
+  int count = wifiPrefs.getInt("network_count", 0);
+  knownNetworkCount = 0;
   
-  for (int i = 0; i < knownNetworkCount && i < MAX_KNOWN_NETWORKS; i++) {
+  // Load stored networks from NVS Flash (pure auto-load & deduplicating)
+  for (int i = 0; i < count && knownNetworkCount < MAX_KNOWN_NETWORKS; i++) {
     String key = "net_" + String(i);
     String data = wifiPrefs.getString(key.c_str(), "");
     
@@ -1470,38 +1472,57 @@ void loadKnownNetworks() {
     int sep2 = data.indexOf('|', sep1 + 1);
     
     if (sep1 > 0 && sep2 > sep1) {
-      knownNetworks[i].ssid = data.substring(0, sep1);
-      knownNetworks[i].password = data.substring(sep1 + 1, sep2);
-      knownNetworks[i].priority = data.substring(sep2 + 1).toInt();
+      String s = data.substring(0, sep1);
+      s.trim();
+      String p = data.substring(sep1 + 1, sep2);
+      p.trim();
+      int prio = data.substring(sep2 + 1).toInt();
+      
+      // Prevent duplicates
+      bool exists = false;
+      for (int k = 0; k < knownNetworkCount; k++) {
+        if (knownNetworks[k].ssid.equalsIgnoreCase(s)) {
+          exists = true;
+          break;
+        }
+      }
+      if (!exists && s.length() > 0) {
+        knownNetworks[knownNetworkCount].ssid = s;
+        knownNetworks[knownNetworkCount].password = p;
+        knownNetworks[knownNetworkCount].priority = prio;
+        knownNetworkCount++;
+      }
     }
   }
   
   wifiPrefs.end();
-  
-  // Inject default WiFi credentials if defined and no networks were saved yet
-  if (knownNetworkCount == 0 && String(DEFAULT_WIFI_SSID).length() > 0) {
-    knownNetworks[0].ssid = DEFAULT_WIFI_SSID;
-    knownNetworks[0].password = DEFAULT_WIFI_PASS;
-    knownNetworks[0].priority = 10;
-    knownNetworkCount = 1;
-    Serial.println("Configured default WiFi: " + String(DEFAULT_WIFI_SSID));
+  Serial.println("========================================");
+  Serial.println("[NVS FLASH] Loaded " + String(knownNetworkCount) + " unique saved WiFi network(s):");
+  for (int i = 0; i < knownNetworkCount; i++) {
+    Serial.println("  [" + String(i) + "] SSID: \"" + knownNetworks[i].ssid + "\" (len: " + String(knownNetworks[i].ssid.length()) + ")");
   }
-  
-  Serial.println("Loaded " + String(knownNetworkCount) + " known WiFi networks");
+  Serial.println("========================================");
 }
 
 void saveKnownNetwork(String ssid, String password, int priority = 5) {
+  ssid.trim();
+  password.trim();
+  if (ssid.length() == 0) return;
+
+  bool found = false;
   // Check if already exists
   for (int i = 0; i < knownNetworkCount; i++) {
-    if (knownNetworks[i].ssid == ssid) {
+    if (knownNetworks[i].ssid.equalsIgnoreCase(ssid)) {
+      knownNetworks[i].ssid = ssid;
       knownNetworks[i].password = password;
       knownNetworks[i].priority = priority;
+      found = true;
       break;
     }
   }
   
   // Add new if not found and space available
-  if (knownNetworkCount < MAX_KNOWN_NETWORKS) {
+  if (!found && knownNetworkCount < MAX_KNOWN_NETWORKS) {
     knownNetworks[knownNetworkCount].ssid = ssid;
     knownNetworks[knownNetworkCount].password = password;
     knownNetworks[knownNetworkCount].priority = priority;
@@ -1519,11 +1540,27 @@ void saveKnownNetwork(String ssid, String password, int priority = 5) {
   }
   
   wifiPrefs.end();
-  Serial.println("Saved network: " + ssid);
+  Serial.println("[WIFI SAVED]: " + ssid + " (Total known networks: " + String(knownNetworkCount) + ")");
 }
 
 bool connectToNetwork(String ssid, String password) {
-  Serial.println("Connecting to: " + ssid);
+  ssid.trim();
+  password.trim();
+  if (ssid.length() == 0) return false;
+
+  Serial.println("========================================");
+  Serial.println("[WIFI CONNECTING] SSID: \"" + ssid + "\"");
+  
+  // Temporarily pause any active BLE scan during Wi-Fi connection handshake
+  NimBLEScan* pScan = NimBLEDevice::getScan();
+  if (pScan && pScan->isScanning()) {
+    pScan->stop();
+  }
+  
+  WiFi.disconnect();
+  delay(100);
+  WiFi.mode(WIFI_STA);
+  delay(100);
   
   if (password.length() > 0) {
     WiFi.begin(ssid.c_str(), password.c_str());
@@ -1536,179 +1573,232 @@ bool connectToNetwork(String ssid, String password) {
     delay(500);
     Serial.print(".");
   }
+  Serial.println();
   
   if (WiFi.status() == WL_CONNECTED) {
-    Serial.println("\nConnected to: " + ssid);
-    Serial.print("IP Address: ");
+    Serial.println("========================================");
+    Serial.println(">>> [WIFI CONNECTED SUCCESSFULLY] <<<");
+    Serial.println("SSID       : " + ssid);
+    Serial.print  ("IP Address : ");
     Serial.println(WiFi.localIP());
-    
-    // Save successful connection
-    saveKnownNetwork(ssid, password, 10);
+    Serial.print  ("Signal RSSI: ");
+    Serial.print(WiFi.RSSI());
+    Serial.println(" dBm");
+    Serial.println("========================================");
     return true;
   } else {
-    Serial.println("\nFailed to connect to: " + ssid);
+    Serial.println("========================================");
+    Serial.print("[WIFI CONNECT FAILED] Status code: ");
+    int st = WiFi.status();
+    Serial.print(st);
+    if (st == WL_NO_SSID_AVAIL) Serial.println(" (WL_NO_SSID_AVAIL - Hotspot not in range or 5GHz)");
+    else if (st == WL_CONNECT_FAILED) Serial.println(" (WL_CONNECT_FAILED - Wrong password)");
+    else if (st == WL_DISCONNECTED) Serial.println(" (WL_DISCONNECTED - Timed out or refused)");
+    else Serial.println();
+    Serial.println("========================================");
     return false;
   }
 }
 
 bool scanAndConnect() {
-  Serial.println("Scanning for WiFi networks...");
+  Serial.println("========================================");
+  Serial.println("[WIFI] Scanning and checking nearby Wi-Fi networks...");
+  Serial.println("========================================");
   
+  WiFi.disconnect(true);
+  delay(100);
+  WiFi.mode(WIFI_OFF);
+  delay(100);
+  WiFi.mode(WIFI_STA);
+  delay(100);
+
   int n = WiFi.scanNetworks();
-  Serial.println("Found " + String(n) + " networks");
+  Serial.println("[WIFI] Found " + String(n) + " visible network(s):");
   
   if (n == 0) {
-    Serial.println("No networks found");
-    return false;
-  }
-  
-  // First, try known networks (sorted by priority)
-  for (int i = 0; i < knownNetworkCount; i++) {
+    Serial.println("[WIFI] No networks detected in the area.");
+  } else {
     for (int j = 0; j < n; j++) {
-      if (WiFi.SSID(j) == knownNetworks[i].ssid) {
-        Serial.println("Found known network: " + knownNetworks[i].ssid);
-        if (connectToNetwork(knownNetworks[i].ssid, knownNetworks[i].password)) {
-          WiFi.scanDelete();
-          return true;
+      String sec = (WiFi.encryptionType(j) == WIFI_AUTH_OPEN) ? "OPEN" : "SECURED";
+      Serial.println("  (" + String(j + 1) + ") \"" + WiFi.SSID(j) + "\" [" + String(WiFi.RSSI(j)) + " dBm] " + sec);
+    }
+  }
+
+  // 1. Check if any scanned network matches our saved networks
+  if (knownNetworkCount > 0 && n > 0) {
+    for (int i = 0; i < knownNetworkCount; i++) {
+      for (int j = 0; j < n; j++) {
+        String scannedSSID = WiFi.SSID(j);
+        scannedSSID.trim();
+        if (scannedSSID.equalsIgnoreCase(knownNetworks[i].ssid)) {
+          Serial.println("[WIFI MATCH] Found saved network: \"" + knownNetworks[i].ssid + "\" -> Connecting now...");
+          if (connectToNetwork(knownNetworks[i].ssid, knownNetworks[i].password)) {
+            WiFi.scanDelete();
+            return true;
+          }
         }
       }
     }
   }
-  
-  // Second, try open networks (no password)
-  for (int i = 0; i < n; i++) {
-    if (WiFi.encryptionType(i) == WIFI_AUTH_OPEN) {
-      String ssid = WiFi.SSID(i);
-      Serial.println("Found open network: " + ssid);
-      if (connectToNetwork(ssid, "")) {
-        WiFi.scanDelete();
+
+  // 2. Direct connection attempt to all saved networks (in case hotspot is not broadcasting beacons)
+  if (knownNetworkCount > 0) {
+    for (int i = 0; i < knownNetworkCount; i++) {
+      Serial.println("[WIFI DIRECT] Trying direct connection to saved: \"" + knownNetworks[i].ssid + "\"...");
+      if (connectToNetwork(knownNetworks[i].ssid, knownNetworks[i].password)) {
+        if (n > 0) WiFi.scanDelete();
         return true;
       }
     }
   }
-  
-  // Third, try any network with common passwords
-  const char* commonPasswords[] = {"", "12345678", "password", "1234567890"};
-  for (int i = 0; i < n; i++) {
-    String ssid = WiFi.SSID(i);
-    for (int j = 0; j < 4; j++) {
-      if (connectToNetwork(ssid, commonPasswords[j])) {
-        WiFi.scanDelete();
-        return true;
+
+  // 3. Fallback: check for any open networks (no password)
+  if (n > 0) {
+    for (int j = 0; j < n; j++) {
+      if (WiFi.encryptionType(j) == WIFI_AUTH_OPEN) {
+        String openSSID = WiFi.SSID(j);
+        openSSID.trim();
+        if (openSSID.length() > 0 && !openSSID.startsWith("SilverCare")) {
+          Serial.println("[WIFI OPEN] Found open public network: \"" + openSSID + "\" -> Connecting...");
+          if (connectToNetwork(openSSID, "")) {
+            WiFi.scanDelete();
+            return true;
+          }
+        }
       }
     }
+    WiFi.scanDelete();
   }
-  
-  WiFi.scanDelete();
-  Serial.println("Could not connect to any network");
+
+  Serial.println("[WIFI] Could not connect to any network.");
   return false;
 }
 
 // ===== CAPTIVE PORTAL =====
 void handleRoot() {
-  String html = "<!DOCTYPE html>";
-  html += "<html><head>";
-  html += "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">";
-  html += "<title>SilverCare WiFi Setup</title>";
+  String html = "<!DOCTYPE html><html><head>";
+  html += "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1, user-scalable=no\">";
+  html += "<title>SilverCare Belt Setup</title>";
   html += "<style>";
-  html += "body{font-family:Arial,sans-serif;margin:20px;background:#f5f5f5;}";
-  html += ".container{max-width:400px;margin:0 auto;background:white;padding:30px;border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,0.1);}";
-  html += "h1{color:#333;text-align:center;}";
-  html += "label{display:block;margin:10px 0 5px;color:#666;}";
-  html += "input{width:100%;padding:10px;margin:5px 0;border:1px solid #ddd;border-radius:5px;box-sizing:border-box;}";
-  html += "button{width:100%;padding:12px;background:#4CAF50;color:white;border:none;border-radius:5px;cursor:pointer;font-size:16px;margin-top:10px;}";
-  html += "button:hover{background:#45a049;}";
-  html += ".network-list{margin:20px 0;padding:10px;background:#f9f9f9;border-radius:5px;}";
-  html += ".network-item{padding:8px;margin:5px 0;background:white;border-radius:3px;}";
+  html += "* { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }";
+  html += "body { margin: 0; padding: 20px; background: #0f172a; color: #f8fafc; }";
+  html += ".card { max-width: 420px; margin: 0 auto; background: #1e293b; padding: 24px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.4); border: 1px solid #334155; }";
+  html += "h1 { margin-top: 0; font-size: 22px; color: #38bdf8; text-align: center; font-weight: 700; }";
+  html += "p { color: #94a3b8; font-size: 14px; text-align: center; margin-bottom: 20px; }";
+  html += ".section-title { font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; color: #64748b; font-weight: 600; margin-bottom: 8px; }";
+  html += ".network-list { max-height: 180px; overflow-y: auto; background: #0f172a; border-radius: 10px; padding: 6px; border: 1px solid #334155; margin-bottom: 16px; }";
+  html += ".net-btn { width: 100%; display: flex; justify-content: space-between; align-items: center; background: #1e293b; border: 1px solid #334155; color: #e2e8f0; padding: 10px 14px; border-radius: 8px; margin-bottom: 6px; cursor: pointer; text-align: left; font-size: 14px; transition: all 0.2s; }";
+  html += ".net-btn:hover, .net-btn:active { background: #38bdf8; color: #0f172a; font-weight: 600; }";
+  html += ".signal { font-size: 12px; opacity: 0.8; }";
+  html += "label { display: block; margin: 12px 0 6px; color: #cbd5e1; font-size: 13px; font-weight: 500; }";
+  html += "input { width: 100%; padding: 12px 14px; background: #0f172a; border: 1px solid #334155; border-radius: 10px; color: #f8fafc; font-size: 15px; }";
+  html += "input:focus { outline: none; border-color: #38bdf8; }";
+  html += ".btn-submit { width: 100%; padding: 14px; background: #2563eb; color: white; border: none; border-radius: 10px; font-size: 16px; font-weight: 600; cursor: pointer; margin-top: 20px; }";
+  html += ".btn-submit:hover { background: #1d4ed8; }";
+  html += ".hint { font-size: 12px; color: #64748b; text-align: center; margin-top: 14px; }";
   html += "</style></head><body>";
-  html += "<div class=\"container\">";
-  html += "<h1>SilverCare WiFi Setup</h1>";
-  html += "<p>Configure your WiFi connection:</p>";
-  
-  // Show available networks
-  html += "<div class=\"network-list\"><strong>Available Networks:</strong><br>";
+  html += "<div class=\"card\">";
+  html += "<h1>SilverCare Setup</h1>";
+  html += "<p>Select the elderly's home Wi-Fi network to connect this Smart Belt.</p>";
+  html += "<div class=\"section-title\">Detected Wi-Fi Networks</div>";
+  html += "<div class=\"network-list\">";
+
   int n = WiFi.scanNetworks();
-  for (int i = 0; i < n && i < 10; i++) {
-    html += "<div class=\"network-item\">" + WiFi.SSID(i) + " (" + String(WiFi.RSSI(i)) + " dBm)</div>";
+  if (n == 0) {
+    html += "<div style=\"color:#94a3b8;padding:12px;text-align:center;font-size:13px;\">No networks detected. Enter SSID below.</div>";
+  } else {
+    for (int i = 0; i < n && i < 15; i++) {
+      String ssid = WiFi.SSID(i);
+      int rssi = WiFi.RSSI(i);
+      if (ssid.length() > 0) {
+        html += "<button type=\"button\" class=\"net-btn\" onclick=\"pickNet('" + ssid + "')\">";
+        html += "<span>" + ssid + "</span>";
+        html += "<span class=\"signal\">" + String(rssi) + " dBm</span>";
+        html += "</button>";
+      }
+    }
   }
   html += "</div>";
-  
+
   html += "<form action=\"/save\" method=\"POST\">";
-  html += "<label>WiFi Network Name (SSID):</label>";
-  html += "<input type=\"text\" name=\"ssid\" required placeholder=\"Enter WiFi name\">";
-  html += "<label>WiFi Password:</label>";
-  html += "<input type=\"password\" name=\"password\" placeholder=\"Enter password\">";
-  html += "<button type=\"submit\">Connect & Save</button>";
+  html += "<label>Wi-Fi Name (SSID):</label>";
+  html += "<input type=\"text\" id=\"ssid_input\" name=\"ssid\" required placeholder=\"Tap a network above or type SSID\">";
+  html += "<label>Wi-Fi Password:</label>";
+  html += "<input type=\"password\" id=\"pwd_input\" name=\"password\" placeholder=\"Enter Wi-Fi password\">";
+  html += "<button type=\"submit\" class=\"btn-submit\">Connect & Save to Belt</button>";
   html += "</form>";
-  html += "</div></body></html>";
-  
+  html += "<div class=\"hint\">Credentials will be saved into belt memory. The belt connects automatically from now on.</div>";
+  html += "</div>";
+  html += "<script>function pickNet(s){document.getElementById('ssid_input').value=s;document.getElementById('pwd_input').focus();}</script>";
+  html += "</body></html>";
+
   webServer.send(200, "text/html", html);
 }
 
 void handleSave() {
   String ssid = webServer.arg("ssid");
   String password = webServer.arg("password");
+  ssid.trim();
+  password.trim();
   
-  Serial.println("Received WiFi credentials:");
-  Serial.println("SSID: " + ssid);
-  Serial.print("Password: ");
-  Serial.println(password.length() > 0 ? "***" : "(open)");
+  Serial.println("[CAPTIVE PORTAL] Received Wi-Fi credentials for: " + ssid);
   
-  // Save the network
+  // Save the network permanently to flash memory
   saveKnownNetwork(ssid, password, 10);
   
-  // Try to connect
-  webServer.send(200, "text/html", "<html><body><h1>Connecting...</h1><p>Attempting to connect to " + ssid + "</p><p>Device will restart in 5 seconds...</p></body></html>");
+  String html = "<!DOCTYPE html><html><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">";
+  html += "<style>body{margin:0;padding:30px;background:#0f172a;color:#f8fafc;font-family:sans-serif;text-align:center;}</style></head>";
+  html += "<body><h2 style='color:#38bdf8;'>Wi-Fi Saved!</h2>";
+  html += "<p>Connecting to <b>" + ssid + "</b>...</p>";
+  html += "<p style='color:#94a3b8;'>Belt will reboot in 2 seconds to connect cleanly. Please ensure your hotspot is turned on.</p>";
+  html += "</body></html>";
+  webServer.send(200, "text/html", html);
   
   delay(2000);
-  
-  // Disable AP mode and try to connect
-  apModeActive = false;
-  webServer.stop();
-  WiFi.softAPdisconnect(true);
-  
-  // Try to connect with new credentials
-  if (connectToNetwork(ssid, password)) {
-    Serial.println("Successfully connected to configured network");
-  } else {
-    Serial.println("Failed to connect, will retry in loop");
-  }
+  Serial.println("[CAPTIVE PORTAL] Rebooting ESP32 to connect cleanly to: " + ssid);
+  ESP.restart();
 }
 
 void startCaptivePortal() {
+  if (apModeActive) return;
+
   Serial.println("========================================");
-  Serial.println("STARTING CAPTIVE PORTAL MODE");
+  Serial.println("[CAPTIVE PORTAL] Starting AP Mode");
   Serial.println("========================================");
   
   WiFi.mode(WIFI_AP_STA);
   
-  // Start AP
   if (WiFi.softAP(AP_SSID, AP_PASSWORD)) {
-    Serial.println("AP Mode Started");
-    Serial.print("AP IP Address: ");
-    Serial.println(WiFi.softAPIP());
-    Serial.println("Connect to: " + String(AP_SSID));
+    Serial.println("Hotspot created: " + String(AP_SSID));
+    Serial.println("IP: " + WiFi.softAPIP().toString());
     Serial.println("Password: " + String(AP_PASSWORD));
-    Serial.println("Then open: http://" + WiFi.softAPIP().toString());
   } else {
     Serial.println("Failed to start AP mode");
     return;
   }
   
-  // Setup web server
+  // Start DNS Server on port 53 for automatic captive portal popup on phones
+  dnsServer.setErrorReplyCode(DNSReplyCode::NoError);
+  dnsServer.start(DNS_PORT, "*", WiFi.softAPIP());
+
+  // Setup Web Server routes
   webServer.on("/", handleRoot);
   webServer.on("/save", HTTP_POST, handleSave);
+  webServer.onNotFound([]() {
+    webServer.sendHeader("Location", "/", true);
+    webServer.send(302, "text/plain", "");
+  });
   webServer.begin();
   
   apModeActive = true;
   apModeStartTime = millis();
-  
-  Serial.println("Web server started on port 80");
+  Serial.println("Captive portal web server & DNS ready");
   Serial.println("========================================");
 }
 
 void stopCaptivePortal() {
   if (apModeActive) {
+    dnsServer.stop();
     webServer.stop();
     WiFi.softAPdisconnect(true);
     apModeActive = false;
@@ -1723,20 +1813,25 @@ void setupWiFi() {
   
   WiFi.mode(WIFI_STA);
   
-  // Load known networks from preferences
+  // Load saved networks from preferences
   loadKnownNetworks();
   
-  // Try to connect
-  if (!scanAndConnect()) {
-    Serial.println("Initial connection failed, starting captive portal");
-    startCaptivePortal();
+  // Always scan and check each network first before starting captive portal!
+  if (scanAndConnect()) {
+    Serial.println(">>> Connected to Wi-Fi successfully! <<<");
+    return;
   }
   
+  // If nothing connects, start the captive portal
   Serial.println("========================================");
+  Serial.println("Could not connect to any network. Starting Captive Portal...");
+  Serial.println("========================================");
+  startCaptivePortal();
 }
 
 void manageWiFiConnection() {
   static unsigned long lastScanTime = 0;
+  static int consecutiveFailures = 0;
   
   // Handle captive portal timeout
   if (apModeActive && millis() - apModeStartTime > AP_MODE_TIMEOUT) {
@@ -1744,13 +1839,15 @@ void manageWiFiConnection() {
     stopCaptivePortal();
   }
   
-  // Serve web server if in AP mode
+  // Serve web server and DNS if in AP mode
   if (apModeActive) {
+    dnsServer.processNextRequest();
     webServer.handleClient();
     return;
   }
   
   if (WiFi.status() == WL_CONNECTED) {
+    consecutiveFailures = 0;
     // Periodically scan for better networks
     if (millis() - lastScanTime > WIFI_SCAN_INTERVAL) {
       lastScanTime = millis();
@@ -1764,9 +1861,18 @@ void manageWiFiConnection() {
     Serial.println("WiFi disconnected, attempting reconnection...");
     lastWiFiReconnectAttempt = now;
     
-    // Try automatic connection first
-    if (!scanAndConnect()) {
-      Serial.println("Auto-connection failed, starting captive portal");
+    if (scanAndConnect()) {
+      Serial.println("Reconnected to Wi-Fi!");
+      consecutiveFailures = 0;
+      return;
+    }
+    
+    consecutiveFailures++;
+    Serial.println("[WIFI] Reconnection attempt failed (Count: " + String(consecutiveFailures) + "/2)");
+    
+    // If failed 2 consecutive cycles, start Captive Portal so user can configure without getting locked out
+    if (consecutiveFailures >= 2) {
+      Serial.println("[WIFI FALLBACK] Failed 2 reconnection cycles. Starting Captive Portal...");
       startCaptivePortal();
     }
   }
@@ -1866,11 +1972,11 @@ bool connectToWristBand() {
     NimBLEScan* pScan = NimBLEDevice::getScan();
     pScan->setActiveScan(true);
     pScan->setInterval(100);
-    pScan->setWindow(99);
+    pScan->setWindow(50); // 50% duty cycle allows Wi-Fi to use the 2.4GHz radio concurrently
 
-    // Start scan with longer duration (15 seconds)
-    pScan->start(15, false);
-    delay(100);
+    // Scan for 3 seconds instead of 15 seconds to prevent radio starvation
+    pScan->start(3, false);
+    delay(50);
 
     // Get results
     NimBLEScanResults results = pScan->getResults();
@@ -2094,8 +2200,7 @@ void sendDataToBackend() {
         }
         http.end();
     } else {
-        Serial.println("WiFi Disconnected");
-        manageWiFiConnection();
+        Serial.println("WiFi Disconnected - waiting for connection...");
     }
 }
 
@@ -2301,9 +2406,10 @@ void setup() {
 void loop() {
   unsigned long now = millis();
 
-  // Try to connect to wrist band if not connected
+  // Try to connect to wrist band if not connected (give Wi-Fi priority if not connected)
   static unsigned long lastBLEConnectAttempt = 0;
-  if (!connected && now - lastBLEConnectAttempt > 10000) { // Try every 10 seconds (was 30)
+  unsigned long bleInterval = (WiFi.status() == WL_CONNECTED) ? 15000 : 30000;
+  if (!connected && now - lastBLEConnectAttempt > bleInterval) {
     connectToWristBand();
     lastBLEConnectAttempt = now;
   }
