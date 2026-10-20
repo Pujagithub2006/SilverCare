@@ -34,8 +34,8 @@ SoftwareSerial gsmSerial(GSM_RX_PIN, GSM_TX_PIN);
 #define BUZZER_PIN 25        // Mapped to MAX98357A Audio DIN Pin (D25)
 #define MPU6050_SDA 21       // MPU6050 SDA pin (D21)
 #define MPU6050_SCL 22       // MPU6050 SCL pin (D22)
-#define GPS_RX_PIN 16        // GPS TX -> ESP32 RX (D16)
-#define GPS_TX_PIN 17        // GPS RX -> ESP32 TX (D17)
+#define GPS_RX_PIN 17        // GPS RX -> ESP32 TX2 (D17)
+#define GPS_TX_PIN 16        // GPS TX -> ESP32 RX2 (D16)
 #define DS18B20_PIN 4        // DS18B20 OneWire Temperature sensor pin
 
 // MAX98357A I2S Speaker Amplifier Pins
