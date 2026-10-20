@@ -301,17 +301,6 @@ void playSpeakerAnnouncement(String alertType) {
     }
 }
 
-void playSpeakerHelpLoop() {
-    if (currentAlertState == FALL_ALERT && !guardianAcknowledged) {
-        unsigned long now = millis();
-        if (now - lastHelpSpeakerTime > HELP_SPEAKER_INTERVAL) {
-            lastHelpSpeakerTime = now;
-            Serial.println("[SPEAKER HELP LOOP]: Playing Help! Help! announcement");
-            playSpeakerAnnouncement("HELP_LOOP");
-        }
-    }
-}
-
 // ===== MICROPHONE RECORDING =====
 void triggerAutoVoiceRecording(String alertType) {
     micAutoTriggered = true;
