@@ -2,7 +2,8 @@
 
 ###  Deployed System
 
-- **Frontend & Complete Website (Vercel):** https://silver-care-eta.vercel.app/
+- **Frontend & Complete Website (Vercel - React):** https://silver-care-eta.vercel.app/
+- **Backend API (Render - Spring Boot):** https://silvercare-backend-wq2r.onrender.com
 
 > Use the **frontend link** to share the full SilverCare system (frontend UI powered by the backend API) with users; the **backend link** is provided for developers needing direct API access.
 
@@ -79,11 +80,10 @@ While many tracking systems exist, they fall short because:
 
 ###  Software Stack
 *   **Frontend:** React.js (Vite, styled with custom Vanilla CSS for modern glassmorphism dashboards)
-*   **Backend:** Spring Boot (Java 17, Maven)
-*   **Database:** Persistent H2 File Database (`jdbc:h2:file:./silvercaredb;AUTO_SERVER=TRUE`, disk file `silvercaredb.mv.db`)
-*   **Security & Encrypted Storage:** `FirebaseEncryptionService` (Internal AES-256 encrypted storage service using AES/CBC/PKCS5Padding)
+*   **Backend:** Spring Boot (Java 17, Maven, REST APIs)
+*   **Database:** Neon PostgreSQL (Cloud PostgreSQL Database with SSL-secured connection)
 *   **Communication APIs:** Twilio API (voice calling and SMS alerts), GSM serial modules.
-*   **Deployment:** Docker, Docker Compose, Vercel (Frontend), Render (Backend).
+*   **Deployment:** Dockerized Spring Boot backend deployed on Render, React frontend deployed on Vercel, and managed PostgreSQL database hosted on Neon.
 
 ---
 

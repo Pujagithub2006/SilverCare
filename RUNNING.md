@@ -11,7 +11,7 @@ This document provides a step‑by‑step guide to set up and run the **SilverCa
 - **Docker** & **Docker Compose** (optional but recommended for containerised services).
 - **Arduino IDE** for flashing the ESP32 firmware.
 - **Twilio account** (or GSM module) credentials for SMS/voice alerts.
-- **PostgreSQL** (local or Docker) for persistent storage.
+- **PostgreSQL** database (Neon PostgreSQL recommended for cloud deployment, or local PostgreSQL for development).
 - **Firebase** project (real‑time DB & auth) for sensor data synchronization.
 
 ## 1️⃣ Clone the repository
@@ -30,17 +30,23 @@ cd backend-spring
 mvn clean package -DskipTests
 ```
 
-### b) Run with Docker Compose (recommended)
+### b) Run locally with Docker
+Docker is used only for containerizing the backend service. The database connection is configured through environment variables.
 
 Create a `.env` file inside `backend-spring` containing the required secrets:
 
 ```dotenv
+DATABASE_URL=jdbc:postgresql://your-neon-host/neondb?sslmode=require
+DATABASE_USERNAME=your_username
+DATABASE_PASSWORD=your_password
+
 TWILIO_ACCOUNT_SID=your_sid
 TWILIO_AUTH_TOKEN=your_token
-TWILIO_FROM_NUMBER=+1234567890
-POSTGRES_URL=jdbc:postgresql://postgres:5432/silvercare
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=postgres
+TWILIO_PHONE_NUMBER=+1234567890
+TWILIO_ENABLED=true
+
+GEMINI_API_KEY=your_key
+JWT_SECRET=your_secret
 ```
 
 Then start the stack:
@@ -66,7 +72,8 @@ npm install
 npm run dev   # Vite dev server at http://localhost:5173
 ```
 
-The frontend reads the backend URL from the environment variable `VITE_API_BASE_URL` (defined in a `.env` file in this folder).
+The frontend reads the backend URL from the environment variable `VITE_API_BASE_URL`
+VITE_API_BASE_URL=https://silvercare-backend-wq2r.onrender.com
 
 ## 4️⃣ ESP32 Firmware
 
@@ -78,13 +85,19 @@ The frontend reads the backend URL from the environment variable `VITE_API_BASE_
 
 The firmware will POST sensor data to `/api/esp32/data` on the backend.
 
-## 5️⃣ Database setup (PostgreSQL)
+## 5️⃣ Database setup (Neon PostgreSQL)
 
-If you use Docker, the `docker-compose.yml` already starts a PostgreSQL container. Otherwise, run:
+SilverCare uses PostgreSQL for persistent storage.
 
-```bash
-docker run --name pg -e POSTGRES_PASSWORD=postgres -p 5432:5432 -d postgres:15
-```
+For cloud deployment:
+- Database is hosted on Neon PostgreSQL.
+- Backend connects using DATABASE_URL, DATABASE_USERNAME, and DATABASE_PASSWORD environment variables.
+
+For local development, provide your own PostgreSQL instance and update the environment variables accordingly.
+
+Hibernate automatically manages schema updates using:
+
+spring.jpa.hibernate.ddl-auto=update
 
 Run any DB migrations located in `backend-spring/src/main/resources/db/migration`.
 
@@ -109,14 +122,17 @@ export const firebaseConfig = {
 - The ESP32 should appear as a connected device and stream live sensor data.
 - Trigger a test alert via `POST /api/alert/test` and confirm the notification appears in the UI.
 
-## 8️⃣ Optional: Full Docker production deployment
+## 8️⃣ Production Deployment
 
-```bash
-docker compose -f docker-compose.prod.yml up -d
-```
+Current production deployment:
 
-This brings up PostgreSQL, the Spring Boot API, and the React UI behind a reverse‑proxy.
+Frontend:
+- Vercel
 
----
+Backend:
+- Render (Dockerized Spring Boot service)
 
-*If you encounter any issues, consult the project's issue tracker or the `README.md` for troubleshooting tips.*
+Database:
+- Neon PostgreSQL
+
+Environment variables are configured through the respective deployment platforms.
