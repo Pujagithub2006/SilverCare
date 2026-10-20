@@ -5,6 +5,7 @@
 #include <mbedtls/aes.h>
 #include <mbedtls/gcm.h>
 #include <WiFi.h>
+#include <WiFiClientSecure.h>
 #include <HTTPClient.h>
 #include <WebServer.h>
 #include <SoftwareSerial.h>
@@ -14,12 +15,25 @@
 #include <driver/i2s.h>
 
 // ===== WIFI CONFIGURATION =====
-// WiFi credentials are now managed automatically
+// Set your Wi-Fi or Phone Mobile Hotspot credentials here if not using Captive Portal
+#define DEFAULT_WIFI_SSID "YOUR WIFI"
+#define DEFAULT_WIFI_PASS "YOUR PASSWORD"
+
 #define MAX_KNOWN_NETWORKS 10
 #define WIFI_SCAN_TIMEOUT 5000
 #define WIFI_CONNECT_TIMEOUT 10000
 #define AP_SSID "SilverCare_Setup"
 #define AP_PASSWORD "silvercare123"
+
+// ===== SECURE HTTP CLIENT HELPER (RENDER HTTPS SUPPORT) =====
+inline void beginSecureHttp(HTTPClient& http, WiFiClientSecure& client, const String& url) {
+    if (url.startsWith("https://")) {
+        client.setInsecure(); // Bypass SSL verification for Render cloud server
+        http.begin(client, url);
+    } else {
+        http.begin(url);
+    }
+}
 
 // ===== GSM CONFIGURATION (SIM800L) =====
 // GSM RX connected to ESP32 D23 (TX), GSM TX connected to ESP32 D5 (RX)
@@ -487,8 +501,9 @@ void saveLocationToBackend(double lat, double lng) {
     url.replace("/api/sensor-data", "/api/location/save/");
     url += elderlyId;
     
+    WiFiClientSecure client;
     HTTPClient http;
-    http.begin(url);
+    beginSecureHttp(http, client, url);
     http.addHeader("Content-Type", "application/json");
     http.setTimeout(5000);
     
@@ -667,12 +682,14 @@ void getMLPrediction() {
     runTinyMLInferenceOnDevice();
 
     // 2. If online, send payload to cloud ML service to refine prediction & train continuous learning
-    if (WiFi.status() != WL_CONNECTED) {
+    // Skip if offline or if mlServiceUrl is configured to localhost (prevents 5s blocking delay on ESP32)
+    if (WiFi.status() != WL_CONNECTED || String(mlServiceUrl).indexOf("localhost") != -1) {
         return;
     }
 
+    WiFiClientSecure client;
     HTTPClient http;
-    http.begin(mlServiceUrl);
+    beginSecureHttp(http, client, mlServiceUrl);
     http.addHeader("Content-Type", "application/json");
     http.setTimeout(5000);
 
@@ -727,8 +744,9 @@ void fetchMitraChatHistoryForML() {
     url += elderlyId;
     url += "/ml-data";
     
+    WiFiClientSecure client;
     HTTPClient http;
-    http.begin(url);
+    beginSecureHttp(http, client, url);
     http.setTimeout(10000);
 
     int httpResponseCode = http.GET();
@@ -805,8 +823,9 @@ void markChatAsLearned(long chatId) {
     url += String(chatId);
     url += "/mark-learned";
     
+    WiFiClientSecure client;
     HTTPClient http;
-    http.begin(url);
+    beginSecureHttp(http, client, url);
     http.addHeader("Content-Type", "application/json");
     http.setTimeout(5000);
 
@@ -881,8 +900,9 @@ void notifyHospitalOfEmergency(String alertType, float heartRate, float spo2, fl
   url.replace("/api/sensor-data", "/api/emergency/notify-hospital/");
   url += elderlyId;
   
+  WiFiClientSecure client;
   HTTPClient http;
-  http.begin(url);
+  beginSecureHttp(http, client, url);
   http.addHeader("Content-Type", "application/json");
   http.setTimeout(5000);
   
@@ -988,8 +1008,9 @@ void checkLocationRequest() {
   url += elderlyId;
   url += "/check";
   
+  WiFiClientSecure client;
   HTTPClient http;
-  http.begin(url);
+  beginSecureHttp(http, client, url);
   http.setTimeout(5000);
   
   int httpResponseCode = http.GET();
@@ -1005,7 +1026,8 @@ void checkLocationRequest() {
       
       // Mark request as processed
       String ackUrl = url + "/acknowledge";
-      http.begin(ackUrl);
+      WiFiClientSecure ackClient;
+      beginSecureHttp(http, ackClient, ackUrl);
       http.POST("");
     }
   }
@@ -1025,8 +1047,9 @@ void fetchContactInfo() {
     url += elderlyId;
     url += "/contacts";
     
+    WiFiClientSecure client;
     HTTPClient http;
-    http.begin(url);
+    beginSecureHttp(http, client, url);
     http.setTimeout(10000);
 
     int httpResponseCode = http.GET();
@@ -1154,8 +1177,9 @@ void handleSOSButton() {
                 String url = String(serverUrl);
                 url.replace("/api/sensor-data", "/api/alerts/sos");
                 
+                WiFiClientSecure client;
                 HTTPClient http;
-                http.begin(url);
+                beginSecureHttp(http, client, url);
                 http.addHeader("Content-Type", "application/json");
                 String payload = "{\"deviceId\":\"" + DEVICE_ID + "\",\"elderlyId\":\"" + elderlyId + "\",\"alertType\":\"SOS_BUTTON\",\"latitude\":" + String(activeLat, 6) + ",\"longitude\":" + String(activeLng, 6) + "}";
                 http.POST(payload);
@@ -1202,8 +1226,9 @@ void handleMicrophoneRecording() {
             String url = String(serverUrl);
             url.replace("/api/sensor-data", "/api/alerts/voice-message");
             
+            WiFiClientSecure client;
             HTTPClient http;
-            http.begin(url);
+            beginSecureHttp(http, client, url);
             http.addHeader("Content-Type", "application/json");
             
             // Create JSON payload with audio data
@@ -1413,8 +1438,9 @@ void sendAcknowledgmentToBackend() {
     String url = String(serverUrl);
     url.replace("/api/sensor-data", "/api/alerts/acknowledge");
     
+    WiFiClientSecure client;
     HTTPClient http;
-    http.begin(url);
+    beginSecureHttp(http, client, url);
     http.addHeader("Content-Type", "application/json");
     http.setTimeout(10000);
 
@@ -1451,6 +1477,16 @@ void loadKnownNetworks() {
   }
   
   wifiPrefs.end();
+  
+  // Inject default WiFi credentials if defined and no networks were saved yet
+  if (knownNetworkCount == 0 && String(DEFAULT_WIFI_SSID).length() > 0) {
+    knownNetworks[0].ssid = DEFAULT_WIFI_SSID;
+    knownNetworks[0].password = DEFAULT_WIFI_PASS;
+    knownNetworks[0].priority = 10;
+    knownNetworkCount = 1;
+    Serial.println("Configured default WiFi: " + String(DEFAULT_WIFI_SSID));
+  }
+  
   Serial.println("Loaded " + String(knownNetworkCount) + " known WiFi networks");
 }
 
@@ -1988,8 +2024,9 @@ void updateSimulation() {
 // ===== SEND DATA TO BACKEND =====
 void sendDataToBackend() {
     if (WiFi.status() == WL_CONNECTED) {
+        WiFiClientSecure client;
         HTTPClient http;
-        http.begin(serverUrl);
+        beginSecureHttp(http, client, serverUrl);
         http.addHeader("Content-Type", "application/json");
         http.setTimeout(10000); // 10 second timeout
         http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
@@ -2129,9 +2166,10 @@ void registerDevice() {
     return;
   }
   
+  WiFiClientSecure client;
   HTTPClient http;
   String url = String(deviceApiUrl) + "/register";
-  http.begin(url);
+  beginSecureHttp(http, client, url);
   http.addHeader("Content-Type", "application/json");
   http.setTimeout(10000);
   http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
@@ -2164,9 +2202,10 @@ void sendHeartbeat() {
     return;
   }
   
+  WiFiClientSecure client;
   HTTPClient http;
   String url = String(deviceApiUrl) + "/" + DEVICE_ID + "/heartbeat";
-  http.begin(url);
+  beginSecureHttp(http, client, url);
   http.setTimeout(5000);
   http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
   
