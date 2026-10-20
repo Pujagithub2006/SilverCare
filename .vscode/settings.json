@@ -7,5 +7,6 @@
     "${workspaceFolder}/ml-service/api",
     "${workspaceFolder}/ml-service/training",
     "${workspaceFolder}/ml-service/models"
-  ]
+  ],
+  "java.configuration.updateBuildConfiguration": "interactive"
 }

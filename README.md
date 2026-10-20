@@ -1,12 +1,12 @@
 ## ♦ SilverCare: Proactive AI Platform for Elderly Assistance, Health Monitoring & Caregiver Support
 
-### 📦 Deployed System
+###  Deployed System
 
 - **Frontend & Complete Website (Vercel):** https://silver-care-eta.vercel.app/
 
 > Use the **frontend link** to share the full SilverCare system (frontend UI powered by the backend API) with users; the **backend link** is provided for developers needing direct API access.
 
-### ⚡ Quick Test Credentials
+###  Quick Test Credentials
 
 To fast test, you can use the following sample login credentials:
 
@@ -29,7 +29,7 @@ With the increasing elderly population, many senior citizens live alone without 
 *   **Unnoticed Instability & Prolonged Inactivity:** Gradual physical decline and abnormal patterns go undetected without continuous monitoring.
 *   **Medication Non-Adherence:** Forgetting or missing critical prescription doses leads to severe health relapses.
 
-### ❓ But, are there no existing solutions in the market?
+###  But, are there no existing solutions in the market?
 While many tracking systems exist, they fall short because:
 1.  **Fitness Focus Only:** Existing commercial products prioritize general fitness tracking over specific elderly risk detection.
 2.  **High False Positives:** Inaccurate readings erode trust in monitoring systems.
@@ -64,7 +64,7 @@ While many tracking systems exist, they fall short because:
 
 ## ♦ Technology Used
 
-### 🔌 Hardware & IoT
+###  Hardware & IoT
 *   **Microcontroller:** ESP32 (Low power, Wi-Fi/Bluetooth enabled)
 *   **Sensors:** 
     *   `MPU6050` (Motion, orientation, and fall detection)
@@ -73,21 +73,21 @@ While many tracking systems exist, they fall short because:
     *   `GPS Neo-6M` (Real-time location coordinate tracking)
 *   **Peripherals:** Speaker & Microphone (for emergency calls & AI companion), Buzzer (reminders).
 
-### 🤖 AI & Decision Logic
+###  AI & Decision Logic
 *   **Detection Engine:** Hybrid Decision Trees + Threshold Logic for real-time fall detection.
 *   **AI Companion:** Gemini API Integration (powering "Mitra" for emotional support and friendly chats).
 
-### 🌐 Software Stack
+###  Software Stack
 *   **Frontend:** React.js (Vite, styled with custom Vanilla CSS for modern glassmorphism dashboards)
 *   **Backend:** Spring Boot (Java 17, Maven)
 *   **Database:** Persistent H2 File Database (`jdbc:h2:file:./silvercaredb;AUTO_SERVER=TRUE`, disk file `silvercaredb.mv.db`)
 *   **Security & Encrypted Storage:** `FirebaseEncryptionService` (Internal AES-256 encrypted storage service using AES/CBC/PKCS5Padding)
 *   **Communication APIs:** Twilio API (voice calling and SMS alerts), GSM serial modules.
-*   **Deployment:** Docker, Docker Compose, Vercel (Frontend), Railway (Backend).
+*   **Deployment:** Docker, Docker Compose, Vercel (Frontend), Render (Backend).
 
 ---
 
-### 🖼️ Hardware & System Interface Gallery
+###  Hardware & System Interface Gallery
 
 Here is a walkthrough of our hardware prototype and the live system dashboard interfaces:
 

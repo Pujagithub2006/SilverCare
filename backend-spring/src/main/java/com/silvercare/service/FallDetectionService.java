@@ -70,7 +70,8 @@ public class FallDetectionService {
         String cleanId = deviceId.trim();
 
         String mappedUser = deviceCurrentUserMap.get(cleanId);
-        if (mappedUser != null) return mappedUser;
+        if (mappedUser != null)
+            return mappedUser;
 
         String activeUser = deviceCurrentUserMap.get("vois_belt");
         if (activeUser != null && ("vois_belt".equalsIgnoreCase(cleanId) || "unknown".equalsIgnoreCase(cleanId))) {
@@ -78,16 +79,20 @@ public class FallDetectionService {
         }
 
         Optional<Elderly> elderlyOpt = elderlyRepository.findByElderlyId(cleanId);
-        if (elderlyOpt.isPresent()) return elderlyOpt.get().getElderlyId();
+        if (elderlyOpt.isPresent())
+            return elderlyOpt.get().getElderlyId();
 
         Optional<Elderly> byDevId = elderlyRepository.findByPrimaryDeviceId(cleanId);
-        if (byDevId.isPresent()) return byDevId.get().getElderlyId();
+        if (byDevId.isPresent())
+            return byDevId.get().getElderlyId();
 
         Optional<Elderly> byMac = elderlyRepository.findByPrimaryDeviceMac(cleanId);
-        if (byMac.isPresent()) return byMac.get().getElderlyId();
+        if (byMac.isPresent())
+            return byMac.get().getElderlyId();
 
         List<Elderly> byName = elderlyRepository.findByNameIgnoreCase(cleanId);
-        if (!byName.isEmpty()) return byName.get(0).getElderlyId();
+        if (!byName.isEmpty())
+            return byName.get(0).getElderlyId();
 
         List<Elderly> all = elderlyRepository.findAll();
         if (!all.isEmpty()) {
@@ -132,7 +137,8 @@ public class FallDetectionService {
     }
 
     /**
-     * Handle PREFALL Alert: Notify Guardian & Neighbor immediately via SMS with vital signs
+     * Handle PREFALL Alert: Notify Guardian & Neighbor immediately via SMS with
+     * vital signs
      */
     public AlertRecord handlePrefallAlert(String deviceId, String beltType, Double lat, Double lng, String audioMsg) {
         String elderlyId = resolveElderlyIdForDevice(deviceId);
@@ -144,13 +150,17 @@ public class FallDetectionService {
         if ((mainPhone == null || mainPhone.isEmpty()) && elderly != null && elderly.getPhone() != null) {
             mainPhone = elderly.getPhone();
         }
-        String neighborPhone = elderly != null ? (elderly.getNeighborPhone() != null ? elderly.getNeighborPhone() : elderly.getNeighbourPhone()) : null;
+        String neighborPhone = elderly != null
+                ? (elderly.getNeighborPhone() != null ? elderly.getNeighborPhone() : elderly.getNeighbourPhone())
+                : null;
 
         String alertId = "PREFALL_" + UUID.randomUUID().toString().substring(0, 8);
-        AlertRecord alert = new AlertRecord(alertId, elderlyId, deviceId, beltType != null ? beltType : "Waist Belt", "PREFALL", "PENDING_ACK", audioMsg, lat, lng);
+        AlertRecord alert = new AlertRecord(alertId, elderlyId, deviceId, beltType != null ? beltType : "Waist Belt",
+                "PREFALL", "PENDING_ACK", audioMsg, lat, lng);
         alertRecordRepository.save(alert);
 
-        // Send Prefall SMS with vitals (HR ~118, SpO2 ~94, Temp ~37.1) and GPS to Main Guardian & Neighbor
+        // Send Prefall SMS with vitals (HR ~118, SpO2 ~94, Temp ~37.1) and GPS to Main
+        // Guardian & Neighbor
         if (mainPhone != null && !mainPhone.isEmpty()) {
             twilioService.sendPrefallSms(mainPhone, elderlyName, location, 118, 94, 37.1, lat, lng);
         }
@@ -160,8 +170,10 @@ public class FallDetectionService {
 
         // Encrypt & Save to Firebase
         try {
-            firebaseEncryptionService.saveToFirebaseEncrypted("alerts", alertId, objectMapper.writeValueAsString(alert));
-        } catch (Exception ignored) {}
+            firebaseEncryptionService.saveToFirebaseEncrypted("alerts", alertId,
+                    objectMapper.writeValueAsString(alert));
+        } catch (Exception ignored) {
+        }
 
         return alert;
     }
@@ -179,10 +191,13 @@ public class FallDetectionService {
         if ((mainPhone == null || mainPhone.isEmpty()) && elderly != null && elderly.getPhone() != null) {
             mainPhone = elderly.getPhone();
         }
-        String neighborPhone = elderly != null ? (elderly.getNeighborPhone() != null ? elderly.getNeighborPhone() : elderly.getNeighbourPhone()) : null;
+        String neighborPhone = elderly != null
+                ? (elderly.getNeighborPhone() != null ? elderly.getNeighborPhone() : elderly.getNeighbourPhone())
+                : null;
 
         String alertId = "FALL_" + UUID.randomUUID().toString().substring(0, 8);
-        AlertRecord alert = new AlertRecord(alertId, elderlyId, deviceId, beltType != null ? beltType : "Waist Belt", "FALL_DETECTED", "PENDING_ACK", audioMsg, lat, lng);
+        AlertRecord alert = new AlertRecord(alertId, elderlyId, deviceId, beltType != null ? beltType : "Waist Belt",
+                "FALL_DETECTED", "PENDING_ACK", audioMsg, lat, lng);
         alertRecordRepository.save(alert);
 
         fallDetected.set(true);
@@ -195,14 +210,17 @@ public class FallDetectionService {
 
         // 2. Send SMS & Call Neighbor immediately
         if (neighborPhone != null && !neighborPhone.isEmpty()) {
-            twilioService.sendFallAlertSms(neighborPhone, elderlyName, location + " (Neighbor Emergency Alert)", deviceId, lat, lng);
+            twilioService.sendFallAlertSms(neighborPhone, elderlyName, location + " (Neighbor Emergency Alert)",
+                    deviceId, lat, lng);
             twilioService.makeNeighborCall(neighborPhone, elderlyName, location);
         }
 
         // Encrypt & Save to Firebase
         try {
-            firebaseEncryptionService.saveToFirebaseEncrypted("alerts", alertId, objectMapper.writeValueAsString(alert));
-        } catch (Exception ignored) {}
+            firebaseEncryptionService.saveToFirebaseEncrypted("alerts", alertId,
+                    objectMapper.writeValueAsString(alert));
+        } catch (Exception ignored) {
+        }
 
         return alert;
     }
@@ -220,7 +238,8 @@ public class FallDetectionService {
         }
 
         String alertId = "SOS_" + UUID.randomUUID().toString().substring(0, 8);
-        AlertRecord alert = new AlertRecord(alertId, targetElderlyId, deviceId, "SOS Button", "SOS", "PENDING_ACK", "elderly pressed SOS.. go quickly", lat, lng);
+        AlertRecord alert = new AlertRecord(alertId, targetElderlyId, deviceId, "SOS Button", "SOS", "PENDING_ACK",
+                "elderly pressed SOS.. go quickly", lat, lng);
         alertRecordRepository.save(alert);
 
         if (mainPhone != null && !mainPhone.isEmpty()) {
@@ -228,14 +247,17 @@ public class FallDetectionService {
         }
 
         try {
-            firebaseEncryptionService.saveToFirebaseEncrypted("alerts", alertId, objectMapper.writeValueAsString(alert));
-        } catch (Exception ignored) {}
+            firebaseEncryptionService.saveToFirebaseEncrypted("alerts", alertId,
+                    objectMapper.writeValueAsString(alert));
+        } catch (Exception ignored) {
+        }
 
         return alert;
     }
 
     /**
-     * Handle "I am Fine" Hardware Push Button: Only clears hardware alarm state, does NOT acknowledge alerts
+     * Handle "I am Fine" Hardware Push Button: Only clears hardware alarm state,
+     * does NOT acknowledge alerts
      * Elderly cannot acknowledge fall/prefall alerts - only guardians can
      */
     public Map<String, Object> handleIamFineButton(String deviceId, String elderlyId) {
@@ -244,7 +266,7 @@ public class FallDetectionService {
 
         // Elderly button only clears hardware alarm, does NOT resolve alerts
         // Alerts remain pending for guardian acknowledgment
-        
+
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("status", "success");
         result.put("message", "Speaker alarm shut down. Alert remains pending for guardian acknowledgment.");
@@ -257,7 +279,8 @@ public class FallDetectionService {
      * For Pre-fall: "Did you contact the elderly or send someone for help?"
      * For Fall: "Did neighbor contact you or did neighbor reach there?"
      */
-    public AlertRecord acknowledgeAlert(String alertId, String guardianUsername, String responseType, String responseMessage) {
+    public AlertRecord acknowledgeAlert(String alertId, String guardianUsername, String responseType,
+            String responseMessage) {
         Optional<AlertRecord> optAlert = alertRecordRepository.findByAlertId(alertId);
         AlertRecord alert;
         if (optAlert.isPresent()) {
@@ -285,7 +308,7 @@ public class FallDetectionService {
             alert.setResponseMessage(responseMessage);
             alertRecordRepository.save(alert);
             clearFall();
-            
+
             System.out.printf("[ALERT ACKNOWLEDGED] Guardian '%s' responded YES to alert %s: '%s'%n",
                     guardianUsername, alert.getAlertId(), responseMessage);
         }
@@ -298,12 +321,15 @@ public class FallDetectionService {
                 alert.setAcknowledgedAt(LocalDateTime.now().toString());
                 alert.setResponseMessage(responseMessage);
                 alertRecordRepository.save(alert);
-                
+
                 if (neighborPhone != null && !neighborPhone.isEmpty()) {
-                    twilioService.sendPrefallSms(neighborPhone, elderlyName, location + " (Guardian unable to help - immediate neighbor assistance needed)", 118, 94, 37.1, alert.getLatitude(), alert.getLongitude());
+                    twilioService.sendPrefallSms(neighborPhone, elderlyName,
+                            location + " (Guardian unable to help - immediate neighbor assistance needed)", 118, 94,
+                            37.1, alert.getLatitude(), alert.getLongitude());
                 }
-                
-                System.out.printf("[ALERT ESCALATED] Guardian '%s' responded NO to pre-fall alert %s - SMSing neighbor immediately%n",
+
+                System.out.printf(
+                        "[ALERT ESCALATED] Guardian '%s' responded NO to pre-fall alert %s - SMSing neighbor immediately%n",
                         guardianUsername, alert.getAlertId());
             } else if ("FALL_DETECTED".equalsIgnoreCase(alert.getAlertType())) {
                 // Immediate call to guardian 2
@@ -312,13 +338,16 @@ public class FallDetectionService {
                 alert.setAcknowledgedAt(LocalDateTime.now().toString());
                 alert.setResponseMessage(responseMessage);
                 alertRecordRepository.save(alert);
-                
+
                 if (secondaryPhone != null && !secondaryPhone.isEmpty()) {
-                    twilioService.sendUrgentAlertSms(secondaryPhone, elderlyName, location + " (Neighbor unable to help - immediate secondary guardian assistance needed)", alert.getDeviceId());
+                    twilioService.sendUrgentAlertSms(secondaryPhone, elderlyName,
+                            location + " (Neighbor unable to help - immediate secondary guardian assistance needed)",
+                            alert.getDeviceId());
                     twilioService.makeSecondaryGuardianCall(secondaryPhone, elderlyName, location);
                 }
-                
-                System.out.printf("[ALERT ESCALATED] Guardian '%s' responded NO to fall alert %s - Calling guardian 2 immediately%n",
+
+                System.out.printf(
+                        "[ALERT ESCALATED] Guardian '%s' responded NO to fall alert %s - Calling guardian 2 immediately%n",
                         guardianUsername, alert.getAlertId());
             }
         }
@@ -330,37 +359,43 @@ public class FallDetectionService {
             alert.setResponseMessage(responseMessage);
             alertRecordRepository.save(alert);
             clearFall();
-            
+
             System.out.printf("[ALERT ACKNOWLEDGED] Guardian '%s' acknowledged alert %s with message: '%s'%n",
                     guardianUsername, alert.getAlertId(), responseMessage);
         }
 
         try {
-            firebaseEncryptionService.saveToFirebaseEncrypted("alerts", alert.getAlertId(), objectMapper.writeValueAsString(alert));
-        } catch (Exception ignored) {}
+            firebaseEncryptionService.saveToFirebaseEncrypted("alerts", alert.getAlertId(),
+                    objectMapper.writeValueAsString(alert));
+        } catch (Exception ignored) {
+        }
 
         return alert;
     }
 
     /**
      * Multi-Tier Scheduled Escalation Engine:
-     * 1. Prefall: SMS guardian initially, if unacknowledged in 4 mins (240s) -> SMS neighbor
-     * 2. Fall: Call guardian initially, if unacknowledged in 2 mins (120s) -> Call neighbor
-     * 3. Fall: If neighbor unacknowledged in additional 2 mins (240s total) -> Call guardian 2
+     * 1. Prefall: SMS guardian initially, if unacknowledged in 4 mins (240s) -> SMS
+     * neighbor
+     * 2. Fall: Call guardian initially, if unacknowledged in 2 mins (120s) -> Call
+     * neighbor
+     * 3. Fall: If neighbor unacknowledged in additional 2 mins (240s total) -> Call
+     * guardian 2
      * 
-     * Alert hierarchy completes even if hardware state changes (e.g., pre-fall -> sudden movement)
+     * Alert hierarchy completes even if hardware state changes (e.g., pre-fall ->
+     * sudden movement)
      */
     @Scheduled(fixedDelay = 10000) // Check every 10 seconds
     public void runMultiTierEscalationEngine() {
         // Check all non-acknowledged alerts, not just PENDING_ACK
         List<AlertRecord> allActiveAlerts = alertRecordRepository.findByStatusIn(
-            Arrays.asList("PENDING_ACK", "ESCALATED_PREFALL_NEIGHBOR_SMS", "ESCALATED_FALL_NEIGHBOR_CALL")
-        );
+                Arrays.asList("PENDING_ACK", "ESCALATED_PREFALL_NEIGHBOR_SMS", "ESCALATED_FALL_NEIGHBOR_CALL"));
         LocalDateTime now = LocalDateTime.now();
 
         for (AlertRecord alert : allActiveAlerts) {
             String createdAtStr = alert.getCreatedAt();
-            if (createdAtStr == null || createdAtStr.isEmpty()) continue;
+            if (createdAtStr == null || createdAtStr.isEmpty())
+                continue;
 
             LocalDateTime createdTime;
             try {
@@ -377,35 +412,48 @@ public class FallDetectionService {
             String location = elderly != null ? elderly.getLocation() : "Home";
 
             // 1. Prefall Escalation (4 Minutes = 240 Seconds) -> SMS Neighbor
-            if ("PREFALL".equalsIgnoreCase(alert.getAlertType()) && "PENDING_ACK".equals(alert.getStatus()) && elapsedSeconds >= 240) {
-                System.out.printf("[PREFALL ESCALATION] Alert %s unacknowledged for %d seconds (>4 mins)! SMSing neighbor.%n", alert.getAlertId(), elapsedSeconds);
+            if ("PREFALL".equalsIgnoreCase(alert.getAlertType()) && "PENDING_ACK".equals(alert.getStatus())
+                    && elapsedSeconds >= 240) {
+                System.out.printf(
+                        "[PREFALL ESCALATION] Alert %s unacknowledged for %d seconds (>4 mins)! SMSing neighbor.%n",
+                        alert.getAlertId(), elapsedSeconds);
                 alert.setStatus("ESCALATED_PREFALL_NEIGHBOR_SMS");
                 alertRecordRepository.save(alert);
 
                 if (neighborPhone != null && !neighborPhone.isEmpty()) {
-                    twilioService.sendPrefallSms(neighborPhone, elderlyName, location + " (Prefall unacknowledged after 4 mins)", 118, 94, 37.1, alert.getLatitude(), alert.getLongitude());
+                    twilioService.sendPrefallSms(neighborPhone, elderlyName,
+                            location + " (Prefall unacknowledged after 4 mins)", 118, 94, 37.1, alert.getLatitude(),
+                            alert.getLongitude());
                 }
             }
 
             // 2. Fall Escalation Tier 1 (2 Minutes = 120 Seconds) -> Call Neighbor
-            if ("FALL_DETECTED".equalsIgnoreCase(alert.getAlertType()) && "PENDING_ACK".equals(alert.getStatus()) && elapsedSeconds >= 120) {
-                System.out.printf("[FALL TIER 1 ESCALATION] Fall alert %s unacknowledged after 2 mins! Calling neighbor.%n", alert.getAlertId());
+            if ("FALL_DETECTED".equalsIgnoreCase(alert.getAlertType()) && "PENDING_ACK".equals(alert.getStatus())
+                    && elapsedSeconds >= 120) {
+                System.out.printf(
+                        "[FALL TIER 1 ESCALATION] Fall alert %s unacknowledged after 2 mins! Calling neighbor.%n",
+                        alert.getAlertId());
                 alert.setStatus("ESCALATED_FALL_NEIGHBOR_CALL");
                 alertRecordRepository.save(alert);
 
                 if (neighborPhone != null && !neighborPhone.isEmpty()) {
-                    twilioService.makeNeighborCall(neighborPhone, elderlyName, location + " (Fall unacknowledged after 2 mins)");
+                    twilioService.makeNeighborCall(neighborPhone, elderlyName,
+                            location + " (Fall unacknowledged after 2 mins)");
                 }
             }
 
             // 3. Fall Escalation Tier 2 (4 Minutes = 240 Seconds) -> Call Guardian 2
-            if ("FALL_DETECTED".equalsIgnoreCase(alert.getAlertType()) && "ESCALATED_FALL_NEIGHBOR_CALL".equals(alert.getStatus()) && elapsedSeconds >= 240) {
-                System.out.printf("[FALL TIER 2 ESCALATION] Fall alert %s unacknowledged after 4 mins! Calling guardian 2.%n", alert.getAlertId());
+            if ("FALL_DETECTED".equalsIgnoreCase(alert.getAlertType())
+                    && "ESCALATED_FALL_NEIGHBOR_CALL".equals(alert.getStatus()) && elapsedSeconds >= 240) {
+                System.out.printf(
+                        "[FALL TIER 2 ESCALATION] Fall alert %s unacknowledged after 4 mins! Calling guardian 2.%n",
+                        alert.getAlertId());
                 alert.setStatus("ESCALATED_FALL_GUARDIAN2_CALL");
                 alertRecordRepository.save(alert);
 
                 if (secondaryPhone != null && !secondaryPhone.isEmpty()) {
-                    twilioService.sendUrgentAlertSms(secondaryPhone, elderlyName, location + " (No response from main guardian/neighbor in 4 mins)", alert.getDeviceId());
+                    twilioService.sendUrgentAlertSms(secondaryPhone, elderlyName,
+                            location + " (No response from main guardian/neighbor in 4 mins)", alert.getDeviceId());
                     twilioService.makeSecondaryGuardianCall(secondaryPhone, elderlyName, location);
                 }
             }
@@ -443,8 +491,8 @@ public class FallDetectionService {
     }
 
     public void notifyGuardianNoResponse(String elderlyName,
-                                        String deviceId,
-                                        String location) {
+            String deviceId,
+            String location) {
 
         String elderlyId = resolveElderlyIdForDevice(deviceId);
         List<Guardian> guardians = getAllGuardiansForElderly(elderlyId);
@@ -455,14 +503,12 @@ public class FallDetectionService {
                         guardian.getPhone(),
                         elderlyName,
                         "No guardian has responded. Immediate assistance required at " + location,
-                        deviceId
-                );
+                        deviceId);
 
                 twilioService.makeNoResponseAlertCall(
                         guardian.getPhone(),
                         elderlyName,
-                        location
-                );
+                        location);
             }
         }
     }
@@ -481,8 +527,10 @@ public class FallDetectionService {
             deviceCurrentUserMap.put(clean, clean);
 
             elderlyRepository.findByElderlyId(clean).ifPresent(e -> {
-                if (e.getPrimaryDeviceId() != null) deviceCurrentUserMap.put(e.getPrimaryDeviceId(), clean);
-                if (e.getPrimaryDeviceMac() != null) deviceCurrentUserMap.put(e.getPrimaryDeviceMac(), clean);
+                if (e.getPrimaryDeviceId() != null)
+                    deviceCurrentUserMap.put(e.getPrimaryDeviceId(), clean);
+                if (e.getPrimaryDeviceMac() != null)
+                    deviceCurrentUserMap.put(e.getPrimaryDeviceMac(), clean);
             });
             System.out.println("[FALL DETECTION SERVICE] Device active user switched to: " + clean);
         }

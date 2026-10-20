@@ -3,7 +3,7 @@ const http = require('http');
 
 // Configuration
 const VERCEL_FRONTEND_URL = process.env.VERCEL_URL || 'https://silver-care-eta.vercel.app';
-const BACKEND_URL = process.env.BACKEND_URL || 'https://silvercare-production-3455.up.railway.app';
+const BACKEND_URL = process.env.BACKEND_URL || 'https://silvercare-backend-wq2r.onrender.com';
 const MAC_ADDRESS = '30:76:F5:F4:4E:24';
 const ELDERLY_ID = 'om';
 
@@ -99,7 +99,7 @@ function generateTelemetryPayload() {
  */
 async function startContinuousStream() {
   console.log('================================================================---------');
-  console.log('📡 STARTING CONTINUOUS HARDWARE TELEMETRY STREAM SIMULATION');
+  console.log(' STARTING CONTINUOUS HARDWARE TELEMETRY STREAM SIMULATION');
   console.log('================================================================---------');
   console.log(`Backend Target URL : ${BACKEND_URL}`);
   console.log(`Waist Belt MAC     : ${MAC_ADDRESS}`);
@@ -112,9 +112,9 @@ async function startContinuousStream() {
     const payload = generateTelemetryPayload();
     try {
       const res = await makeRequest(`${BACKEND_URL}/api/sensor-data`, 'POST', payload);
-      console.log(`[Packet #${packetCount}] 📡 Telemetry Sent | MAC: ${MAC_ADDRESS} | HR: ${payload.heartRate} BPM | SpO2: ${payload.spo2}% | Temp: ${payload.temperature}°C | Status: HTTP ${res.statusCode}`);
+      console.log(`[Packet #${packetCount}]  Telemetry Sent | MAC: ${MAC_ADDRESS} | HR: ${payload.heartRate} BPM | SpO2: ${payload.spo2}% | Temp: ${payload.temperature}°C | Status: HTTP ${res.statusCode}`);
     } catch (err) {
-      console.error(`[Packet #${packetCount}] ❌ Error sending telemetry:`, err.message);
+      console.error(`[Packet #${packetCount}]  Error sending telemetry:`, err.message);
     }
   }, 2000);
 }
@@ -128,10 +128,10 @@ async function run() {
     startContinuousStream();
   } else {
     console.log('================================================================---------');
-    console.log('🚀 SILVERCARE MAC-ADDRESS TELEMETRY INTEGRATION SUITE');
+    console.log(' SILVERCARE MAC-ADDRESS TELEMETRY INTEGRATION SUITE');
     console.log('================================================================---------');
     console.log(`Vercel Frontend URL : ${VERCEL_FRONTEND_URL}`);
-    console.log(`Railway Backend URL : ${BACKEND_URL}`);
+    console.log(`Render Backend URL : ${BACKEND_URL}`);
     console.log(`Waist Belt MAC      : ${MAC_ADDRESS}`);
     console.log(`Target Senior ID    : ${ELDERLY_ID}`);
     console.log('-------------------------------------------------------------------------\n');
@@ -139,9 +139,9 @@ async function run() {
     console.log(`[TEST 1] Testing Vercel Frontend Page Availability (${VERCEL_FRONTEND_URL})...`);
     try {
       const pageRes = await makeRequest(VERCEL_FRONTEND_URL, 'GET');
-      console.log(`✅ Vercel Frontend HTTP Status: ${pageRes.statusCode}`);
+      console.log(` Vercel Frontend HTTP Status: ${pageRes.statusCode}`);
     } catch (err) {
-      console.error('❌ Error checking Vercel frontend:', err.message);
+      console.error(' Error checking Vercel frontend:', err.message);
     }
 
     console.log('\n-------------------------------------------------------------------------');
@@ -149,22 +149,22 @@ async function run() {
     console.log(`[TEST 2] Posting hardware telemetry with MAC address (${MAC_ADDRESS})...`);
     try {
       const postRes = await makeRequest(`${BACKEND_URL}/api/sensor-data`, 'POST', payload);
-      console.log(`✅ POST /api/sensor-data Response HTTP ${postRes.statusCode}:`, JSON.stringify(postRes.data, null, 2));
+      console.log(` POST /api/sensor-data Response HTTP ${postRes.statusCode}:`, JSON.stringify(postRes.data, null, 2));
     } catch (err) {
-      console.error('❌ Error posting hardware telemetry:', err.message);
+      console.error(' Error posting hardware telemetry:', err.message);
     }
 
     console.log('\n-------------------------------------------------------------------------');
     console.log(`[TEST 3] Fetching sensor data via MAC address (${MAC_ADDRESS})...`);
     try {
       const macRes = await makeRequest(`${BACKEND_URL}/api/sensor-data?deviceId=${encodeURIComponent(MAC_ADDRESS)}`, 'GET');
-      console.log(`✅ GET /api/sensor-data?deviceId=${MAC_ADDRESS} Response HTTP ${macRes.statusCode}:`, JSON.stringify(macRes.data, null, 2));
+      console.log(` GET /api/sensor-data?deviceId=${MAC_ADDRESS} Response HTTP ${macRes.statusCode}:`, JSON.stringify(macRes.data, null, 2));
     } catch (err) {
-      console.error('❌ Error querying by MAC address:', err.message);
+      console.error(' Error querying by MAC address:', err.message);
     }
 
     console.log('\n================================================================---------');
-    console.log('💡 TIP: To stream continuous live hardware telemetry using MAC Address, run:');
+    console.log(' TIP: To stream continuous live hardware telemetry using MAC Address, run:');
     console.log('       node testing.js --stream');
     console.log('================================================================---------');
   }

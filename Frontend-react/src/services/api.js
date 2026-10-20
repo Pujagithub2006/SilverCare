@@ -11,8 +11,8 @@ const resolveBaseUrl = (fallback) => {
 };
 
 // Backend Base URLs
-const API_BASE = resolveBaseUrl('https://silvercare-production-3455.up.railway.app');
-const LEGACY_API_BASE = resolveBaseUrl('https://silvercare-production-3455.up.railway.app');
+const API_BASE = resolveBaseUrl('https://silvercare-backend-wq2r.onrender.com');
+const LEGACY_API_BASE = resolveBaseUrl('https://silvercare-backend-wq2r.onrender.com');
 
 const api = axios.create({
   baseURL: API_BASE,

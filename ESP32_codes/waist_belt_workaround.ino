@@ -87,9 +87,9 @@ GPSLocation gpsHistory[GPS_HISTORY_SIZE];
 int gpsHistoryIndex = 0;
 
 // ===== BACKEND CONFIGURATION =====
-const char* serverUrl = "https://silvercare-production-3455.up.railway.app/api/sensor-data";
-const char* twilioUrl = "https://silvercare-production-3455.up.railway.app/api/twilio-sms";
-const char* deviceApiUrl = "https://silvercare-production-3455.up.railway.app/api/devices";
+const char* serverUrl = "https://silvercare-backend-wq2r.onrender.com/api/sensor-data";
+const char* twilioUrl = "https://silvercare-backend-wq2r.onrender.com/api/twilio-sms";
+const char* deviceApiUrl = "https://silvercare-backend-wq2r.onrender.com/api/devices";
 const char* mlServiceUrl = "http://localhost:8000/predict";  // ML service endpoint
 String DEVICE_ID = ""; // Will be generated based on MAC address
 

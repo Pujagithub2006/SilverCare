@@ -8,7 +8,7 @@ const CalibrationPage = () => {
   const navigate = useNavigate();
   const { t } = useLanguage();
   const elderlyId = localStorage.getItem('elderly_id') || 'default_senior';
-  
+
   const [isCalibrating, setIsCalibrating] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState(600); // 10 minutes in seconds
   const [currentPhase, setCurrentPhase] = useState('idle'); // idle, walking, sitting, standing, complete
@@ -18,16 +18,16 @@ const CalibrationPage = () => {
 
   const intervalRef = useRef(null);
   const sensorIntervalRef = useRef(null);
-  
+
   useEffect(() => {
     fetchHealthHistoryData();
-    
+
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
       if (sensorIntervalRef.current) clearInterval(sensorIntervalRef.current);
     };
   }, []);
-  
+
   const fetchHealthHistoryData = async () => {
     try {
       const data = await apiFetchHealthHistory(elderlyId);
@@ -38,19 +38,19 @@ const CalibrationPage = () => {
       console.error('Error fetching health history:', err);
     }
   };
-  
+
   const startCalibration = () => {
     if (!healthHistory) {
       alert('Please complete your health history first before calibration.');
       navigate('/profile');
       return;
     }
-    
+
     setIsCalibrating(true);
     setCurrentPhase('walking');
     setTimeRemaining(600);
     setCalibrationData([]);
-    
+
     // Start timer
     intervalRef.current = setInterval(() => {
       setTimeRemaining(prev => {
@@ -58,7 +58,7 @@ const CalibrationPage = () => {
           completeCalibration();
           return 0;
         }
-        
+
         // Update phase based on time
         const elapsed = 600 - prev;
         if (elapsed < 180) {
@@ -70,22 +70,22 @@ const CalibrationPage = () => {
         } else {
           setCurrentPhase('mixed');
         }
-        
+
         return prev - 1;
       });
     }, 1000);
-    
+
     // Start sensor data collection (simulated for now)
     sensorIntervalRef.current = setInterval(() => {
       collectSensorData();
     }, 100); // Collect every 100ms
   };
-  
+
   const collectSensorData = async () => {
     try {
       // Fetch real sensor data from hardware
       const sensorResponse = await fetchSensorData(deviceId);
-      
+
       if (sensorResponse && sensorResponse.status === 'success' && sensorResponse.data) {
         const data = sensorResponse.data;
         const realData = {
@@ -156,17 +156,17 @@ const CalibrationPage = () => {
       setCalibrationData(prev => [...prev, simulatedData]);
     }
   };
-  
+
   const completeCalibration = async () => {
     setIsCalibrating(false);
     setCurrentPhase('complete');
-    
+
     if (intervalRef.current) clearInterval(intervalRef.current);
     if (sensorIntervalRef.current) clearInterval(sensorIntervalRef.current);
-    
+
     // Send calibration data to ML service
     try {
-      const response = await fetch('https://silvercare-production-3455.up.railway.app/api/elderly/calibrate', {
+      const response = await fetch('https://silvercare-backend-wq2r.onrender.com/api/elderly/calibrate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -213,13 +213,13 @@ const CalibrationPage = () => {
       navigate('/home');
     }
   };
-  
+
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
-  
+
   const getPhaseInstructions = () => {
     switch (currentPhase) {
       case 'walking':
@@ -234,14 +234,14 @@ const CalibrationPage = () => {
         return '';
     }
   };
-  
+
   return (
     <div className="container" style={{ paddingBottom: '90px', backgroundColor: '#f8fafc', minHeight: '100vh' }}>
       {/* Header */}
       <header className="header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', gap: '12px', borderBottom: '1px solid #e2e8f0', backgroundColor: '#ffffff' }}>
         <button className="back-btn" onClick={() => navigate('/home')} title="Go Back">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-            <path d="M19 12H5M12 19l-7-7 7-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M19 12H5M12 19l-7-7 7-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </button>
         <h1 style={{ fontSize: '18px', fontWeight: '800', margin: 0, color: '#1f2937', textAlign: 'center', flex: 1 }}>
@@ -271,7 +271,7 @@ const CalibrationPage = () => {
               <p style={{ fontSize: '14px', color: '#64748b', textAlign: 'center', marginBottom: '16px', lineHeight: '1.6' }}>
                 This calibration helps personalize your fall detection by learning your normal movement patterns.
               </p>
-              
+
               <div style={{ backgroundColor: '#f0fdf4', borderRadius: '12px', padding: '16px', marginBottom: '16px' }}>
                 <h3 style={{ fontSize: '14px', fontWeight: '700', color: '#166534', margin: '0 0 8px 0' }}>
                   What to expect:
@@ -478,29 +478,29 @@ const CalibrationPage = () => {
       <nav className="bottom-nav">
         <a href="#" className="nav-item" onClick={(e) => { e.preventDefault(); navigate('/home'); }}>
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
-            <polyline points="9 22 9 12 15 12 15 22"/>
+            <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+            <polyline points="9 22 9 12 15 12 15 22" />
           </svg>
           <span>Home</span>
         </a>
 
         <a href="#" className="nav-item" onClick={(e) => { e.preventDefault(); navigate('/health'); }}>
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+            <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
           </svg>
           <span>Health</span>
         </a>
 
         <button className="nav-item assistant-nav-btn" onClick={() => navigate('/assistant')} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
           <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
-            <path d="M12 4.5V2" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round"/>
-            <circle cx="12" cy="1.8" r="1.8" fill="#ef4444"/>
-            <rect x="3" y="4.5" width="18" height="15" rx="7.5" fill="#eff6ff" stroke="#3b82f6" strokeWidth="2"/>
-            <circle cx="6.5" cy="13.5" r="1.2" fill="#f472b6" opacity="0.8"/>
-            <circle cx="17.5" cy="13.5" r="1.2" fill="#f472b6" opacity="0.8"/>
-            <path d="M7.5 10c.8-.8 2.2-.8 3 0" stroke="#1d4ed8" strokeWidth="2.2" strokeLinecap="round"/>
-            <path d="M13.5 10c.8-.8 2.2-.8 3 0" stroke="#1d4ed8" strokeWidth="2.2" strokeLinecap="round"/>
-            <path d="M9.5 14c1.2 1.3 3.8 1.3 5 0" stroke="#1d4ed8" strokeWidth="2.2" strokeLinecap="round"/>
+            <path d="M12 4.5V2" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" />
+            <circle cx="12" cy="1.8" r="1.8" fill="#ef4444" />
+            <rect x="3" y="4.5" width="18" height="15" rx="7.5" fill="#eff6ff" stroke="#3b82f6" strokeWidth="2" />
+            <circle cx="6.5" cy="13.5" r="1.2" fill="#f472b6" opacity="0.8" />
+            <circle cx="17.5" cy="13.5" r="1.2" fill="#f472b6" opacity="0.8" />
+            <path d="M7.5 10c.8-.8 2.2-.8 3 0" stroke="#1d4ed8" strokeWidth="2.2" strokeLinecap="round" />
+            <path d="M13.5 10c.8-.8 2.2-.8 3 0" stroke="#1d4ed8" strokeWidth="2.2" strokeLinecap="round" />
+            <path d="M9.5 14c1.2 1.3 3.8 1.3 5 0" stroke="#1d4ed8" strokeWidth="2.2" strokeLinecap="round" />
           </svg>
           <span>Assistant</span>
         </button>
