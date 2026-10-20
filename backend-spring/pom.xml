@@ -10,6 +10,7 @@
         <relativePath/>
     </parent>
 
+    <!-- Spring Boot Backend Service -->
     <groupId>com.silvercare</groupId>
     <artifactId>silvercare-backend</artifactId>
     <version>1.0.0</version>
