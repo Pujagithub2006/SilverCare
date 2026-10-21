@@ -247,6 +247,19 @@ public class SensorHardwareController {
         return ResponseEntity.ok(status);
     }
 
+    @GetMapping(value = { "/api/twilio/voice-twiml", "/api/twilio/voice" }, produces = { "application/xml", "text/xml" })
+    public ResponseEntity<String> getTwilioVoiceTwiml() {
+        String twiml = """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <Response>
+                    <Say voice="alice">Emergency alert from SilverCare! A fall has been detected for your elderly ward. Please check on them immediately.</Say>
+                    <Pause length="2"/>
+                    <Say voice="alice">SilverCare Emergency Alert. Please respond to this emergency immediately.</Say>
+                </Response>
+                """;
+        return ResponseEntity.ok(twiml);
+    }
+
     @PostMapping("/api/fall-alert")
     public ResponseEntity<ApiResponse<Object>> triggerFallAlertEndpoint(@RequestBody Map<String, Object> body) {
         try {
