@@ -13,7 +13,7 @@
 #include <SoftwareSerial.h>
 #include <ArduinoJson.h>
 #include <TinyGPS++.h>
-#include <tinyml_model.h>
+#include "tinyml_model.h"
 #include <driver/i2s.h>
 
 // ===== WIFI CAPTIVE PORTAL CONFIGURATION =====
@@ -1541,7 +1541,7 @@ void dispatchImmediateAlertToBackend(String alertType) {
     }
     http.end();
 
-    // For FALL: Also invoke secondary direct notification endpoints to ensure 100% call and SMS reliability
+    // For FALL: Invoke direct emergency voice call endpoints to ensure immediate live phone call to guardian
     if (alertType == "FALL") {
         WiFiClientSecure fallClient;
         HTTPClient fallHttp;
@@ -1555,16 +1555,18 @@ void dispatchImmediateAlertToBackend(String alertType) {
         Serial.println("[DIRECT CALL ENDPOINT]: /notify-guardian-fall response code: " + String(code));
         fallHttp.end();
 
-        // Also trigger direct Twilio SMS endpoint
-        WiFiClientSecure twClient;
-        HTTPClient twHttp;
-        beginSecureHttp(twHttp, twClient, twilioUrl);
-        twHttp.addHeader("Content-Type", "application/json");
-        twHttp.setTimeout(4000);
-        String twPayload = "{\"deviceId\":\"" + WiFi.macAddress() + "\",\"alertType\":\"FALL\",\"message\":\"Emergency Fall Alert from SilverCare Belt\"}";
-        int twCode = twHttp.POST(twPayload);
-        Serial.println("[DIRECT TWILIO SMS ENDPOINT]: /api/twilio-sms response code: " + String(twCode));
-        twHttp.end();
+        // Also trigger direct emergency phone call endpoint
+        WiFiClientSecure callClient;
+        HTTPClient callHttp;
+        String callUrl = String(serverUrl);
+        callUrl.replace("/api/sensor-data", "/api/emergency-call");
+        beginSecureHttp(callHttp, callClient, callUrl);
+        callHttp.addHeader("Content-Type", "application/json");
+        callHttp.setTimeout(4000);
+        String callPayload = "{\"deviceId\":\"" + WiFi.macAddress() + "\"}";
+        int callCode = callHttp.POST(callPayload);
+        Serial.println("[DIRECT CALL ENDPOINT]: /api/emergency-call response code: " + String(callCode));
+        callHttp.end();
     }
 }
 

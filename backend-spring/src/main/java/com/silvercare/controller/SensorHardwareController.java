@@ -161,18 +161,24 @@ public class SensorHardwareController {
             String guardianPhone = fallDetectionService.getGuardianPhoneForElderly(deviceId);
 
             if (guardianPhone != null && !guardianPhone.isEmpty()) {
-                boolean success = twilioService.sendFallAlertSms(guardianPhone, deviceId, "Home", request.getMessage(), null, null);
-                if (success) {
+                // ALWAYS place an immediate emergency phone call to the guardian
+                boolean callSuccess = twilioService.makeEmergencyCall(guardianPhone, "Senior Citizen", "Home");
+                System.out.println("[EMERGENCY CALL DISPATCH] Phone call initiated to " + guardianPhone + ": " + callSuccess);
+
+                // Try SMS optionally, but do not fail if trial SMS template is rejected
+                boolean smsSuccess = twilioService.sendFallAlertSms(guardianPhone, deviceId, "Home", request.getMessage(), null, null);
+
+                if (callSuccess || smsSuccess) {
                     ApiResponse<Object> response = ApiResponse.builder()
                             .status("success")
-                            .message("Twilio SMS sent successfully")
+                            .message("Emergency call placed to guardian successfully")
                             .phone(guardianPhone)
                             .build();
                     return ResponseEntity.ok(response);
                 } else {
                     String err = twilioService.getLastErrorMessage();
                     return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                            .body(ApiResponse.error("Twilio SMS failed: " + (err != null && !err.isEmpty() ? err : "Unknown Twilio error")));
+                            .body(ApiResponse.error("Twilio Call failed: " + (err != null && !err.isEmpty() ? err : "Unknown Twilio error")));
                 }
             } else {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
@@ -184,14 +190,53 @@ public class SensorHardwareController {
         }
     }
 
+    @PostMapping({ "/api/emergency-call", "/api/twilio-call" })
+    public ResponseEntity<ApiResponse<Object>> handleEmergencyCall(@RequestBody Map<String, Object> request) {
+        try {
+            String deviceId = request.getOrDefault("deviceId", request.getOrDefault("device_id", "unknown")).toString();
+            String targetPhone = request.containsKey("phone") ? request.get("phone").toString() : null;
+            if (targetPhone == null || targetPhone.trim().isEmpty()) {
+                targetPhone = fallDetectionService.getGuardianPhoneForElderly(deviceId);
+            }
+
+            if (targetPhone != null && !targetPhone.isEmpty()) {
+                boolean success = twilioService.makeEmergencyCall(targetPhone, "Senior Citizen", "Home");
+                if (success) {
+                    return ResponseEntity.ok(ApiResponse.builder()
+                            .status("success")
+                            .message("Emergency phone call placed to guardian")
+                            .phone(targetPhone)
+                            .build());
+                } else {
+                    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                            .body(ApiResponse.error("Emergency call failed: " + twilioService.getLastErrorMessage()));
+                }
+            } else {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(ApiResponse.error("No phone number found for device: " + deviceId));
+            }
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
     @GetMapping({ "/api/twilio-status", "/api/twilio/status" })
-    public ResponseEntity<Map<String, Object>> getTwilioStatus(@RequestParam(required = false) String testPhone) {
+    public ResponseEntity<Map<String, Object>> getTwilioStatus(@RequestParam(required = false) String testPhone,
+                                                               @RequestParam(required = false) String testCall) {
         Map<String, Object> status = new LinkedHashMap<>();
         status.put("initialized", twilioService.isInitialized());
         status.put("accountSidConfigured", twilioService.hasAccountSid());
         status.put("authTokenConfigured", twilioService.hasAuthToken());
         status.put("fromPhone", twilioService.getFromPhone());
         status.put("lastError", twilioService.getLastErrorMessage());
+
+        if (testCall != null && !testCall.trim().isEmpty()) {
+            boolean callSuccess = twilioService.makeEmergencyCall(testCall.trim(), "Senior Citizen", "Home");
+            status.put("testCallPhone", testCall.trim());
+            status.put("testCallSuccess", callSuccess);
+            status.put("testCallError", twilioService.getLastErrorMessage());
+        }
 
         if (testPhone != null && !testPhone.trim().isEmpty()) {
             boolean testSuccess = twilioService.sendSms(testPhone.trim(), "SilverCare Diagnostic Test: Twilio SMS is working!");

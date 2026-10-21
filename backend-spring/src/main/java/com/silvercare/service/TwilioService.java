@@ -184,6 +184,7 @@ public class TwilioService {
             System.out.println("[TWILIO CALL LIVE] Emergency call initiated to " + targetPhone + "! SID: " + call.getSid());
             return true;
         } catch (Exception e) {
+            lastErrorMessage = e.getClass().getSimpleName() + ": " + e.getMessage();
             System.err.println("[TWILIO CALL ERROR] Error making live call to " + targetPhone + ": " + e.getMessage());
             return false;
         }
