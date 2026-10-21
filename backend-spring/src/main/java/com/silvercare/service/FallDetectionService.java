@@ -160,9 +160,13 @@ public class FallDetectionService {
         alertRecordRepository.save(alert);
 
         // Send Prefall SMS with vitals (HR ~118, SpO2 ~94, Temp ~37.1) and GPS to Main
-        // Guardian & Neighbor
+        // Guardian
+        System.out.println("[PREFALL ALERT] Dispathing SMS to Guardian: " + mainPhone + " for Elderly: " + elderlyName);
         if (mainPhone != null && !mainPhone.isEmpty()) {
-            twilioService.sendPrefallSms(mainPhone, elderlyName, location, 118, 94, 37.1, lat, lng);
+            boolean sent = twilioService.sendPrefallSms(mainPhone, elderlyName, location, 118, 94, 37.1, lat, lng);
+            System.out.println("[PREFALL TWILIO SMS RESULT] Sent: " + sent + " to " + mainPhone);
+        } else {
+            System.err.println("[PREFALL ALERT WARNING] No guardian phone number found to send Twilio SMS!");
         }
         if (neighborPhone != null && !neighborPhone.isEmpty()) {
             twilioService.sendPrefallSms(neighborPhone, elderlyName, location, 118, 94, 37.1, lat, lng);
@@ -202,10 +206,17 @@ public class FallDetectionService {
 
         fallDetected.set(true);
 
-        // 1. Send SMS & Call Main Guardian
+        // 1. Send SMS & Call Main Guardian immediately
+        System.out.println("[FALL ALERT] Dispathing Emergency CALL & SMS to Guardian: " + mainPhone + " for Elderly: "
+                + elderlyName);
         if (mainPhone != null && !mainPhone.isEmpty()) {
-            twilioService.sendFallAlertSms(mainPhone, elderlyName, location, deviceId, lat, lng);
-            twilioService.makeEmergencyCall(mainPhone, elderlyName, location);
+            boolean smsSent = twilioService.sendFallAlertSms(mainPhone, elderlyName, location, deviceId, lat, lng);
+            boolean callMade = twilioService.makeEmergencyCall(mainPhone, elderlyName, location);
+            System.out.println("[FALL TWILIO RESULT] Phone: " + mainPhone + ", SMS Sent: " + smsSent
+                    + ", Emergency Call Made: " + callMade);
+        } else {
+            System.err.println(
+                    "[FALL ALERT WARNING] No guardian phone number found to initiate Twilio Emergency Call & SMS!");
         }
 
         // 2. Send SMS & Call Neighbor immediately
@@ -487,6 +498,30 @@ public class FallDetectionService {
                 return e.getPhone().trim();
             }
         }
+        // 3. Fallback: Search all registered Guardians in the database (most recent
+        // first)
+        // Ensures that whatever phone number the user entered during guardian
+        // registration/login is found!
+        List<Guardian> allGuardians = guardianRepository.findAll();
+        if (!allGuardians.isEmpty()) {
+            for (int i = allGuardians.size() - 1; i >= 0; i--) {
+                Guardian g = allGuardians.get(i);
+                if (g.getPhone() != null && !g.getPhone().trim().isEmpty()) {
+                    System.out.println("[GUARDIAN PHONE RESOLVED] Found phone " + g.getPhone().trim()
+                            + " from registered guardian: " + g.getUsername());
+                    return g.getPhone().trim();
+                }
+            }
+        }
+
+        // 4. Fallback: If deviceId itself is formatted as a phone number
+        if (deviceId != null) {
+            String cleanDev = deviceId.trim();
+            if (cleanDev.startsWith("+") || (cleanDev.matches("^\\d{10,13}$"))) {
+                return cleanDev;
+            }
+        }
+
         return "";
     }
 
