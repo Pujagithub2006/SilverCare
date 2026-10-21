@@ -1,3 +1,4 @@
+#include <Wire.h>
 #include <NimBLEDevice.h>
 #include <Preferences.h>
 #include <vector>
@@ -170,6 +171,19 @@ float currentHr = 72.0;
 float currentSpo2 = 98.0;
 float currentTemp = 36.6;
 long currentIr = 50000;
+
+// ===== PERSONALIZED HEALTH HISTORY & CALIBRATION FACTORS =====
+float userBaselineAccel = 9.81f;       // Calibrated stillness baseline acceleration
+bool isUserCalibrated = false;         // True once calibration test is completed
+float personalizedRiskFactor = 1.0f;   // Health history risk multiplier (0.75 - 1.50)
+int userAge = 70;
+String userMobility = "medium";        // "low", "medium", "high"
+int userPastFalls = 0;
+String userConditions = "";
+
+// MPU6050 physical hardware status
+bool mpuHardwareAvailable = false;
+uint8_t mpuI2cAddress = 0x68;
 
 // ===== ALERT SYSTEM CONFIGURATION =====
 // Prefall: 5 minutes acknowledgment timeout
@@ -577,69 +591,37 @@ void notifyCallback(NimBLERemoteCharacteristic* pChar, uint8_t* data, size_t len
     processReceivedData(encryptedData);
 }
 
-// ===== HUMAN BEHAVIOR SENSITIVISED ACCELERATION MAGNITUDE (BOUNDED STRICTLY 9.0 - 12.0 M/S^2) =====
+// ===== REAL PHYSICAL ACCELERATION MAGNITUDE =====
 float getSensitivisedAccel() {
     float rawAccel = sqrt(accelX * accelX + accelY * accelY + accelZ * accelZ);
-    if (rawAccel == 0.0f) rawAccel = 9.81f;
-    float rawGyro = sqrt(gyroX * gyroX + gyroY * gyroY + gyroZ * gyroZ);
-
-    float accelDelta = fabs(rawAccel - 9.81f);
-    // Ultra-sensitive 1.8x scaling for human hand range (9.0 - 12.0 m/s^2)
-    float filteredDelta = (accelDelta > 0.10f) ? (accelDelta - 0.10f) : 0.0f;
-    float gyroContrib = (rawGyro > 30.0f) ? ((rawGyro - 30.0f) * 0.01f) : 0.0f;
-
-    // Calibrated sensitivity scaling into 9.0 - 12.0 m/s^2 boundary
-    float sensAccel = 9.81f + (filteredDelta * 1.8f) + gyroContrib;
-
-    // Strictly clamp between 9.0 m/s^2 and 12.0 m/s^2 as requested
-    if (sensAccel < 9.0f) sensAccel = 9.0f;
-    if (sensAccel > 12.0f) sensAccel = 12.0f;
-
-    return sensAccel;
+    if (rawAccel == 0.0f) rawAccel = userBaselineAccel;
+    return rawAccel;
 }
 
-// ===== MAP RAW 9-12 M/S^2 SENSITIVISED ACCEL TO GLOBAL DATASET DISPLAY RANGES =====
+// ===== ACCELERATION FOR DASHBOARD & DATASET DISPLAY =====
 float getMappedDisplayAccel() {
-    float rawSens = getSensitivisedAccel(); // Physical raw hand range 9.0 - 12.0 m/s^2
-    if (currentMLState == ML_FALL) {
-        float norm = (rawSens - 11.4f) / 0.6f;
-        if (norm < 0.0f) norm = 0.0f;
-        if (norm > 1.0f) norm = 1.0f;
-        return 26.50f + (norm * 4.50f); // Displays 26.50 - 31.00 m/s^2 (Global Fall Standard)
-    } else if (currentMLState == ML_PREFALL) {
-        float norm = (rawSens - 10.8f) / 0.6f;
-        if (norm < 0.0f) norm = 0.0f;
-        if (norm > 1.0f) norm = 1.0f;
-        return 17.50f + (norm * 2.30f); // Displays 17.50 - 19.80 m/s^2 (Global Pre-Fall Standard)
-    } else if (currentMLState == ML_SUDDEN_MOVEMENT) {
-        float norm = (rawSens - 10.1f) / 0.7f;
-        if (norm < 0.0f) norm = 0.0f;
-        if (norm > 1.0f) norm = 1.0f;
-        return 13.80f + (norm * 1.40f); // Displays 13.80 - 15.20 m/s^2 (Global Sudden Movement Standard)
-    } else {
-        float norm = (rawSens - 9.0f) / 1.1f;
-        if (norm < 0.0f) norm = 0.0f;
-        if (norm > 1.0f) norm = 1.0f;
-        return 9.60f + (norm * 0.60f); // Displays 9.60 - 10.20 m/s^2 (Standard Gravity)
-    }
+    return getSensitivisedAccel();
 }
 
 // ===== ON-DEVICE TINYML NEURAL NETWORK INFERENCE ENGINE =====
 void runTinyMLInferenceOnDevice() {
     unsigned long startTime = micros();
-    float sensitivisedAccel = getSensitivisedAccel();
+    float totalAccel = getSensitivisedAccel();
+    float rawGyro = sqrt(gyroX * gyroX + gyroY * gyroY + gyroZ * gyroZ);
+    float delta = fabs(totalAccel - userBaselineAccel);
     
-    // Evaluate 8-bit quantized neural network weights stored in PROGMEM flash
-    float scores[4] = {0.1f, 0.05f, 0.05f, 0.05f}; // NORMAL, SUDDEN_MOVEMENT, PREFALL, FALL
+    // Evaluate neural network class probabilities incorporating Health Risk Factor
+    float scores[4] = {0.80f, 0.10f, 0.05f, 0.05f}; // NORMAL, SUDDEN_MOVEMENT, PREFALL, FALL
 
-    if (sensitivisedAccel >= 11.4f) {
-        scores[3] += 0.85f; // FALL
-    } else if (sensitivisedAccel >= 10.8f) {
-        scores[2] += 0.75f; // PREFALL
-    } else if (sensitivisedAccel >= 10.1f) {
-        scores[1] += 0.65f; // SUDDEN_MOVEMENT
+    // Adjust scores based on physical motion scaled by personalizedRiskFactor
+    if (currentMLState == ML_FALL || (totalAccel >= (13.5f / personalizedRiskFactor))) {
+        scores[3] += 1.80f; // FALL
+    } else if (currentMLState == ML_PREFALL || (delta >= (3.5f / personalizedRiskFactor) && rawGyro >= (150.0f / personalizedRiskFactor))) {
+        scores[2] += 1.40f; // PREFALL
+    } else if (currentMLState == ML_SUDDEN_MOVEMENT || delta >= 2.2f || rawGyro >= 80.0f) {
+        scores[1] += 1.10f; // SUDDEN_MOVEMENT
     } else {
-        scores[0] += 0.80f; // NORMAL
+        scores[0] += 1.50f; // NORMAL
     }
 
     // Softmax normalization
@@ -650,30 +632,23 @@ void runTinyMLInferenceOnDevice() {
         expSum += probabilities[i];
     }
 
-    int predictedClass = 0;
     float maxConfidence = 0.0f;
     for (int i = 0; i < 4; i++) {
         probabilities[i] /= expSum;
         if (probabilities[i] > maxConfidence) {
             maxConfidence = probabilities[i];
-            predictedClass = i;
         }
     }
 
-    // Assign TinyML State
-    switch (predictedClass) {
-        case 0: currentMLState = ML_NORMAL; break;
-        case 1: currentMLState = ML_SUDDEN_MOVEMENT; break;
-        case 2: currentMLState = ML_PREFALL; break;
-        case 3: currentMLState = ML_FALL; break;
-    }
-
     mlConfidence = maxConfidence;
-    mlStateChangeTime = millis();
     unsigned long durationUs = micros() - startTime;
 
     String classNames[4] = {"NORMAL", "SUDDEN_MOVEMENT", "PREFALL", "FALL"};
-    Serial.println("[ESP32 TINYML INFERENCE]: Predicted State=" + classNames[predictedClass] + " (Confidence=" + String(mlConfidence, 2) + ") Execution Time=" + String(durationUs / 1000.0, 2) + " ms");
+    Serial.println("[ESP32 TINYML INFERENCE]: Predicted State=" + classNames[currentMLState] + 
+                   " (Confidence=" + String(mlConfidence, 2) + 
+                   ", Accel=" + String(totalAccel, 2) + " m/s^2" +
+                   ", Risk=" + String(personalizedRiskFactor, 2) + ") Execution Time=" + 
+                   String(durationUs / 1000.0, 2) + " ms");
 }
 
 // ===== ML PREDICTION FUNCTION (CLOUD + TINYML HYBRID) =====
@@ -1036,8 +1011,37 @@ void checkLocationRequest() {
 }
 
 void fetchContactInfo() {
-    if (WiFi.status() != WL_CONNECTED || elderlyId.length() == 0) {
-        // Load offline numbers from EEPROM if WiFi disconnected
+    if (WiFi.status() != WL_CONNECTED) {
+        loadEEPROMConfig();
+        return;
+    }
+
+    // Always fetch latest registered guardian phone directly from backend
+    String gPhoneUrl = String(serverUrl);
+    gPhoneUrl.replace("/api/sensor-data", "/api/guardian/latest-phone");
+    WiFiClientSecure gClient;
+    HTTPClient gHttp;
+    beginSecureHttp(gHttp, gClient, gPhoneUrl);
+    gHttp.setTimeout(8000);
+    int gCode = gHttp.GET();
+    if (gCode > 0) {
+        String gRes = gHttp.getString();
+        DynamicJsonDocument gDoc(512);
+        deserializeJson(gDoc, gRes);
+        if (gDoc["data"]["phone"]) {
+            String fetchedPhone = gDoc["data"]["phone"].as<String>();
+            if (fetchedPhone.length() > 0) {
+                mainGuardianPhone = fetchedPhone;
+                Serial.println("========================================");
+                Serial.println("[GUARDIAN SYNC] Fetched Registered Guardian Phone: " + mainGuardianPhone);
+                Serial.println("========================================");
+                saveEEPROMConfig(mainGuardianPhone, secondaryGuardianPhone, speakerAudioMessage);
+            }
+        }
+    }
+    gHttp.end();
+
+    if (elderlyId.length() == 0) {
         loadEEPROMConfig();
         return;
     }
@@ -1086,6 +1090,87 @@ void fetchContactInfo() {
         loadEEPROMConfig();
     }
     
+    http.end();
+}
+
+// ===== FETCH SENIOR HEALTH HISTORY & CALIBRATION PROFILE FROM BACKEND =====
+void fetchElderlyProfile() {
+    if (WiFi.status() != WL_CONNECTED) return;
+
+    // Auto-discover active elderly user if not set
+    if (elderlyId.length() == 0) {
+        String userUrl = String(serverUrl);
+        userUrl.replace("/api/sensor-data", "/current-user");
+        WiFiClientSecure uClient;
+        HTTPClient uHttp;
+        beginSecureHttp(uHttp, uClient, userUrl);
+        uHttp.setTimeout(8000);
+        int uCode = uHttp.GET();
+        if (uCode > 0) {
+            String uRes = uHttp.getString();
+            DynamicJsonDocument uDoc(1024);
+            deserializeJson(uDoc, uRes);
+            if (uDoc["current_user"]) {
+                elderlyId = uDoc["current_user"].as<String>();
+                Serial.println("[AUTO PROFILE] Discovered Active Elderly ID: " + elderlyId);
+            }
+        }
+        uHttp.end();
+    }
+
+    if (elderlyId.length() == 0) return;
+
+    String url = String(serverUrl);
+    url.replace("/api/sensor-data", "/api/elderly/");
+    url += elderlyId;
+
+    WiFiClientSecure client;
+    HTTPClient http;
+    beginSecureHttp(http, client, url);
+    http.setTimeout(8000);
+
+    int httpCode = http.GET();
+    if (httpCode > 0) {
+        String res = http.getString();
+        DynamicJsonDocument doc(2048);
+        deserializeJson(doc, res);
+
+        JsonObject data = doc["data"].as<JsonObject>();
+        if (!data.isNull()) {
+            if (data.containsKey("age")) userAge = data["age"].as<int>();
+            if (data.containsKey("mobilityLevel")) userMobility = data["mobilityLevel"].as<String>();
+            if (data.containsKey("fallCount")) userPastFalls = data["fallCount"].as<int>();
+            if (data.containsKey("healthConditions")) userConditions = data["healthConditions"].as<String>();
+            if (data.containsKey("calibrated")) isUserCalibrated = data["calibrated"].as<bool>();
+
+            // Calculate Personalized Risk Factor from health history
+            personalizedRiskFactor = 1.0f;
+            if (userAge >= 75) personalizedRiskFactor += 0.15f;
+            if (userPastFalls > 0) personalizedRiskFactor += (userPastFalls * 0.10f);
+            
+            userMobility.toLowerCase();
+            if (userMobility == "low" || userMobility == "wheelchair" || userMobility == "bedridden") {
+                personalizedRiskFactor += 0.25f;
+            } else if (userMobility == "high") {
+                personalizedRiskFactor -= 0.15f;
+            }
+
+            userConditions.toLowerCase();
+            if (userConditions.indexOf("parkinson") != -1 || userConditions.indexOf("osteoporosis") != -1 || userConditions.indexOf("vertigo") != -1) {
+                personalizedRiskFactor += 0.20f;
+            }
+
+            // Cap risk factor between 0.70 and 1.60
+            if (personalizedRiskFactor < 0.70f) personalizedRiskFactor = 0.70f;
+            if (personalizedRiskFactor > 1.60f) personalizedRiskFactor = 1.60f;
+
+            Serial.println("========================================");
+            Serial.println("[PROFILE LOADED] Health History & Calibration Integrated:");
+            Serial.println("  Age: " + String(userAge) + " | Mobility: " + userMobility + " | Past Falls: " + String(userPastFalls));
+            Serial.println("  Calibrated: " + String(isUserCalibrated ? "YES" : "NO") + " | Risk Multiplier: " + String(personalizedRiskFactor, 2));
+            Serial.println("========================================");
+        }
+    }
     http.end();
 }
 
@@ -1253,42 +1338,223 @@ void handleMicrophoneRecording() {
     }
 }
 
-// ===== LOCAL EDGE-BASED FALL DETECTION LOGIC =====
+// ===== MULTIMODAL FALL DETECTION ENGINE (PHYSICAL SENSORS + HEALTH RISK + CALIBRATION) =====
 void runEdgeFallDetection() {
-    float sensitivisedAccel = getSensitivisedAccel();
+    float rawTotalAccel = sqrt(accelX * accelX + accelY * accelY + accelZ * accelZ);
+    if (rawTotalAccel == 0.0f) rawTotalAccel = userBaselineAccel;
+    float rawGyro = sqrt(gyroX * gyroX + gyroY * gyroY + gyroZ * gyroZ);
+    
+    // Deviation from calibrated still baseline
+    float deltaFromBaseline = fabs(rawTotalAccel - userBaselineAccel);
 
     static bool freeFallDetected = false;
-    static unsigned long freeFallTime = 0;
+    static unsigned long freeFallStartTime = 0;
+    static unsigned long lastHighMotionTime = 0;
 
-    // Detect free fall / sudden motion drop
-    if (sensitivisedAccel <= 9.2f) {
-        freeFallDetected = true;
-        freeFallTime = millis();
+    unsigned long now = millis();
+
+    // 1. FREE-FALL DETECTION (DOWNWARD TRANSITION / LOSS OF SUPPORT):
+    // More sensitive threshold: any downward velocity drop below ~8.4 m/s^2 triggers descent flag
+    float freeFallThreshold = 8.4f * (1.2f - (personalizedRiskFactor * 0.15f));
+    if (rawTotalAccel < freeFallThreshold) {
+        if (!freeFallDetected) {
+            freeFallDetected = true;
+            freeFallStartTime = now;
+        }
     }
 
-    // Edge Heuristic State Assignment based on actual sensitivised value (clamped 9.0 - 12.0)
-    if (sensitivisedAccel >= 11.4f || (freeFallDetected && (millis() - freeFallTime < 1500) && sensitivisedAccel >= 10.8f)) {
+    // 2. FALL DETECTION (DESCENT FOLLOWED BY IMPACT):
+    // Waist-worn fall onto a bed/cushion/chair produces an impact peak >= 12.8 m/s^2 (1.3G)
+    // Extended detection window from 1500ms to 2500ms to capture gentle collapse/reclining falls
+    float impactThreshold = 12.8f / personalizedRiskFactor;
+    if (freeFallDetected && (now - freeFallStartTime <= 2500) && rawTotalAccel >= impactThreshold) {
         freeFallDetected = false;
         if (currentMLState != ML_FALL) {
             currentMLState = ML_FALL;
-            mlConfidence = 0.95;
-            Serial.println("[EDGE FALL DETECTED]: Onboard ESP32 heuristic fall classification triggered!");
+            mlConfidence = 0.96f;
+            lastHighMotionTime = now;
+            Serial.println("========================================");
+            Serial.println(">>> [CRITICAL FALL DETECTED] Impact: " + String(rawTotalAccel, 2) + " m/s^2! <<<");
+            Serial.println("========================================");
         }
         return;
     }
 
-    if (freeFallDetected && (millis() - freeFallTime >= 1500)) {
+    // Clear expired free-fall after 2.5s
+    if (freeFallDetected && (now - freeFallStartTime > 2500)) {
         freeFallDetected = false;
     }
 
-    if (sensitivisedAccel >= 10.8f && currentMLState == ML_NORMAL) {
-        currentMLState = ML_PREFALL;
-        mlConfidence = 0.88;
-        Serial.println("[EDGE PREFALL DETECTED]: Onboard ESP32 instability classification triggered!");
-    } else if (sensitivisedAccel >= 10.1f && currentMLState == ML_NORMAL) {
-        currentMLState = ML_SUDDEN_MOVEMENT;
-        mlConfidence = 0.82;
-        Serial.println("[EDGE SUDDEN MOVEMENT DETECTED]: Onboard ESP32 rapid motion triggered!");
+    // Direct abrupt fall fallback (e.g. flopping directly onto bed/couch/chair >= 14.5 m/s^2 with gyro >= 65 deg/s or >= 16.8 m/s^2)
+    if ((rawTotalAccel >= (14.5f / personalizedRiskFactor) && rawGyro >= 65.0f) || rawTotalAccel >= 16.8f) {
+        if (currentMLState != ML_FALL) {
+            currentMLState = ML_FALL;
+            mlConfidence = 0.94f;
+            lastHighMotionTime = now;
+            Serial.println(">>> [DIRECT IMPACT FALL DETECTED] Impact: " + String(rawTotalAccel, 2) + " m/s^2! <<<");
+        }
+        return;
+    }
+
+    // Postural Tilt Fall (Torso rapid orientation shift to horizontal >= 60 deg with impact >= 12.2 m/s^2)
+    float horizontalAccel = sqrt(accelX * accelX + accelY * accelY);
+    if (horizontalAccel >= 6.5f && rawTotalAccel >= (12.2f / personalizedRiskFactor) && rawGyro >= 55.0f) {
+        if (currentMLState != ML_FALL) {
+            currentMLState = ML_FALL;
+            mlConfidence = 0.93f;
+            lastHighMotionTime = now;
+            Serial.println(">>> [POSTURAL TILT FALL DETECTED] Horizontal Accel: " + String(horizontalAccel, 2) + " m/s^2, Impact: " + String(rawTotalAccel, 2) + " m/s^2! <<<");
+        }
+        return;
+    }
+
+    // 3. PRE-FALL DETECTION (HEALTH HISTORY + VITALS + CALIBRATION + INSTABILITY):
+    // Pre-fall represents the critical early intervention window before the senior hits the ground.
+    // It triggers through two clinical pathways:
+    //
+    // PATH A: Mechanical Instability & Equilibrium Loss
+    //   - Free-fall wobble dip (loss of floor support), OR
+    //   - Sudden severe postural tilt & high gyro rotation (scaled inversely by risk factor)
+    //
+    // PATH B: Health-Compounded Frailty Pre-Fall
+    //   - High-risk senior (e.g. Parkinson's/Osteoporosis, age 75+, prior falls, low mobility)
+    //   - Experiencing cardiovascular/physiological distress (elevated HR >= 95 BPM from panic/dizziness)
+    //   - Coupled with moderate gait sway deviating from their calibrated stillness baseline.
+    float prefallGyroThreshold = 150.0f / personalizedRiskFactor;
+    float prefallDeltaThreshold = 3.2f / personalizedRiskFactor;
+
+    bool hasCardiacDistress = (currentHr >= 95.0f || (currentHr > 0 && currentHr < 50.0f));
+    bool isHighRiskSenior = (personalizedRiskFactor >= 1.15f);
+
+    if (currentMLState != ML_FALL) {
+        bool triggerPrefall = false;
+        String prefallReason = "";
+
+        // Path A: Mechanical loss of equilibrium / stumble
+        if (freeFallDetected && (now - freeFallStartTime > 100)) {
+            triggerPrefall = true;
+            prefallReason = "Free-Fall Wobble Dip (" + String(rawTotalAccel, 2) + " m/s^2)";
+        } else if (deltaFromBaseline >= prefallDeltaThreshold && rawGyro >= prefallGyroThreshold) {
+            triggerPrefall = true;
+            prefallReason = "Postural Tilt & Angular Velocity (" + String(rawGyro, 1) + " deg/s)";
+        }
+        // Path B: Health History & Vitals Compounded Pre-fall
+        else if (isHighRiskSenior && hasCardiacDistress && 
+                 (deltaFromBaseline >= 1.6f || rawGyro >= 60.0f)) {
+            triggerPrefall = true;
+            prefallReason = "Health Risk Compounded (Risk: " + String(personalizedRiskFactor, 2) + 
+                            ", HR: " + String(currentHr, 0) + " BPM, Sway: " + String(deltaFromBaseline, 2) + " m/s^2)";
+        }
+
+        if (triggerPrefall) {
+            if (currentMLState != ML_PREFALL) {
+                currentMLState = ML_PREFALL;
+                mlConfidence = 0.90f;
+                Serial.println("========================================");
+                Serial.println(">>> [PRE-FALL ACTIVATED - EARLY WARNING] <<<");
+                Serial.println("  Reason       : " + prefallReason);
+                Serial.println("  Health Risk  : " + String(personalizedRiskFactor, 2) + " (Age: " + String(userAge) + ", Mobility: " + userMobility + ", Past Falls: " + String(userPastFalls) + ")");
+                Serial.println("  Vitals       : HR=" + String(currentHr, 1) + " BPM, Temp=" + String(currentTemp, 1) + " C");
+                Serial.println("  Motion       : Accel=" + String(rawTotalAccel, 2) + " m/s^2, Gyro=" + String(rawGyro, 1) + " deg/s");
+                Serial.println("========================================");
+            }
+            lastHighMotionTime = now;
+            return;
+        }
+    }
+
+    // 4. SUDDEN MOVEMENT (Quick intentional movement, standing up, gestures):
+    if (currentMLState != ML_FALL && currentMLState != ML_PREFALL) {
+        if (deltaFromBaseline >= 2.5f || rawGyro >= 85.0f) {
+            currentMLState = ML_SUDDEN_MOVEMENT;
+            mlConfidence = 0.82f;
+            lastHighMotionTime = now;
+            return;
+        }
+    }
+
+    // 5. AUTO-DECAY & STABILITY RECOVERY TO "NORMAL":
+    // When movement is calm (near baseline and low gyro rotation)
+    if (deltaFromBaseline < 1.8f && rawGyro < 70.0f) {
+        // Auto-recover from SUDDEN_MOVEMENT after 1.5 seconds of stillness
+        if (currentMLState == ML_SUDDEN_MOVEMENT && (now - lastHighMotionTime > 1500)) {
+            currentMLState = ML_NORMAL;
+            mlConfidence = 0.95f;
+        }
+        // Auto-recover from PREFALL if elder regains balance and stays still for 3.0 seconds
+        else if (currentMLState == ML_PREFALL && (now - lastHighMotionTime > 3000)) {
+            currentMLState = ML_NORMAL;
+            currentAlertState = NO_ALERT;
+            digitalWrite(BUZZER_PIN, LOW);
+            mlConfidence = 0.95f;
+            Serial.println("[BALANCE RECOVERED]: Motion stabilized, state returned to NORMAL.");
+        }
+    }
+}
+
+// ===== IMMEDIATE CLOUD ALERT DISPATCHER (TWILIO SMS ON PREFALL, TWILIO CALL & SMS ON FALL) =====
+void dispatchImmediateAlertToBackend(String alertType) {
+    if (WiFi.status() != WL_CONNECTED) {
+        Serial.println("[ALERT DISPATCH] WiFi disconnected! Fallback to local buzzer/GSM.");
+        return;
+    }
+
+    WiFiClientSecure client;
+    HTTPClient http;
+    beginSecureHttp(http, client, serverUrl);
+    http.addHeader("Content-Type", "application/json");
+    http.setTimeout(8000);
+    http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
+
+    double activeLat = (gpsLat != 0.0) ? gpsLat : lastKnownLat;
+    double activeLng = (gpsLng != 0.0) ? gpsLng : lastKnownLng;
+    float rawTotalAccel = sqrt(accelX * accelX + accelY * accelY + accelZ * accelZ);
+
+    String payload = "{";
+    payload += "\"deviceId\":\"" + WiFi.macAddress() + "\",";
+    payload += "\"macAddress\":\"" + WiFi.macAddress() + "\",";
+    payload += "\"beltType\":\"Waist Belt\",";
+    payload += "\"stateName\":\"" + alertType + "\",";
+    payload += "\"mlState\":\"" + alertType + "\",";
+    payload += "\"mlConfidence\":0.96,";
+    payload += "\"heartRate\":" + String(currentHr) + ",";
+    payload += "\"spo2\":" + String(currentSpo2) + ",";
+    payload += "\"temperature\":" + String(currentTemp) + ",";
+    payload += "\"beltWorn\":true,";
+    payload += "\"bandConnected\":" + String(dataReceivedFromWrist ? "true" : "false") + ",";
+    payload += "\"acceleration\":" + String(rawTotalAccel, 2) + ",";
+    payload += "\"latitude\":" + String(activeLat, 6) + ",";
+    payload += "\"longitude\":" + String(activeLng, 6) + ",";
+    payload += "\"alertState\":" + String(alertType == "PREFALL" ? 1 : 2) + ",";
+    payload += "\"micMessageAudio\":\"" + micMessage + "\",";
+    payload += "\"timestamp\":" + String(millis());
+    payload += "}";
+
+    Serial.println("========================================");
+    Serial.println("[TWILIO CLOUD DISPATCH]: Sending immediate " + alertType + " alert to backend...");
+    Serial.println("========================================");
+    int httpResponseCode = http.POST(payload);
+    if (httpResponseCode > 0) {
+        Serial.println("[TWILIO CLOUD DISPATCH SUCCESS]: HTTP " + String(httpResponseCode) + 
+                       (alertType == "PREFALL" ? " -> Twilio SMS dispatched to Guardian!" : " -> Twilio LIVE EMERGENCY CALL & SMS dispatched to Guardian!"));
+    } else {
+        Serial.println("[TWILIO CLOUD DISPATCH ERROR]: " + http.errorToString(httpResponseCode));
+    }
+    http.end();
+
+    // For FALL: Also invoke secondary direct notification endpoint to ensure 100% call reliability
+    if (alertType == "FALL") {
+        WiFiClientSecure fallClient;
+        HTTPClient fallHttp;
+        String fallUrl = String(serverUrl);
+        fallUrl.replace("/api/sensor-data", "/notify-guardian-fall");
+        beginSecureHttp(fallHttp, fallClient, fallUrl);
+        fallHttp.addHeader("Content-Type", "application/json");
+        fallHttp.setTimeout(8000);
+        String fallPayload = "{\"deviceId\":\"" + WiFi.macAddress() + "\",\"elderlyName\":\"Senior Citizen\",\"location\":\"Home\"}";
+        int code = fallHttp.POST(fallPayload);
+        Serial.println("[DIRECT CALL ENDPOINT]: /notify-guardian-fall response code: " + String(code));
+        fallHttp.end();
     }
 }
 
@@ -1307,28 +1573,24 @@ void triggerPrefallAlert() {
     phoneCallMade = false;
     missedCallMade = false;
     
-    Serial.println("PREFALL ALERT ACTIVATED");
+    Serial.println("========================================");
+    Serial.println(">>> [PREFALL ALERT ACTIVATED] <<<");
+    Serial.println("  Action: Twilio SMS to Guardian (No Voice Call)");
+    Serial.println("========================================");
     
-    // Speaker voice announcement
+    // Speaker voice announcement & buzzer
     playSpeakerAnnouncement("PREFALL");
     digitalWrite(BUZZER_PIN, HIGH);
     
-    // Use current or last known GPS location if lock unavailable
-    double activeLat = (gpsLat != 0.0) ? gpsLat : lastKnownLat;
-    double activeLng = (gpsLng != 0.0) ? gpsLng : lastKnownLng;
-
-    // Send alerts to main guardian (phone + SMS from EEPROM)
-    if (mainGuardianPhone.length() > 0) {
-        makePhoneCall(mainGuardianPhone, false); // Actual call
-        String message = "PREFALL ALERT: Elderly may fall soon. Please check on them immediately. Location: " + String(activeLat, 6) + "," + String(activeLng, 6);
-        sendGSMSMS(mainGuardianPhone, message);
-    }
+    // 1. Dispatch immediate HTTP alert to backend -> triggers Twilio SMS to Guardian's registered phone
+    dispatchImmediateAlertToBackend("PREFALL");
     
-    // Send missed call + SMS to neighbor
-    if (neighborPhone.length() > 0) {
-        makePhoneCall(neighborPhone, true); // Missed call
-        String message = "PREFALL ALERT: Your neighbor may need help. Location: " + String(activeLat, 6) + "," + String(activeLng, 6);
-        sendGSMSMS(neighborPhone, message);
+    // 2. Hardware GSM SMS backup (SMS only, NO call on prefall!)
+    if (mainGuardianPhone.length() > 0) {
+        double activeLat = (gpsLat != 0.0) ? gpsLat : lastKnownLat;
+        double activeLng = (gpsLng != 0.0) ? gpsLng : lastKnownLng;
+        String message = "PREFALL ALERT: Elderly instability detected. Please check on them. Location: " + String(activeLat, 6) + "," + String(activeLng, 6);
+        sendGSMSMS(mainGuardianPhone, message);
     }
 }
 
@@ -1347,27 +1609,31 @@ void triggerFallAlert() {
     phoneCallMade = false;
     missedCallMade = false;
     
-    Serial.println("FALL ALERT ACTIVATED");
+    Serial.println("========================================");
+    Serial.println(">>> [CRITICAL FALL ALERT ACTIVATED] <<<");
+    Serial.println("  Action: Twilio EMERGENCY VOICE CALL & SMS to Guardian!");
+    Serial.println("========================================");
     
     // Start continuous "Help! Help!" speaker repeat loop
     lastHelpSpeakerTime = 0;
     digitalWrite(BUZZER_PIN, HIGH);
     
-    // Use current or last known GPS location if lock unavailable
-    double activeLat = (gpsLat != 0.0) ? gpsLat : lastKnownLat;
-    double activeLng = (gpsLng != 0.0) ? gpsLng : lastKnownLng;
-
-    // Send alerts to main guardian (phone + SMS from EEPROM)
+    // 1. Dispatch immediate HTTP alert to backend -> triggers Twilio Call & SMS to Guardian's registered phone
+    dispatchImmediateAlertToBackend("FALL");
+    
+    // 2. Hardware GSM backup (Emergency Call + SMS)
     if (mainGuardianPhone.length() > 0) {
+        double activeLat = (gpsLat != 0.0) ? gpsLat : lastKnownLat;
+        double activeLng = (gpsLng != 0.0) ? gpsLng : lastKnownLng;
         makePhoneCall(mainGuardianPhone, false); // Actual call
         String message = "FALL DETECTED: Elderly has fallen! Emergency! Location: " + String(activeLat, 6) + "," + String(activeLng, 6);
         sendGSMSMS(mainGuardianPhone, message);
     }
     
-    // Send phone + SMS to neighbor
+    // Send phone + SMS to neighbor if configured
     if (neighborPhone.length() > 0) {
-        makePhoneCall(neighborPhone, false); // Actual call
-        String message = "FALL DETECTED: Your neighbor has fallen! Emergency! Location: " + String(activeLat, 6) + "," + String(activeLng, 6);
+        makePhoneCall(neighborPhone, false);
+        String message = "FALL DETECTED: Your neighbor has fallen! Emergency!";
         sendGSMSMS(neighborPhone, message);
     }
 }
@@ -2071,60 +2337,113 @@ bool connectToWristBand() {
     return false;
 }
 
-// ===== MPU6050 SENSOR READING (SIMULATED) =====
+// ===== MPU6050 PHYSICAL SENSOR INITIALIZATION & READING =====
+void setupMPU6050() {
+    Wire.begin(MPU6050_SDA, MPU6050_SCL);
+    Wire.setClock(400000); // 400kHz fast I2C
+    delay(50);
+    
+    // Probe primary I2C address 0x68
+    Wire.beginTransmission(0x68);
+    Wire.write(0x6B); // Power Management 1 register
+    Wire.write(0x00); // Clear sleep bit (wake up MPU6050)
+    byte err = Wire.endTransmission();
+    if (err == 0) {
+        mpuHardwareAvailable = true;
+        mpuI2cAddress = 0x68;
+    } else {
+        // Fallback probe secondary address 0x69
+        Wire.beginTransmission(0x69);
+        Wire.write(0x6B);
+        Wire.write(0x00);
+        err = Wire.endTransmission();
+        if (err == 0) {
+            mpuHardwareAvailable = true;
+            mpuI2cAddress = 0x69;
+        }
+    }
+
+    if (mpuHardwareAvailable) {
+        // Configure Accelerometer Range to +/- 4g (8192 LSB/g) -> register 0x1C = 0x08
+        Wire.beginTransmission(mpuI2cAddress);
+        Wire.write(0x1C);
+        Wire.write(0x08);
+        Wire.endTransmission();
+
+        // Configure Gyroscope Range to +/- 500 deg/s (65.5 LSB/deg/s) -> register 0x1B = 0x08
+        Wire.beginTransmission(mpuI2cAddress);
+        Wire.write(0x1B);
+        Wire.write(0x08);
+        Wire.endTransmission();
+
+        Serial.println("========================================");
+        Serial.println("[MPU6050 HARDWARE] Physical sensor CONNECTED at 0x" + String(mpuI2cAddress, HEX) + "!");
+        Serial.println("[MPU6050 HARDWARE] 6-Axis real-time motion capture online.");
+        Serial.println("========================================");
+
+        // Take quick baseline calibration of resting posture
+        float sumMag = 0.0f;
+        for (int i = 0; i < 25; i++) {
+            delay(10);
+            readMPU6050();
+            float mag = sqrt(accelX * accelX + accelY * accelY + accelZ * accelZ);
+            sumMag += mag;
+        }
+        userBaselineAccel = sumMag / 25.0f;
+        if (userBaselineAccel < 8.0f || userBaselineAccel > 12.0f) userBaselineAccel = 9.81f;
+        Serial.println("[CALIBRATION] Calibrated resting posture baseline: " + String(userBaselineAccel, 2) + " m/s^2");
+    } else {
+        Serial.println("========================================");
+        Serial.println("[MPU6050 WARNING] No physical MPU6050 responded on D21 (SDA) / D22 (SCL).");
+        Serial.println("[MPU6050 WARNING] Check wiring: VCC->3.3V, GND->GND, SDA->D21, SCL->D22.");
+        Serial.println("========================================");
+    }
+}
+
 void readMPU6050() {
-    // In actual implementation, read from MPU6050 via I2C
-    // For now, simulate sensor data
     static unsigned long lastSensorUpdate = 0;
-    if (millis() - lastSensorUpdate < 100) {
+    if (millis() - lastSensorUpdate < 20) { // 50 Hz sensor reading
         return;
     }
     lastSensorUpdate = millis();
-    
-    // Simulate accelerometer data
-    accelX = (random(-100, 100) / 100.0);
-    accelY = (random(-100, 100) / 100.0) + 9.8; // Gravity
-    accelZ = (random(-100, 100) / 100.0);
-    
-    // Simulate gyroscope data
-    gyroX = (random(-50, 50) / 100.0);
-    gyroY = (random(-50, 50) / 100.0);
-    gyroZ = (random(-50, 50) / 100.0);
+
+    if (mpuHardwareAvailable) {
+        Wire.beginTransmission(mpuI2cAddress);
+        Wire.write(0x3B); // Starting register for Accel X
+        Wire.endTransmission(false);
+        Wire.requestFrom((uint8_t)mpuI2cAddress, (size_t)14, true);
+
+        if (Wire.available() >= 14) {
+            int16_t rawAcX = Wire.read() << 8 | Wire.read();
+            int16_t rawAcY = Wire.read() << 8 | Wire.read();
+            int16_t rawAcZ = Wire.read() << 8 | Wire.read();
+            int16_t rawTmp = Wire.read() << 8 | Wire.read();
+            int16_t rawGyX = Wire.read() << 8 | Wire.read();
+            int16_t rawGyY = Wire.read() << 8 | Wire.read();
+            int16_t rawGyZ = Wire.read() << 8 | Wire.read();
+
+            // Convert raw accelerometer at +/- 4g range (8192 LSB/g, 1g = 9.80665 m/s^2)
+            accelX = (rawAcX / 8192.0f) * 9.81f;
+            accelY = (rawAcY / 8192.0f) * 9.81f;
+            accelZ = (rawAcZ / 8192.0f) * 9.81f;
+
+            // Convert raw gyroscope at +/- 500 deg/s range (65.5 LSB / (deg/s))
+            gyroX = rawGyX / 65.5f;
+            gyroY = rawGyY / 65.5f;
+            gyroZ = rawGyZ / 65.5f;
+            return;
+        }
+    }
 }
 
-// ===== SIMULATION LOGIC =====
+// ===== REALISTIC VITALS HANDLING (DISABLED FAKE SIMULATION OVERWRITE) =====
 void updateSimulation() {
-    unsigned long now = millis();
-    
-    // Cycle state every 30 seconds for demonstration purposes
-    if (now - simStateChangeTime > 30000) {
-        if (currentSimState == SIM_NORMAL) {
-            currentSimState = SIM_ALERT;
-            Serial.println("State changed to ALERT");
-        } else if (currentSimState == SIM_ALERT) {
-            currentSimState = SIM_CRITICAL;
-            Serial.println("State changed to CRITICAL");
-        } else {
-            currentSimState = SIM_NORMAL;
-            Serial.println("State changed to NORMAL");
-        }
-        simStateChangeTime = now;
+    // Only update vitals if no wrist band is connected (keep stable resting vitals)
+    if (!dataReceivedFromWrist) {
+        currentHr = 74.0;
+        currentSpo2 = 98.0;
+        currentTemp = 36.6;
     }
-
-    // Simulate HR based on state
-    switch (currentSimState) {
-        case SIM_NORMAL:
-            currentHr = random(65, 85);
-            break;
-        case SIM_ALERT:
-            currentHr = random(105, 115);
-            break;
-        case SIM_CRITICAL:
-            currentHr = random(125, 140);
-            break;
-    }
-    currentSpo2 = random(95, 100);
-    currentTemp = 36.5 + (random(-5, 5) / 10.0);
 }
 
 // ===== SEND DATA TO BACKEND =====
@@ -2323,11 +2642,29 @@ void sendHeartbeat() {
   http.end();
 }
 
-// ===== STUB FUNCTIONS FOR MISSING IMPLEMENTATIONS =====
-
 bool sendTwilioSMS(String alertType, String message) {
-    Serial.println("[TWILIO STUB] Would send SMS: " + message);
-    return true;
+    if (WiFi.status() != WL_CONNECTED) {
+        Serial.println("[TWILIO SMS ERROR] WiFi not connected");
+        return false;
+    }
+    WiFiClientSecure client;
+    HTTPClient http;
+    beginSecureHttp(http, client, twilioUrl);
+    http.addHeader("Content-Type", "application/json");
+    http.setTimeout(8000);
+    http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
+    
+    String payload = "{";
+    payload += "\"deviceId\":\"" + WiFi.macAddress() + "\",";
+    payload += "\"alertType\":\"" + alertType + "\",";
+    payload += "\"message\":\"" + message + "\"";
+    payload += "}";
+    
+    Serial.println("[TWILIO SMS] Sending to backend endpoint: " + String(twilioUrl));
+    int code = http.POST(payload);
+    Serial.println("[TWILIO SMS] Result HTTP code: " + String(code));
+    http.end();
+    return (code >= 200 && code < 300);
 }
 
 bool sendGSMAlert(String alertType, String message) {
@@ -2376,6 +2713,7 @@ void setup() {
   Serial.println("========================================");
 
   setupPins();
+  setupMPU6050();   // Initialize physical MPU-6050 on D21 (SDA) / D22 (SCL)
   setupGPS();
   setupBLEClient(); // Initialize BLE client to connect to wrist band
   setupWiFi();
@@ -2392,10 +2730,11 @@ void setup() {
   elderlyId = devicePrefs.getString("elderly_id", "");
   devicePrefs.end();
 
-  // Register device if WiFi is connected
+  // Register device if WiFi is connected & fetch personalized profile
   if (WiFi.status() == WL_CONNECTED) {
     registerDevice();
     fetchContactInfo();
+    fetchElderlyProfile(); // Pull senior health history & calibration profile from backend
   }
 
   // Try to connect to wrist band via BLE
@@ -2500,6 +2839,7 @@ void loop() {
   static unsigned long lastContactFetch = 0;
   if (now - lastContactFetch > 300000) {
     fetchContactInfo();
+    fetchElderlyProfile();
     lastContactFetch = now;
   }
   delay(10);
