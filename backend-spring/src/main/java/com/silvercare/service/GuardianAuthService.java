@@ -14,6 +14,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -28,14 +29,16 @@ public class GuardianAuthService {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public String hashPassword(String password) {
-        if (password == null) return "";
+        if (password == null)
+            return "";
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             byte[] hash = digest.digest(password.getBytes(StandardCharsets.UTF_8));
             StringBuilder hexString = new StringBuilder();
             for (byte b : hash) {
                 String hex = Integer.toHexString(0xff & b);
-                if (hex.length() == 1) hexString.append('0');
+                if (hex.length() == 1)
+                    hexString.append('0');
                 hexString.append(hex);
             }
             return hexString.toString();
@@ -45,13 +48,14 @@ public class GuardianAuthService {
     }
 
     public boolean verifyPassword(String storedHash, String providedPassword) {
-        if (storedHash == null || providedPassword == null) return false;
+        if (storedHash == null || providedPassword == null)
+            return false;
         return storedHash.equals(hashPassword(providedPassword));
     }
 
     public Guardian registerGuardian(GuardianRegisterRequest request) {
         String username = request.getUsername().trim();
-        
+
         if (guardianRepository.existsByUsername(username)) {
             throw new IllegalArgumentException("Username already exists");
         }
@@ -74,8 +78,10 @@ public class GuardianAuthService {
 
         // Encrypt & Save to Firebase Database
         try {
-            firebaseEncryptionService.saveToFirebaseEncrypted("guardians", username, objectMapper.writeValueAsString(saved));
-        } catch (Exception ignored) {}
+            firebaseEncryptionService.saveToFirebaseEncrypted("guardians", username,
+                    objectMapper.writeValueAsString(saved));
+        } catch (Exception ignored) {
+        }
 
         return saved;
     }
@@ -123,9 +129,22 @@ public class GuardianAuthService {
 
         // Encrypt & Save to Firebase
         try {
-            firebaseEncryptionService.saveToFirebaseEncrypted("guardians", username, objectMapper.writeValueAsString(updated));
-        } catch (Exception ignored) {}
+            firebaseEncryptionService.saveToFirebaseEncrypted("guardians", username,
+                    objectMapper.writeValueAsString(updated));
+        } catch (Exception ignored) {
+        }
 
         return updated;
+    }
+
+    public String getLatestGuardianPhone() {
+        List<Guardian> all = guardianRepository.findAll();
+        for (int i = all.size() - 1; i >= 0; i--) {
+            Guardian g = all.get(i);
+            if (g.getPhone() != null && !g.getPhone().trim().isEmpty()) {
+                return g.getPhone().trim();
+            }
+        }
+        return "";
     }
 }
