@@ -150,7 +150,7 @@ static const uint8_t ENCRYPTION_IV[12] = {
 };
 
 // ===== TIME CONFIGURATION =====
-const unsigned long DATA_SEND_INTERVAL = 5000; // Send data every 5 seconds
+const unsigned long DATA_SEND_INTERVAL = 3000; // Send data every 3 seconds for responsive streaming
 unsigned long lastDataSent = 0;
 
 // ===== ML PREDICTION STATES =====
@@ -614,7 +614,7 @@ void runTinyMLInferenceOnDevice() {
     float scores[4] = {0.80f, 0.10f, 0.05f, 0.05f}; // NORMAL, SUDDEN_MOVEMENT, PREFALL, FALL
 
     // Adjust scores based on physical motion scaled by personalizedRiskFactor
-    if (currentMLState == ML_FALL || (totalAccel >= (13.5f / personalizedRiskFactor))) {
+    if (currentMLState == ML_FALL || (totalAccel >= (11.0f / personalizedRiskFactor))) {
         scores[3] += 1.80f; // FALL
     } else if (currentMLState == ML_PREFALL || (delta >= (3.5f / personalizedRiskFactor) && rawGyro >= (150.0f / personalizedRiskFactor))) {
         scores[2] += 1.40f; // PREFALL
@@ -1022,7 +1022,7 @@ void fetchContactInfo() {
     WiFiClientSecure gClient;
     HTTPClient gHttp;
     beginSecureHttp(gHttp, gClient, gPhoneUrl);
-    gHttp.setTimeout(8000);
+    gHttp.setTimeout(3000);
     int gCode = gHttp.GET();
     if (gCode > 0) {
         String gRes = gHttp.getString();
@@ -1104,7 +1104,7 @@ void fetchElderlyProfile() {
         WiFiClientSecure uClient;
         HTTPClient uHttp;
         beginSecureHttp(uHttp, uClient, userUrl);
-        uHttp.setTimeout(8000);
+        uHttp.setTimeout(3000);
         int uCode = uHttp.GET();
         if (uCode > 0) {
             String uRes = uHttp.getString();
@@ -1127,7 +1127,7 @@ void fetchElderlyProfile() {
     WiFiClientSecure client;
     HTTPClient http;
     beginSecureHttp(http, client, url);
-    http.setTimeout(8000);
+    http.setTimeout(3000);
 
     int httpCode = http.GET();
     if (httpCode > 0) {
@@ -1354,8 +1354,8 @@ void runEdgeFallDetection() {
     unsigned long now = millis();
 
     // 1. FREE-FALL DETECTION (DOWNWARD TRANSITION / LOSS OF SUPPORT):
-    // More sensitive threshold: any downward velocity drop below ~8.4 m/s^2 triggers descent flag
-    float freeFallThreshold = 8.4f * (1.2f - (personalizedRiskFactor * 0.15f));
+    // Highly sensitive threshold: downward velocity dip below ~8.85 m/s^2 primes fall detection
+    float freeFallThreshold = 8.85f * (1.15f - (personalizedRiskFactor * 0.10f));
     if (rawTotalAccel < freeFallThreshold) {
         if (!freeFallDetected) {
             freeFallDetected = true;
@@ -1364,14 +1364,13 @@ void runEdgeFallDetection() {
     }
 
     // 2. FALL DETECTION (DESCENT FOLLOWED BY IMPACT):
-    // Waist-worn fall onto a bed/cushion/chair produces an impact peak >= 12.8 m/s^2 (1.3G)
-    // Extended detection window from 1500ms to 2500ms to capture gentle collapse/reclining falls
-    float impactThreshold = 12.8f / personalizedRiskFactor;
-    if (freeFallDetected && (now - freeFallStartTime <= 2500) && rawTotalAccel >= impactThreshold) {
+    // Sensitive impact threshold: 10.8 m/s^2 (just ~1.1G) within 3.5s of free-fall descent
+    float impactThreshold = 10.8f / personalizedRiskFactor;
+    if (freeFallDetected && (now - freeFallStartTime <= 3500) && rawTotalAccel >= impactThreshold) {
         freeFallDetected = false;
         if (currentMLState != ML_FALL) {
             currentMLState = ML_FALL;
-            mlConfidence = 0.96f;
+            mlConfidence = 0.98f;
             lastHighMotionTime = now;
             Serial.println("========================================");
             Serial.println(">>> [CRITICAL FALL DETECTED] Impact: " + String(rawTotalAccel, 2) + " m/s^2! <<<");
@@ -1380,28 +1379,28 @@ void runEdgeFallDetection() {
         return;
     }
 
-    // Clear expired free-fall after 2.5s
-    if (freeFallDetected && (now - freeFallStartTime > 2500)) {
+    // Clear expired free-fall after 3.5s
+    if (freeFallDetected && (now - freeFallStartTime > 3500)) {
         freeFallDetected = false;
     }
 
-    // Direct abrupt fall fallback (e.g. flopping directly onto bed/couch/chair >= 14.5 m/s^2 with gyro >= 65 deg/s or >= 16.8 m/s^2)
-    if ((rawTotalAccel >= (14.5f / personalizedRiskFactor) && rawGyro >= 65.0f) || rawTotalAccel >= 16.8f) {
+    // Direct abrupt fall fallback (sensitive: >= 12.0 m/s^2 with slight rotation >= 35 deg/s, or pure impact >= 13.5 m/s^2)
+    if ((rawTotalAccel >= (12.0f / personalizedRiskFactor) && rawGyro >= 35.0f) || rawTotalAccel >= 13.5f) {
         if (currentMLState != ML_FALL) {
             currentMLState = ML_FALL;
-            mlConfidence = 0.94f;
+            mlConfidence = 0.96f;
             lastHighMotionTime = now;
             Serial.println(">>> [DIRECT IMPACT FALL DETECTED] Impact: " + String(rawTotalAccel, 2) + " m/s^2! <<<");
         }
         return;
     }
 
-    // Postural Tilt Fall (Torso rapid orientation shift to horizontal >= 60 deg with impact >= 12.2 m/s^2)
+    // Postural Tilt Fall (Torso rapid orientation shift to horizontal >= 4.8 m/s^2 with impact >= 10.5 m/s^2 and gyro >= 30 deg/s)
     float horizontalAccel = sqrt(accelX * accelX + accelY * accelY);
-    if (horizontalAccel >= 6.5f && rawTotalAccel >= (12.2f / personalizedRiskFactor) && rawGyro >= 55.0f) {
+    if (horizontalAccel >= 4.8f && rawTotalAccel >= (10.5f / personalizedRiskFactor) && rawGyro >= 30.0f) {
         if (currentMLState != ML_FALL) {
             currentMLState = ML_FALL;
-            mlConfidence = 0.93f;
+            mlConfidence = 0.95f;
             lastHighMotionTime = now;
             Serial.println(">>> [POSTURAL TILT FALL DETECTED] Horizontal Accel: " + String(horizontalAccel, 2) + " m/s^2, Impact: " + String(rawTotalAccel, 2) + " m/s^2! <<<");
         }
@@ -1542,7 +1541,7 @@ void dispatchImmediateAlertToBackend(String alertType) {
     }
     http.end();
 
-    // For FALL: Also invoke secondary direct notification endpoint to ensure 100% call reliability
+    // For FALL: Also invoke secondary direct notification endpoints to ensure 100% call and SMS reliability
     if (alertType == "FALL") {
         WiFiClientSecure fallClient;
         HTTPClient fallHttp;
@@ -1550,11 +1549,22 @@ void dispatchImmediateAlertToBackend(String alertType) {
         fallUrl.replace("/api/sensor-data", "/notify-guardian-fall");
         beginSecureHttp(fallHttp, fallClient, fallUrl);
         fallHttp.addHeader("Content-Type", "application/json");
-        fallHttp.setTimeout(8000);
+        fallHttp.setTimeout(4000);
         String fallPayload = "{\"deviceId\":\"" + WiFi.macAddress() + "\",\"elderlyName\":\"Senior Citizen\",\"location\":\"Home\"}";
         int code = fallHttp.POST(fallPayload);
         Serial.println("[DIRECT CALL ENDPOINT]: /notify-guardian-fall response code: " + String(code));
         fallHttp.end();
+
+        // Also trigger direct Twilio SMS endpoint
+        WiFiClientSecure twClient;
+        HTTPClient twHttp;
+        beginSecureHttp(twHttp, twClient, twilioUrl);
+        twHttp.addHeader("Content-Type", "application/json");
+        twHttp.setTimeout(4000);
+        String twPayload = "{\"deviceId\":\"" + WiFi.macAddress() + "\",\"alertType\":\"FALL\",\"message\":\"Emergency Fall Alert from SilverCare Belt\"}";
+        int twCode = twHttp.POST(twPayload);
+        Serial.println("[DIRECT TWILIO SMS ENDPOINT]: /api/twilio-sms response code: " + String(twCode));
+        twHttp.end();
     }
 }
 
@@ -2127,18 +2137,18 @@ void manageWiFiConnection() {
     Serial.println("WiFi disconnected, attempting reconnection...");
     lastWiFiReconnectAttempt = now;
     
-    if (scanAndConnect()) {
+    if (WiFi.reconnect() || scanAndConnect()) {
       Serial.println("Reconnected to Wi-Fi!");
       consecutiveFailures = 0;
       return;
     }
     
     consecutiveFailures++;
-    Serial.println("[WIFI] Reconnection attempt failed (Count: " + String(consecutiveFailures) + "/2)");
+    Serial.println("[WIFI] Reconnection attempt failed (Count: " + String(consecutiveFailures) + "/25)");
     
-    // If failed 2 consecutive cycles, start Captive Portal so user can configure without getting locked out
-    if (consecutiveFailures >= 2) {
-      Serial.println("[WIFI FALLBACK] Failed 2 reconnection cycles. Starting Captive Portal...");
+    // Only fall back to Captive Portal if completely unable to reconnect after 25 cycles (~4 mins) and no stored networks
+    if (consecutiveFailures >= 25 && knownNetworkCount == 0) {
+      Serial.println("[WIFI FALLBACK] No known networks. Starting Captive Portal...");
       startCaptivePortal();
     }
   }

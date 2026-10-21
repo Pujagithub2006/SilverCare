@@ -531,7 +531,7 @@ public class SensorDataService {
         if (container.containsKey("last_update")) {
             String lastUpdateStr = (String) container.get("last_update");
             LocalDateTime lastUpdate = LocalDateTime.parse(lastUpdateStr);
-            if (java.time.Duration.between(lastUpdate, LocalDateTime.now()).getSeconds() > 10) {
+            if (java.time.Duration.between(lastUpdate, LocalDateTime.now()).getSeconds() > 35) {
                 container.put("device_connected", false);
                 if (container.get("data") instanceof Map) {
                     @SuppressWarnings("unchecked")
@@ -557,7 +557,7 @@ public class SensorDataService {
         Map<String, Object> activeDevices = new LinkedHashMap<>();
 
         connectedDevices.entrySet()
-                .removeIf(entry -> java.time.Duration.between(entry.getValue().getLastSeen(), now).getSeconds() > 60);
+                .removeIf(entry -> java.time.Duration.between(entry.getValue().getLastSeen(), now).getSeconds() > 90);
 
         for (Map.Entry<String, DeviceStatus> entry : connectedDevices.entrySet()) {
             long diffSec = java.time.Duration.between(entry.getValue().getLastSeen(), now).getSeconds();
@@ -567,7 +567,7 @@ public class SensorDataService {
             devInfo.put("last_seen", entry.getValue().getLastSeen().toString());
             devInfo.put("state", entry.getValue().getState());
             devInfo.put("belt_worn", entry.getValue().getBeltWorn());
-            devInfo.put("connection_status", diffSec <= 10 ? "online" : "stale");
+            devInfo.put("connection_status", diffSec <= 35 ? "online" : "stale");
             devInfo.put("last_seen_seconds", diffSec);
             activeDevices.put(entry.getKey(), devInfo);
         }

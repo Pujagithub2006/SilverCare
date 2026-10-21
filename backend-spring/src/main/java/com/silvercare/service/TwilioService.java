@@ -22,18 +22,44 @@ public class TwilioService {
     @Value("${twilio.phone.number:}")
     private String fromPhone;
 
+    private volatile boolean initialized = false;
+    private volatile String lastErrorMessage = "";
+
     @PostConstruct
     public void init() {
         if (accountSid != null && !accountSid.trim().isEmpty() && authToken != null && !authToken.trim().isEmpty()) {
             try {
                 Twilio.init(accountSid, authToken);
+                initialized = true;
                 System.out.println("[TWILIO] Live Twilio client initialized successfully with Account SID: " + accountSid);
             } catch (Exception e) {
+                lastErrorMessage = "Twilio.init failed: " + e.getMessage();
                 System.err.println("[TWILIO ERROR] Failed to initialize live Twilio client: " + e.getMessage());
             }
         } else {
+            lastErrorMessage = "Twilio Account SID or Auth Token missing. Set TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN.";
             System.err.println("[TWILIO WARNING] Twilio Account SID or Auth Token missing. Please set TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN in application.properties or environment variables.");
         }
+    }
+
+    public boolean isInitialized() {
+        return initialized;
+    }
+
+    public boolean hasAccountSid() {
+        return accountSid != null && !accountSid.trim().isEmpty();
+    }
+
+    public boolean hasAuthToken() {
+        return authToken != null && !authToken.trim().isEmpty();
+    }
+
+    public String getFromPhone() {
+        return fromPhone;
+    }
+
+    public String getLastErrorMessage() {
+        return lastErrorMessage;
     }
 
     public static String formatPhoneNumber(String phone) {
@@ -66,7 +92,14 @@ public class TwilioService {
     public boolean sendFallAlertSms(String guardianPhone, String elderlyName, String location, String deviceId, Double lat, Double lng) {
         String targetPhone = formatPhoneNumber(guardianPhone);
         String senderPhone = getFormattedFromPhone();
-        if (targetPhone == null || targetPhone.isEmpty()) return false;
+        if (targetPhone == null || targetPhone.isEmpty()) {
+            lastErrorMessage = "Target guardian phone is empty or null.";
+            return false;
+        }
+        if (senderPhone == null || senderPhone.isEmpty()) {
+            lastErrorMessage = "Twilio sender phone number is empty. Please set TWILIO_PHONE_NUMBER.";
+            return false;
+        }
         try {
             String locationText = location;
             if (lat != null && lng != null) {
@@ -83,6 +116,7 @@ public class TwilioService {
             System.out.println("[TWILIO SMS LIVE] Fall alert SMS sent to " + targetPhone + "! SID: " + message.getSid());
             return true;
         } catch (Exception e) {
+            lastErrorMessage = e.getClass().getSimpleName() + ": " + e.getMessage();
             System.err.println("[TWILIO SMS ERROR] Error sending live SMS to " + targetPhone + ": " + e.getMessage());
             return false;
         }
@@ -91,7 +125,14 @@ public class TwilioService {
     public boolean sendUrgentAlertSms(String guardianPhone, String elderlyName, String location, String deviceId) {
         String targetPhone = formatPhoneNumber(guardianPhone);
         String senderPhone = getFormattedFromPhone();
-        if (targetPhone == null || targetPhone.isEmpty()) return false;
+        if (targetPhone == null || targetPhone.isEmpty()) {
+            lastErrorMessage = "Target guardian phone is empty or null.";
+            return false;
+        }
+        if (senderPhone == null || senderPhone.isEmpty()) {
+            lastErrorMessage = "Twilio sender phone number is empty. Please set TWILIO_PHONE_NUMBER.";
+            return false;
+        }
         try {
             String bodyText = String.format(
                     "URGENT SILVERCARE ALERT: %s has NOT RESPONDED to fall alert at %s! Emergency assistance required. Device: %s",
@@ -104,6 +145,7 @@ public class TwilioService {
             System.out.println("[TWILIO SMS LIVE] URGENT alert SMS sent to " + targetPhone + "! SID: " + message.getSid());
             return true;
         } catch (Exception e) {
+            lastErrorMessage = e.getClass().getSimpleName() + ": " + e.getMessage();
             System.err.println("[TWILIO SMS ERROR] Error sending live urgent SMS to " + targetPhone + ": " + e.getMessage());
             return false;
         }
@@ -112,7 +154,14 @@ public class TwilioService {
     public boolean makeEmergencyCall(String guardianPhone, String elderlyName, String location) {
         String targetPhone = formatPhoneNumber(guardianPhone);
         String senderPhone = getFormattedFromPhone();
-        if (targetPhone == null || targetPhone.isEmpty()) return false;
+        if (targetPhone == null || targetPhone.isEmpty()) {
+            lastErrorMessage = "Target guardian phone is empty or null.";
+            return false;
+        }
+        if (senderPhone == null || senderPhone.isEmpty()) {
+            lastErrorMessage = "Twilio sender phone number is empty. Please set TWILIO_PHONE_NUMBER.";
+            return false;
+        }
         try {
             String twimlXml = String.format("""
                     <Response>
@@ -272,7 +321,14 @@ public class TwilioService {
     public boolean sendSms(String toPhone, String messageText) {
         String targetPhone = formatPhoneNumber(toPhone);
         String senderPhone = getFormattedFromPhone();
-        if (targetPhone == null || targetPhone.isEmpty()) return false;
+        if (targetPhone == null || targetPhone.isEmpty()) {
+            lastErrorMessage = "Target phone number is empty or null.";
+            return false;
+        }
+        if (senderPhone == null || senderPhone.isEmpty()) {
+            lastErrorMessage = "Twilio sender phone number is empty. Please set TWILIO_PHONE_NUMBER.";
+            return false;
+        }
         try {
             Message message = Message.creator(
                     new PhoneNumber(targetPhone),
@@ -282,6 +338,7 @@ public class TwilioService {
             System.out.println("[TWILIO SMS LIVE] Emergency SMS sent to " + targetPhone + "! SID: " + message.getSid());
             return true;
         } catch (Exception e) {
+            lastErrorMessage = e.getClass().getSimpleName() + ": " + e.getMessage();
             System.err.println("[TWILIO SMS ERROR] Error sending live SMS to " + targetPhone + ": " + e.getMessage());
             return false;
         }

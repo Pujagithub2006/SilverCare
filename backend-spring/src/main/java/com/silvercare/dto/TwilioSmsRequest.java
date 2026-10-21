@@ -1,14 +1,17 @@
 package com.silvercare.dto;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class TwilioSmsRequest {
     @JsonProperty("alert_type")
+    @JsonAlias({"alertType", "alert_type"})
     private String alertType;
 
     private String message;
 
     @JsonProperty("device_id")
+    @JsonAlias({"deviceId", "device_id"})
     private String deviceId;
 
     public TwilioSmsRequest() {}

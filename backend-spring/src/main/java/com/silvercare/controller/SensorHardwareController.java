@@ -170,17 +170,36 @@ public class SensorHardwareController {
                             .build();
                     return ResponseEntity.ok(response);
                 } else {
+                    String err = twilioService.getLastErrorMessage();
                     return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                            .body(ApiResponse.error("Twilio SMS failed"));
+                            .body(ApiResponse.error("Twilio SMS failed: " + (err != null && !err.isEmpty() ? err : "Unknown Twilio error")));
                 }
             } else {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                        .body(ApiResponse.error("No guardian phone found"));
+                        .body(ApiResponse.error("No guardian phone found for device: " + deviceId));
             }
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.error(e.getMessage()));
         }
+    }
+
+    @GetMapping({ "/api/twilio-status", "/api/twilio/status" })
+    public ResponseEntity<Map<String, Object>> getTwilioStatus(@RequestParam(required = false) String testPhone) {
+        Map<String, Object> status = new LinkedHashMap<>();
+        status.put("initialized", twilioService.isInitialized());
+        status.put("accountSidConfigured", twilioService.hasAccountSid());
+        status.put("authTokenConfigured", twilioService.hasAuthToken());
+        status.put("fromPhone", twilioService.getFromPhone());
+        status.put("lastError", twilioService.getLastErrorMessage());
+
+        if (testPhone != null && !testPhone.trim().isEmpty()) {
+            boolean testSuccess = twilioService.sendSms(testPhone.trim(), "SilverCare Diagnostic Test: Twilio SMS is working!");
+            status.put("testPhone", testPhone.trim());
+            status.put("testSmsSuccess", testSuccess);
+            status.put("testError", twilioService.getLastErrorMessage());
+        }
+        return ResponseEntity.ok(status);
     }
 
     @PostMapping("/api/fall-alert")
