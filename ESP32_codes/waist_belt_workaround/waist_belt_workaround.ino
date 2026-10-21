@@ -613,15 +613,15 @@ void runTinyMLInferenceOnDevice() {
     // Evaluate neural network class probabilities incorporating Health Risk Factor
     float scores[4] = {0.80f, 0.10f, 0.05f, 0.05f}; // NORMAL, SUDDEN_MOVEMENT, PREFALL, FALL
 
-    // Adjust scores based on physical motion scaled by personalizedRiskFactor
-    if (currentMLState == ML_FALL || (totalAccel >= (11.0f / personalizedRiskFactor))) {
-        scores[3] += 1.80f; // FALL
-    } else if (currentMLState == ML_PREFALL || (delta >= (3.5f / personalizedRiskFactor) && rawGyro >= (150.0f / personalizedRiskFactor))) {
-        scores[2] += 1.40f; // PREFALL
-    } else if (currentMLState == ML_SUDDEN_MOVEMENT || delta >= 2.2f || rawGyro >= 80.0f) {
-        scores[1] += 1.10f; // SUDDEN_MOVEMENT
+    // Adjust scores based on real physical motion dynamics
+    if (delta >= (4.5f / personalizedRiskFactor) && rawGyro >= (100.0f / personalizedRiskFactor)) {
+        scores[3] += 2.00f; // FALL
+    } else if (delta >= (3.0f / personalizedRiskFactor) && rawGyro >= (80.0f / personalizedRiskFactor)) {
+        scores[2] += 1.80f; // PREFALL
+    } else if (delta >= 1.8f || rawGyro >= 65.0f) {
+        scores[1] += 1.60f; // SUDDEN_MOVEMENT
     } else {
-        scores[0] += 1.50f; // NORMAL
+        scores[0] += 2.00f; // NORMAL
     }
 
     // Softmax normalization
@@ -1353,9 +1353,15 @@ void runEdgeFallDetection() {
 
     unsigned long now = millis();
 
+    // 0. STARTUP SETTLING GRACE PERIOD (Ignore sensor noise during first 5 seconds of boot)
+    if (now < 5000) {
+        currentMLState = ML_NORMAL;
+        return;
+    }
+
     // 1. FREE-FALL DETECTION (DOWNWARD TRANSITION / LOSS OF SUPPORT):
-    // Highly sensitive threshold: downward velocity dip below ~8.85 m/s^2 primes fall detection
-    float freeFallThreshold = 8.85f * (1.15f - (personalizedRiskFactor * 0.10f));
+    // Descent threshold: free-fall near weightlessness < 5.8 m/s^2
+    float freeFallThreshold = 5.8f;
     if (rawTotalAccel < freeFallThreshold) {
         if (!freeFallDetected) {
             freeFallDetected = true;
@@ -1364,9 +1370,9 @@ void runEdgeFallDetection() {
     }
 
     // 2. FALL DETECTION (DESCENT FOLLOWED BY IMPACT):
-    // Sensitive impact threshold: 10.8 m/s^2 (just ~1.1G) within 3.5s of free-fall descent
-    float impactThreshold = 10.8f / personalizedRiskFactor;
-    if (freeFallDetected && (now - freeFallStartTime <= 3500) && rawTotalAccel >= impactThreshold) {
+    // Impact threshold: >= 13.0 m/s^2 within 3.0s of descent
+    float impactThreshold = 13.0f / personalizedRiskFactor;
+    if (freeFallDetected && (now - freeFallStartTime <= 3000) && rawTotalAccel >= impactThreshold) {
         freeFallDetected = false;
         if (currentMLState != ML_FALL) {
             currentMLState = ML_FALL;
@@ -1379,13 +1385,13 @@ void runEdgeFallDetection() {
         return;
     }
 
-    // Clear expired free-fall after 3.5s
-    if (freeFallDetected && (now - freeFallStartTime > 3500)) {
+    // Clear expired free-fall after 3.0s
+    if (freeFallDetected && (now - freeFallStartTime > 3000)) {
         freeFallDetected = false;
     }
 
-    // Direct abrupt fall fallback (sensitive: >= 12.0 m/s^2 with slight rotation >= 35 deg/s, or pure impact >= 13.5 m/s^2)
-    if ((rawTotalAccel >= (12.0f / personalizedRiskFactor) && rawGyro >= 35.0f) || rawTotalAccel >= 13.5f) {
+    // Direct abrupt fall fallback (abrupt impact with high angular motion)
+    if ((rawTotalAccel >= (14.0f / personalizedRiskFactor) && rawGyro >= 65.0f) || rawTotalAccel >= 16.5f) {
         if (currentMLState != ML_FALL) {
             currentMLState = ML_FALL;
             mlConfidence = 0.96f;
@@ -1395,9 +1401,9 @@ void runEdgeFallDetection() {
         return;
     }
 
-    // Postural Tilt Fall (Torso rapid orientation shift to horizontal >= 4.8 m/s^2 with impact >= 10.5 m/s^2 and gyro >= 30 deg/s)
+    // Postural Tilt Fall (Requires dynamic movement delta and fast angular rotation, not static table resting)
     float horizontalAccel = sqrt(accelX * accelX + accelY * accelY);
-    if (horizontalAccel >= 4.8f && rawTotalAccel >= (10.5f / personalizedRiskFactor) && rawGyro >= 30.0f) {
+    if (horizontalAccel >= 6.0f && deltaFromBaseline >= 3.2f && rawTotalAccel >= (11.5f / personalizedRiskFactor) && rawGyro >= 75.0f) {
         if (currentMLState != ML_FALL) {
             currentMLState = ML_FALL;
             mlConfidence = 0.95f;
@@ -1485,8 +1491,18 @@ void runEdgeFallDetection() {
             currentMLState = ML_NORMAL;
             currentAlertState = NO_ALERT;
             digitalWrite(BUZZER_PIN, LOW);
+            dacWrite(25, 0);
             mlConfidence = 0.95f;
             Serial.println("[BALANCE RECOVERED]: Motion stabilized, state returned to NORMAL.");
+        }
+        // Auto-recover from FALL if sensor is calm and stabilized for 8.0 seconds
+        else if (currentMLState == ML_FALL && (now - lastHighMotionTime > 8000)) {
+            currentMLState = ML_NORMAL;
+            currentAlertState = NO_ALERT;
+            digitalWrite(BUZZER_PIN, LOW);
+            dacWrite(25, 0);
+            mlConfidence = 0.95f;
+            Serial.println("[FALL RECOVERED]: Motion stabilized for 8s, state returned to NORMAL.");
         }
     }
 }
@@ -1694,6 +1710,7 @@ void handleAcknowledgment() {
         if (digitalRead(ACK_BUTTON_PIN) == LOW) {
             Serial.println("[PUSH BUTTON 2 PRESSED]: Local reset / Acknowledgment button pressed by elderly.");
             guardianAcknowledged = true;
+            currentMLState = ML_NORMAL;
             currentAlertState = NO_ALERT;
             digitalWrite(BUZZER_PIN, LOW);
             dacWrite(25, 0); // Stop speaker help loop
@@ -2519,6 +2536,8 @@ void sendDataToBackend() {
             if (response.indexOf("ACKNOWLEDGED") != -1 || response.indexOf("I am Fine") != -1) {
                 Serial.println("[GUARDIAN ACKNOWLEDGED]: Clearing local buzzer and state!");
                 digitalWrite(BUZZER_PIN, LOW);
+                dacWrite(25, 0);
+                currentMLState = ML_NORMAL;
                 currentAlertState = NO_ALERT;
                 guardianAcknowledged = true;
                 micMessage = "";
@@ -2803,10 +2822,11 @@ void loop() {
   } else if (currentMLState == ML_FALL && currentAlertState != FALL_ALERT) {
     triggerFallAlert();
     triggerAutoVoiceRecording("FALL"); // Start mic recording on fall
-  } else if (currentMLState == ML_NORMAL && currentAlertState != NO_ALERT && guardianAcknowledged) {
-    // Clear alert if back to normal and acknowledged
+  } else if (currentMLState == ML_NORMAL && currentAlertState != NO_ALERT) {
+    // Clear alert when state is back to normal
     currentAlertState = NO_ALERT;
     digitalWrite(BUZZER_PIN, LOW);
+    dacWrite(25, 0);
   }
 
   // Record audio samples if microphone is active
