@@ -89,4 +89,18 @@ public class GuardianAuthController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.error(e.getMessage()));
         }
     }
+
+    @GetMapping({ "/api/guardian/latest-phone", "/guardian/latest-phone" })
+    public ResponseEntity<ApiResponse<Object>> getLatestGuardianPhone() {
+        String phone = guardianAuthService.getLatestGuardianPhone();
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("phone", phone);
+        data.put("mainGuardianPhone", phone);
+        return ResponseEntity.ok(ApiResponse.builder()
+                .status("success")
+                .message("Latest guardian phone retrieved")
+                .data(data)
+                .phone(phone)
+                .build());
+    }
 }
